@@ -1,4 +1,6 @@
+import dolfin as dlf
 
+from ufl.domain import find_geometric_dimension as find_dim
 
 __IMPLEMENTED__ = {'linear elastic' :
                    {
@@ -22,15 +24,11 @@ __IMPLEMENTED__ = {'linear elastic' :
                            },
                        'stress tensor' :
                        {
-                           'incompressible' : True
+                           'incompressible' : True,
                            'compressible' : True
                            }
                        }
                    }
-
-
-dim = _geo_dim(problem.u_ufl)
-I = dlf.Identity(dim)
 
 
 def elasticMaterial(problem, name='lin-elastic', strain=False,
@@ -57,6 +55,9 @@ def elasticMaterial(problem, name='lin-elastic', strain=False,
 
     """
 
+    dim = find_dim(problem.u)
+    I = dlf.Identity(dim)
+
     if problem.const_eqn.lower() == 'lin-elastic':
         stress = lin_elastic(problem)
     elif problem.const_eqn.lower() == 'neo-hookean':
@@ -73,6 +74,7 @@ def lin_elastic(problem):
     Return the Cauchy stress tensor of a linear elastic material.
 
     """
+
 
     if not problem._inverse:
         epsilon = dlf.sym(problem.deformationGradient) - I
@@ -104,7 +106,7 @@ def neo_hookean(problem):
     """
 
     if problem._inverse:
-        P = inverse_neo_hookean(problem) \
+        P = inverse_neo_hookean(problem)
     else:
         P = forward_neo_hookean(problem)
 
