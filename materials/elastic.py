@@ -31,6 +31,7 @@ __IMPLEMENTED__ = {'linear elastic' :
                    }
 
 
+# This function might not be necessary!!!!!
 def elasticMaterial(problem, name='lin-elastic', strain=False,
             incompressible=False, inverse=False):
     """
@@ -75,18 +76,19 @@ def lin_elastic(problem):
 
     """
 
-
-    if not problem._inverse:
+    # Check if the problem is an inverse problem.
+    if not problem.config['formulation']['inverse']:
         epsilon = dlf.sym(problem.deformationGradient) - I
     else:
         Finv = dlf.inv(problem.deformationGradient)
         epsilon = dlf.sym(Finv) - I
 
-    if problem._lame1.values() > 1e8:
+    # Check if the first Lame parameter is large.
+    if problem.config['mechanics']['material']['lame1'].values() > 1e8:
         lame1 = 0.0
     else:
-        lame1 = problem._lame1
-    lame2 = problem._lame2
+        lame1 = problem.config['mechanics']['material']['lame1']
+    lame2 = problem.config['mechanics']['material']['lame2']
 
     return lame1*dlf.tr(epsilon)*I + 2.0*lame2*epsilon
 
@@ -105,7 +107,7 @@ def neo_hookean(problem):
 
     """
 
-    if problem._inverse:
+    if problem.config['formulation']['inverse']:
         P = inverse_neo_hookean(problem)
     else:
         P = forward_neo_hookean(problem)
@@ -128,18 +130,21 @@ def forward_neo_hookean(problem):
     """
     F = problem.deformationGradient
     Finv = dlf.inv(F)
-    J = dlf.det(problem.deformationGradient)
+    J = problem.jacobian
     J23 = J**(-2.0/dim)
     I1 = dlf.tr(F.T * F)
 
-    if problem._incompressible:
+    lame1 = problem.config['mechanics']['material']['lame1']
+    lame2 = problem.config['mechanics']['material']['lame2']
+
+    if problem.config['mechanics']['material']['incompressible']:
         p = problem.pressure
         P_vol = J*p*Finv.T
-        P_isc = problem._lame2*J23*F - 1.0/dim*J23*mu*I1*Finv.T
+        P_isc = lame2*J23*F - 1.0/dim*J23*mu*I1*Finv.T
         P = P_vol + P_isc
     else:
-        P = problem._lame1*dlf.ln(J)*Finv.T + mu*J23*F \
-            - 1.0/dim*J23*mu*I1*Finv.T
+        P = lame1*dlf.ln(J)*Finv.T + lame2*J23*F \
+            - 1.0/dim*J23*lame2*I1*Finv.T
 
     return P
 
@@ -163,12 +168,12 @@ def inverse_neo_hookean(problem):
     j23 = j**(-2.0/dim)
     fbar = j**(-1.0/dim)*f
     i1 = dlf.tr(f.T * f)
-    lame1 = problem._lame1
-    lame2 = problem._lame2
+    lame1 = problem.config['mechanics']['material']['lame1']
+    lame2 = problem.config['mechanics']['material']['lame2']
     sigBar = fbar*(lame2/2.0)*fbar.T
     sigma = 2.0*j*(sigBar - 1.0/dim*dlf.tr(sigBar)*I)
 
-    if problem._incompressible:
+    if problem.config['mechanics']['material']['incompressible']:
         p = problem.pressure
         sigma += p*I
     else:
