@@ -56,7 +56,7 @@ def elasticMaterial(problem, name='lin-elastic', strain=False,
 
     """
 
-    dim = find_dim(problem.u)
+    dim = find_dim(problem.deformationGradient)
     I = dlf.Identity(dim)
 
     if problem.const_eqn.lower() == 'lin-elastic':
@@ -75,6 +75,9 @@ def lin_elastic(problem):
     Return the Cauchy stress tensor of a linear elastic material.
 
     """
+
+    dim = find_dim(problem.deformationGradient)
+    I = dlf.Identity(dim)
 
     # Check if the problem is an inverse problem.
     if not problem.config['formulation']['inverse']:
@@ -106,6 +109,9 @@ def neo_hookean(problem):
         such as material parameters.
 
     """
+
+    dim = find_dim(problem.deformationGradient)
+    I = dlf.Identity(dim)
 
     if problem.config['formulation']['inverse']:
         P = inverse_neo_hookean(problem)

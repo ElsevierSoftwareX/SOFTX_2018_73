@@ -19,7 +19,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         # Obtain mesh and mesh function (should this be member data?)
         mesh = dlf.Mesh(config['mesh']['mesh_file'])
-        mesh_function = dlf.MeshFunction('sizet', mesh, config['mesh']['mesh_function'])
+        mesh_function = dlf.MeshFunction('size_t', mesh, config['mesh']['mesh_function'])
 
         # Define the finite element(s) (maybe add
         # functionality to specify different families?)
@@ -37,18 +37,18 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
             P_p = dlf.FiniteElement('CG', self.mesh.ufl_cell(), int(fe_list[1][-1]))
             element = P_u * P_p
         else:
-            element = dlf.VectorElement('CG', self.mesh.ufl_cell(), int(fe_list[0][-1]))
+            element = dlf.VectorElement('CG', mesh.ufl_cell(), int(fe_list[0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
         functionSpace = dlf.FunctionSpace(mesh, element)
 
         # Check that number of BC regions and BC values match
         dirichlet = config['formulation']['bcs']['dirichlet']
-        neumann = config['formulation']['bcs']['neumann']
-        if not self.__check_bcs(dirichlet):
+        if not self.__check_bcs(dirichlet, 'dirichlet'):
             raise ValueError('The number of Dirichlet boundary regions and ' \
                              + 'values do not match!')
-        if not self.__check_bcs(neumann):
+        neumann = config['formulation']['bcs']['neumann']
+        if not self.__check_bcs(neumann, 'neumann'):
             raise ValueError('The number of Neumann boundary regions and ' \
                              + 'values do not match!')
 
@@ -133,22 +133,30 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         weak_form_deriv = dlf.derivative(weak_form, sys_u, sys_du)
 
         # Initialize NonlinearVariationalProblem object
-        dlf.NonlinearVariationalProblem.__init__(weak_form, sys_u, bc_list,
+        dlf.NonlinearVariationalProblem.__init__(self, weak_form, sys_u, bc_list,
                                                  weak_form_deriv,
                                                  **kwargs)
 
 
     @staticmethod
-    def __check_bcs(bc_dict):
+    def __check_bcs(bc_dict, bt):
         """
 
 
         """
 
-        if len(bc_dict['regions']) == len(bc_dict['values']):
-            return True
+        if bt == 'dirichlet':
+            if len(bc_dict['regions']) == len(bc_dict['values']):
+                return True
+            else:
+                return False
+        elif bt == 'neumann':
+            if len(bc_dict['regions']) == len(bc_dict['values']['function']):
+                return True
+            else:
+                return False
         else:
-            return False
+            raise NotImplementedError('Boundary type %s is not recognized!' % bt)
 
 
     @staticmethod
@@ -171,11 +179,17 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         n = dlf.FacetNormal(mesh)
 
         total_neumann_bcs = 0
-        for values, region in zip(neumann_dict['values'], neumann_dict['regions']):
+        tt_list = neumann_dict['values']['types'] # type list (traction vs. pressure)
+        function_list = neumann_dict['values']['function']
+        region_list = neumann_dict['regions']
+
+        for tt, value, region in zip(tt_list, function_list, region_list):
             ds_region = dlf.ds(region, domain=mesh, subdomain_data=mesh_function)
-            if values['type'] == 'pressure':
-                total_neumann_bcs -= dlf.dot(xi, values['function']*n)*ds_region
+            if tt == 'pressure':
+                total_neumann_bcs -= dlf.dot(xi, value*n)*ds_region
+            elif tt == 'traction':
+                total_neumann_bcs -= dlf.dot(xi, value)*ds_region
             else:
-                total_neumann_bcs -= dlf.dot(xi, values['function'])*ds_region
+                raise NotImplementedError('Neumann BC of type %s is not implemented!' % tt)
 
         return total_neumann_bcs
