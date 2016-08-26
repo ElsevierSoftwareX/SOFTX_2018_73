@@ -11,6 +11,7 @@ lame2 = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 # Traction vector
 trac = dlf.Constant((5.0, 0.0))
 
+
 class InitialCondition(dlf.Expression):
     def eval(self, values, x):
         values[0] = 0.1 * x[0]
