@@ -70,8 +70,10 @@ def lin_elastic(problem):
 
 def neo_hookean(problem):
     """
-    Return the first Piola-Kirchhoff stress tensor for a neo-Hookean
-    material. The material may be compressible or incompressible.
+    Return the first Piola-Kirchhoff or the Cauchy stress tensor for
+    a neo-Hookean material. If an inverse problem is given, the Cauchy
+    stress is returned, while the first Piola-Kirchhoff stress is returned
+    otherwise. Note that the material may be compressible or incompressible.
 
     Parameters
     ----------
@@ -92,18 +94,27 @@ def neo_hookean(problem):
     mu = problem.config['mechanics']['material']['mu']
 
     if problem.config['formulation']['inverse']:
-        P = inverse_neo_hookean(problem)
+        if problem.config['mechanics']['material']['incompressible']:
+            fbar = J**(-1.0/dim)*F
+            jbar = dlf.det(fbar)
+            stress = inverse_neo_hookean(fbar, jbar, la, mu)
+            # Turn this off to test isochoric component above
+            stress += problem.pressure*I
+        else:
+            # Note that F here is the deformation gradient from
+            # the current to the reference configuration.
+            stress = inverse_neo_hookean(F, J, la, mu)
     else:
         if problem.config['mechanics']['material']['incompressible']:
             Fbar = J**(-1.0/dim)*F
             Jbar = dlf.det(Fbar)
-            P = forward_neo_hookean(Fbar, Jbar, la, mu)
+            stress = forward_neo_hookean(Fbar, Jbar, la, mu)
             # Turn this off to test isochoric component above
-            P += problem.pressure*J*Finv.T
+            stress += problem.pressure*J*Finv.T
         else:
-            P = forward_neo_hookean(F, J, la, mu, Finv=Finv)
+            stress = forward_neo_hookean(F, J, la, mu, Finv=Finv)
 
-    return P
+    return stress
 
 
 def forward_neo_hookean(F, J, la, mu, **kwargs):
@@ -133,85 +144,104 @@ def forward_neo_hookean(F, J, la, mu, **kwargs):
     return mu*F + (la*dlf.ln(J) - mu)*Finv.T
 
 
-def forward_neo_hookean(problem):
+def inverse_neo_hookean(f, j, la, mu):
     """
-    Return the first Piola-Kirchhoff stress tensor for a compressible
-    or incompressible neo-Hookean material.
+    Return the Caucy stress tensor based on the strain energy function
+
+    psi(c) = mu/2*(i2/i3 - 3) + mu*ln(j) + la/2*(ln(j))**2.
 
     Parameters
     ----------
-    problem : MechanicsProblem
-        This object must be an instance of the MechanicsProblem class,
-        which contains necessary data to formulate the variational form,
-        such as material parameters.
+
+    f :
+        Deformation gradient from the current to the
+        reference configuration.
+    j :
+        Determinant of the deformation gradient from
+        the current to the reference configuration.
+    la :
+        First parameter for the neo-Hookean material.
+    mu:
+        Second parameter for the neo-Hookean material.
 
     """
 
-    dim = find_dim(problem.deformationGradient)
+    dim = find_dim(f)
     I = dlf.Identity(dim)
+    c = f.T * f
+    cinv = dlf.inv(c)
 
-    F = problem.deformationGradient
-    Finv = dlf.inv(F)
-    J = problem.jacobian
-    J23 = J**(-2.0/dim)
-    I1 = dlf.tr(F.T * F)
-
-    la = problem.config['mechanics']['material']['lambda']
-    mu = problem.config['mechanics']['material']['mu']
-
-    if problem.config['mechanics']['material']['incompressible']:
-        p = problem.pressure
-        P_vol = J*p*Finv.T
-        P_isc = mu*J23*F - 1.0/dim*J23*mu*I1*Finv.T
-        P = P_vol + P_isc
-    else:
-        P = la*dlf.ln(J)*Finv.T + mu*J23*F \
-            - 1.0/dim*J23*mu*I1*Finv.T
-
-    return P
+    return -j*(mu + la*dlf.ln(j))*I + j*mu*cinv
 
 
-def inverse_neo_hookean(problem):
-    """
-    Return the Cauchy stress tensor for  compressible or incompressible
-    material for the inverse elastostatics problem.
+# def forward_neo_hookean(problem):
+#     """
+#     Return the first Piola-Kirchhoff stress tensor for a compressible
+#     or incompressible neo-Hookean material.
 
-    Parameters
-    ----------
-    problem : MechanicsProblem
-        This object must be an instance of the MechanicsProblem class,
-        which contains necessary data to formulate the variational form,
-        such as material parameters.
+#     Parameters
+#     ----------
+#     problem : MechanicsProblem
+#         This object must be an instance of the MechanicsProblem class,
+#         which contains necessary data to formulate the variational form,
+#         such as material parameters.
 
-    """
-    dim = find_dim(problem.deformationGradient)
-    I = dlf.Identity(dim)
+#     """
 
-    # f = problem.deformationGradient
-    # j = problem.jacobian
-    # j23 = j**(-2.0/dim)
-    # fbar = j**(-1.0/dim)*f
-    # i1 = dlf.tr(f.T * f)
-    la = problem.config['mechanics']['material']['lambda']
-    mu = problem.config['mechanics']['material']['mu']
-    # sigBar = fbar*(mu/2.0)*fbar.T
-    # sigma = 2.0*j*(sigBar - 1.0/dim*dlf.tr(sigBar)*I)
+#     dim = find_dim(problem.deformationGradient)
+#     I = dlf.Identity(dim)
 
-    if problem.config['mechanics']['material']['incompressible']:
-        # p = problem.pressure
-        # sigma += p*I
+#     F = problem.deformationGradient
+#     Finv = dlf.inv(F)
+#     J = problem.jacobian
+#     J23 = J**(-2.0/dim)
+#     I1 = dlf.tr(F.T * F)
 
-        s1 = 'The inverse, incompressible, neo-hookean material has' \
-             + ' not been implemented!'
-        raise NotImplementedError(s1)
-    else:
-        # sigma += la*dlf.ln(j)*I
+#     la = problem.config['mechanics']['material']['lambda']
+#     mu = problem.config['mechanics']['material']['mu']
 
-        f = problem.deformationGradient
-        c = f.T * f
-        cinv = dlf.inv(c)
-        j = dlf.det(f)
+#     if problem.config['mechanics']['material']['incompressible']:
+#         p = problem.pressure
+#         P_vol = J*p*Finv.T
+#         P_isc = mu*J23*F - 1.0/dim*J23*mu*I1*Finv.T
+#         P = P_vol + P_isc
+#     else:
+#         P = la*dlf.ln(J)*Finv.T + mu*J23*F \
+#             - 1.0/dim*J23*mu*I1*Finv.T
 
-        sigma = j*mu*(cinv - I) - la*j*dlf.ln(j)*I
+#     return P
 
-    return sigma
+
+# def inverse_neo_hookean(problem):
+#     """
+#     Return the Cauchy stress tensor for compressible or incompressible
+#     material for the inverse elastostatics problem.
+
+#     Parameters
+#     ----------
+#     problem : MechanicsProblem
+#         This object must be an instance of the MechanicsProblem class,
+#         which contains necessary data to formulate the variational form,
+#         such as material parameters.
+
+#     """
+#     dim = find_dim(problem.deformationGradient)
+#     I = dlf.Identity(dim)
+
+#     f = problem.deformationGradient
+#     j = problem.jacobian
+#     j23 = j**(-2.0/dim)
+#     fbar = j**(-1.0/dim)*f
+#     i1 = dlf.tr(f.T * f)
+#     la = problem.config['mechanics']['material']['lambda']
+#     mu = problem.config['mechanics']['material']['mu']
+#     sigBar = fbar*(mu/2.0)*fbar.T
+#     sigma = 2.0*j*(sigBar - 1.0/dim*dlf.tr(sigBar)*I)
+
+#     if problem.config['mechanics']['material']['incompressible']:
+#         p = problem.pressure
+#         sigma += p*I
+#     else:
+#         sigma += la*dlf.ln(j)*I
+
+#     return sigma
