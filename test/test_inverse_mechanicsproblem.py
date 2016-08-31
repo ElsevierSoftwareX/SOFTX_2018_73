@@ -5,8 +5,8 @@ from fenicsmechanics.mechanicsproblem import MechanicsProblem
 # Elasticity parameters
 E = 20.0 # Young's modulus
 nu = 0.49 # Poisson's ratio
-lame1 = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 2nd Lame parameter
-lame2 = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
+la = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 2nd Lame parameter
+mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 
 # Traction vector
 trac = dlf.Constant((5.0, 0.0))
@@ -27,20 +27,20 @@ config = {'mechanics' : {
                   'type' : 'elastic',
                   'incompressible' : False,
                   'density' : 10.0,
-                  'lame1' : lame1,
-                  'lame2' : lame2,
+                  'lambda' : la,
+                  'mu' : mu,
                   }
               },
           'mesh' : {
-              'mesh_file' : 'meshfiles/mesh-plate-12x12.xml.gz',
-              'mesh_function' : 'meshfiles/mesh_function-plate-12x12.xml.gz',
-              'element' : 'p1'
+              'mesh_file' : 'meshfiles/mesh-inverse-plate-12x12.xml.gz',
+              'mesh_function' : 'meshfiles/mesh_function-inverse-plate-12x12.xml.gz',
+              'element' : 'p2'
               },
           'formulation' : {
               'unsteady' : False,
               'initial_condition' : u_init,
               'domain' : 'lagrangian',
-              'inverse' : False,
+              'inverse' : True,
               'body_force' : dlf.Constant((0.,)*2),
               'bcs' : {
                   'dirichlet' : {
@@ -50,15 +50,17 @@ config = {'mechanics' : {
                       },
                   'neumann' : {
                       'regions' : [2],
-                      'values' : {
-                          'types' : ['traction'],
-                          'function' : [trac],
-                          'unsteady' : [False]
-                          }
+                      'types' : ['traction'],
+                      'unsteady' : [False],
+                      'values' : [trac]
                       }
                   }
               }
           }
 
-
 problem = MechanicsProblem(config)
+solver = dlf.NonlinearVariationalSolver(problem)
+solver.solve()
+soln = problem.solution()
+
+dlf.File('results/test_inverse_mechanicsproblem.pvd') << soln

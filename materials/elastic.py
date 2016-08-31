@@ -2,34 +2,6 @@ import dolfin as dlf
 
 from ufl.domain import find_geometric_dimension as find_dim
 
-__IMPLEMENTED__ = {'linear elastic' :
-                   {
-                       'stress tensor' :
-                       {
-                           'compressible' : True,
-                           'incompressible' : True
-                           },
-                       'strain energy' :
-                       {
-                           'compressible' : False,
-                           'incompressible' : False
-                           }
-                       },
-                   'neo-hookean' :
-                   {
-                       'strain energy' :
-                       {
-                           'incompressible' : False,
-                           'compressible' : False
-                           },
-                       'stress tensor' :
-                       {
-                           'incompressible' : True,
-                           'compressible' : True
-                           }
-                       }
-                   }
-
 
 # This function might not be necessary!!!!!
 def elasticMaterial(problem, name='lin-elastic', strain=False,
@@ -87,13 +59,13 @@ def lin_elastic(problem):
         epsilon = dlf.sym(Finv) - I
 
     # Check if the first Lame parameter is large.
-    if problem.config['mechanics']['material']['lame1'].values() > 1e8:
-        lame1 = 0.0
+    if problem.config['mechanics']['material']['lambda'].values() > 1e8:
+        la = 0.0
     else:
-        lame1 = problem.config['mechanics']['material']['lame1']
-    lame2 = problem.config['mechanics']['material']['lame2']
+        la = problem.config['mechanics']['material']['lambda']
+    mu = problem.config['mechanics']['material']['mu']
 
-    return lame1*dlf.tr(epsilon)*I + 2.0*lame2*epsilon
+    return la*dlf.tr(epsilon)*I + 2.0*mu*epsilon
 
 
 def neo_hookean(problem):
@@ -110,15 +82,55 @@ def neo_hookean(problem):
 
     """
 
-    dim = find_dim(problem.deformationGradient)
+    F = dlf.deformationGradient
+    Finv = dlf.inv(F)
+    J = dlf.jacobian
+    dim = find_dim(F)
     I = dlf.Identity(dim)
+
+    la = problem.config['mechanics']['material']['lambda']
+    mu = problem.config['mechanics']['material']['mu']
 
     if problem.config['formulation']['inverse']:
         P = inverse_neo_hookean(problem)
     else:
-        P = forward_neo_hookean(problem)
+        if problem.config['mechanics']['material']['incompressible']:
+            Fbar = J**(-1.0/dim)*F
+            Jbar = dlf.det(Fbar)
+            P = forward_neo_hookean(Fbar, Jbar, la, mu)
+            # Turn this off to test isochoric component above
+            P += problem.pressure*J*Finv.T
+        else:
+            P = forward_neo_hookean(F, J, la, mu, Finv=Finv)
 
     return P
+
+
+def forward_neo_hookean(F, J, la, mu, **kwargs):
+    """
+    Return the first Piola-Kirchhoff stress tensor based on the strain
+    energy function
+
+    psi(C) = mu/2*(tr(C) - 3) - mu*ln(J) + la/2*(ln(J))**2.
+
+    Parameters
+    ----------
+
+    F :
+        Deformation gradient for the problem.
+    J :
+        Determinant of the deformation gradient.
+    la :
+        First parameter for a neo-Hookean material.
+    mu :
+        Second parameter for a neo-Hookean material.
+
+    """
+
+    if not kwargs.has_key('Finv'):
+        Finv = dlf.inv(F)
+
+    return mu*F + (la*dlf.ln(J) - mu)*Finv.T
 
 
 def forward_neo_hookean(problem):
@@ -134,23 +146,27 @@ def forward_neo_hookean(problem):
         such as material parameters.
 
     """
+
+    dim = find_dim(problem.deformationGradient)
+    I = dlf.Identity(dim)
+
     F = problem.deformationGradient
     Finv = dlf.inv(F)
     J = problem.jacobian
     J23 = J**(-2.0/dim)
     I1 = dlf.tr(F.T * F)
 
-    lame1 = problem.config['mechanics']['material']['lame1']
-    lame2 = problem.config['mechanics']['material']['lame2']
+    la = problem.config['mechanics']['material']['lambda']
+    mu = problem.config['mechanics']['material']['mu']
 
     if problem.config['mechanics']['material']['incompressible']:
         p = problem.pressure
         P_vol = J*p*Finv.T
-        P_isc = lame2*J23*F - 1.0/dim*J23*mu*I1*Finv.T
+        P_isc = mu*J23*F - 1.0/dim*J23*mu*I1*Finv.T
         P = P_vol + P_isc
     else:
-        P = lame1*dlf.ln(J)*Finv.T + lame2*J23*F \
-            - 1.0/dim*J23*lame2*I1*Finv.T
+        P = la*dlf.ln(J)*Finv.T + mu*J23*F \
+            - 1.0/dim*J23*mu*I1*Finv.T
 
     return P
 
@@ -168,21 +184,34 @@ def inverse_neo_hookean(problem):
         such as material parameters.
 
     """
+    dim = find_dim(problem.deformationGradient)
+    I = dlf.Identity(dim)
 
-    f = problem.deformationGradient
-    j = problem.jacobian
-    j23 = j**(-2.0/dim)
-    fbar = j**(-1.0/dim)*f
-    i1 = dlf.tr(f.T * f)
-    lame1 = problem.config['mechanics']['material']['lame1']
-    lame2 = problem.config['mechanics']['material']['lame2']
-    sigBar = fbar*(lame2/2.0)*fbar.T
-    sigma = 2.0*j*(sigBar - 1.0/dim*dlf.tr(sigBar)*I)
+    # f = problem.deformationGradient
+    # j = problem.jacobian
+    # j23 = j**(-2.0/dim)
+    # fbar = j**(-1.0/dim)*f
+    # i1 = dlf.tr(f.T * f)
+    la = problem.config['mechanics']['material']['lambda']
+    mu = problem.config['mechanics']['material']['mu']
+    # sigBar = fbar*(mu/2.0)*fbar.T
+    # sigma = 2.0*j*(sigBar - 1.0/dim*dlf.tr(sigBar)*I)
 
     if problem.config['mechanics']['material']['incompressible']:
-        p = problem.pressure
-        sigma += p*I
+        # p = problem.pressure
+        # sigma += p*I
+
+        s1 = 'The inverse, incompressible, neo-hookean material has' \
+             + ' not been implemented!'
+        raise NotImplementedError(s1)
     else:
-        sigma += lame1*dlf.ln(j)*I
+        # sigma += la*dlf.ln(j)*I
+
+        f = problem.deformationGradient
+        c = f.T * f
+        cinv = dlf.inv(c)
+        j = dlf.det(f)
+
+        sigma = j*mu*(cinv - I) - la*j*dlf.ln(j)*I
 
     return sigma
