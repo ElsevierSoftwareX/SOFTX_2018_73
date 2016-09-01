@@ -15,13 +15,13 @@ args = parser.parse_args()
 mesh_dims = (args.refinement,)*args.dim
 if args.dim == 1:
     mesh = dlf.UnitIntervalMesh(*mesh_dims)
-    name = 'bar'
+    # name = 'bar'
 elif args.dim == 2:
     mesh = dlf.UnitSquareMesh(*mesh_dims)
-    name = 'plate'
+    # name = 'plate'
 elif args.dim == 3:
     mesh = dlf.UnitCubeMesh(*mesh_dims)
-    name = 'cube'
+    # name = 'cube'
 else:
     raise ValueError('Dimension %i is invalid!' % args.dim)
 
@@ -53,8 +53,10 @@ traction = Traction()
 traction.mark(mesh_function, TRACTION)
 
 dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
-name_dims = (name, dim_str)
+# name_dims = (name, dim_str)
 
 # Save files
-dlf.File('meshfiles/mesh-%s-%s.xml.gz' % name_dims) << mesh
-dlf.File('meshfiles/mesh_function-%s-%s.xml.gz' % name_dims) << mesh_function
+dlf.File('../meshfiles/mesh-%s.xml.gz' % dim_str) << mesh
+dlf.File('../meshfiles/mesh_function-%s.xml.gz' % dim_str) << mesh_function
+# dlf.File('meshfiles/mesh-%s-%s.xml.gz' % name_dims) << mesh
+# dlf.File('meshfiles/mesh_function-%s-%s.xml.gz' % name_dims) << mesh_function

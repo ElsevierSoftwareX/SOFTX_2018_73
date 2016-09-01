@@ -142,11 +142,11 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         # Check that number of BC regions and BC values match
         dirichlet = config['formulation']['bcs']['dirichlet']
-        if not self.__check_bcs(dirichlet, 'dirichlet'):
+        if not self.__check_bcs(dirichlet):
             raise ValueError('The number of Dirichlet boundary regions and ' \
                              + 'values do not match!')
         neumann = config['formulation']['bcs']['neumann']
-        if not self.__check_bcs(neumann, 'neumann'):
+        if not self.__check_bcs(neumann):
             raise ValueError('The number of Neumann boundary regions and ' \
                              + 'values do not match!')
 
@@ -172,7 +172,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         # Check if material is incompressible, and then formulate problem
         if config['mechanics']['material']['incompressible']:
             # Define Dirichlet BCs
-            bc_list = self.__define_dirichlet_bcs(dirichlet, functionSpace.sub(0), mesh_function)
+            bc_list = self.define_dirichlet_bcs(dirichlet, functionSpace.sub(0), mesh_function)
 
             # Define test function
             sys_v = dlf.TestFunction(functionSpace)
@@ -187,7 +187,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, %s, has not been implemented!' \
-                     % config['mechanics']['material']['viscous']
+                     % config['mechanics']['material']['type']
                 raise NotImplementedError(s1)
 
             # Penalty parameter for incompressibility
@@ -203,7 +203,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         else:
             # Define Dirichlet BCs
-            bc_list = self.__define_dirichlet_bcs(dirichlet, functionSpace, mesh_function)
+            bc_list = self.define_dirichlet_bcs(functionSpace, mesh_function)
 
             xi = dlf.TestFunction(functionSpace)
 
@@ -213,7 +213,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, %s, has not been implemented!' \
-                     % config['mechanics']['material']['viscous']
+                     % config['mechanics']['material']['type']
                 raise NotImplementedError(s1)
 
         # Get access to the function defining the stress tensor
@@ -224,8 +224,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         stress_tensor = stress_function(self)
 
         # Add contributions from external forces to the weak form
-        weak_form -= self.__define_neumann_bcs(neumann, mesh, mesh_function, xi)
-        # weak_form -= rho*dlf.dot(xi, config['formulation']['body_force']) * dlf.dx
+        weak_form -= self.define_neumann_bcs(mesh, mesh_function, xi)
+        weak_form -= rho*dlf.dot(xi, config['formulation']['body_force']) * dlf.dx
 
         weak_form += dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
         weak_form_deriv = dlf.derivative(weak_form, sys_u, sys_du)
@@ -235,62 +235,50 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                                                  weak_form_deriv,
                                                  **kwargs)
 
-
     @staticmethod
-    def __check_bcs(bc_dict, bt):
+    def __check_bcs(bc_dict):
         """
 
 
         """
 
-        if bt == 'dirichlet':
-            if len(bc_dict['regions']) == len(bc_dict['values']):
-                return True
-            else:
-                return False
-        elif bt == 'neumann':
-            if len(bc_dict['regions']) == len(bc_dict['values']):
-                return True
-            else:
-                return False
+        values = bc_dict.values()
+        lengths = map(len, values)
+        if len(set(lengths)) == 1:
+            return True
         else:
-            raise NotImplementedError('Boundary type %s is not recognized!' % bt)
+            return False
 
-
-    @staticmethod
-    def __define_dirichlet_bcs(dirichlet_dict, functionSpace, mesh_function):
+    def define_dirichlet_bcs(self, functionSpace, mesh_function):
         """
 
 
         """
 
         bc_list = list()
-        for value, region in zip(dirichlet_dict['values'], dirichlet_dict['regions']):
+        for region, value in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
+                                 self.config['formulation']['bcs']['dirichlet']['values']):
             bc_list.append(dlf.DirichletBC(functionSpace, value, mesh_function, region))
-
         return bc_list
 
-    @staticmethod
-    def __define_neumann_bcs(neumann_dict, mesh, mesh_function, xi):
+    def define_neumann_bcs(self, mesh, mesh_function, xi):
         """
 
 
         """
-        # tt_list = neumann_dict['values']['types'] # type list (traction vs. pressure)
-        # function_list = neumann_dict['values']['function']
-        region_list = neumann_dict['regions']
-        tt_list = neumann_dict['types']
-        value_list = neumann_dict['values']
+        region_list = self.config['formulation']['bcs']['neumann']['regions']
+        tt_list = self.config['formulation']['bcs']['neumann']['types']
+        value_list = self.config['formulation']['bcs']['neumann']['values']
 
         if 'pressure' in tt_list:
-            n = dlf.FacetNormal(mesh)
+            N = dlf.FacetNormal(mesh)
+            Finv = dlf.inv(self.deformationGradient)
+            J = self.jacobian
+            n = J*Finv.T*N # Nanson's formula
 
-        # Initiate the Neumann BCs
         total_neumann_bcs = 0
 
-        # tt is the type of neumann boundary condition, either pressure or traction
-        # for tt, value, region in zip(tt_list, function_list, region_list):
-        for tt, value, region in zip(tt_list, value_list, region_list):
+        for region, tt, value in zip(region_list, tt_list, value_list):
             ds_region = dlf.ds(region, domain=mesh, subdomain_data=mesh_function)
             if tt == 'pressure':
                 total_neumann_bcs -= dlf.dot(xi, value*n)*ds_region
