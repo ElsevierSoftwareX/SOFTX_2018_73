@@ -2,7 +2,6 @@ import re
 import dolfin as dlf
 import materials
 
-
 class MechanicsProblem(dlf.NonlinearVariationalProblem):
     """
     This class represents the variational form of a continuum
@@ -89,8 +88,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                     The order must match the order used in the list of
                     types, unsteady booleans, and values.
     ------------'types' : list, tuple
-                    List of strings specifying whether a 'pressure' or
-                    'traction' vector is provided for each region. The order
+                    List of strings specifying whether a 'pressure', 'piola',
+                    or 'cauchy' is provided for each region. The order
                     must match the order used in the list of region IDs,
                     unsteady booleans, and values.
     ------------'unsteady' : list, tuple
@@ -107,10 +106,6 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
     """
 
     def __init__(self, config, **kwargs):
-        """
-
-
-        """
 
         self.config = config
 
@@ -130,11 +125,22 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
             s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len(fe_list)
             raise NotImplementedError(s1 + s2)
         elif len(fe_list) == 2:
+            # Make sure material was specified as incompressible if two
+            # element types are given.
+            if not config['mechanics']['material']['incompressible']:
+                s1 = 'Two element types, \'%s\', were specified ' % config['mesh']['element'] \
+                     +'for a compressible material.'
+                raise ValueError(s1)
             P_u = dlf.VectorElement('CG', mesh.ufl_cell(), int(fe_list[0][-1]))
             P_p = dlf.FiniteElement('CG', mesh.ufl_cell(), int(fe_list[1][-1]))
             element = P_u * P_p
         else:
-            degree = int(fe_list[0][-1])
+            # Make sure material was specified as compressible if only
+            # one element type was given.
+            if config['mechanics']['material']['incompressible']:
+                s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
+                     + 'for an incompressible material.'
+                raise ValueError(s1)
             element = dlf.VectorElement('CG', mesh.ufl_cell(), int(fe_list[0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
@@ -172,7 +178,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         # Check if material is incompressible, and then formulate problem
         if config['mechanics']['material']['incompressible']:
             # Define Dirichlet BCs
-            bc_list = self.define_dirichlet_bcs(dirichlet, functionSpace.sub(0), mesh_function)
+            bc_list = self.define_dirichlet_bcs(functionSpace.sub(0), mesh_function)
 
             # Define test function
             sys_v = dlf.TestFunction(functionSpace)
@@ -180,6 +186,9 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
             # Obtain pointers to each sub function
             u, p = dlf.split(sys_u)
             xi, q = dlf.split(sys_v)
+
+            # Make the pressure member data
+            self.pressure = p
 
             if config['mechanics']['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(u)
@@ -212,7 +221,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 self.deformationRateGradient = None
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
-                s1 = 'The material type, %s, has not been implemented!' \
+                s1 = 'The material type, \'%s\', has not been implemented!' \
                      % config['mechanics']['material']['type']
                 raise NotImplementedError(s1)
 
@@ -266,23 +275,36 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
 
         """
+
         region_list = self.config['formulation']['bcs']['neumann']['regions']
         tt_list = self.config['formulation']['bcs']['neumann']['types']
         value_list = self.config['formulation']['bcs']['neumann']['values']
 
-        if 'pressure' in tt_list:
-            N = dlf.FacetNormal(mesh)
+        if 'pressure' in tt_list or 'cauchy' in tt_list:
             Finv = dlf.inv(self.deformationGradient)
             J = self.jacobian
+            N = dlf.FacetNormal(mesh)
+
+        if 'pressure' in tt_list:
+            # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
             n = J*Finv.T*N # Nanson's formula
+
+        if 'cauchy' in tt_list:
+            # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
+            nanson_mag = J**2 * dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
 
         total_neumann_bcs = 0
 
         for region, tt, value in zip(region_list, tt_list, value_list):
             ds_region = dlf.ds(region, domain=mesh, subdomain_data=mesh_function)
             if tt == 'pressure':
+                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
                 total_neumann_bcs -= dlf.dot(xi, value*n)*ds_region
-            elif tt == 'traction':
+            elif tt == 'cauchy':
+                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
+                total_neumann_bcs += nanson_mag*dlf.dot(xi, value)*ds_region
+            elif tt == 'piola':
+                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
                 total_neumann_bcs += dlf.dot(xi, value)*ds_region
             else:
                 raise NotImplementedError('Neumann BC of type %s is not implemented!' % tt)

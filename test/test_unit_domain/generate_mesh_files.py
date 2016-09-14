@@ -1,6 +1,9 @@
+from __future__ import print_function
+
 import argparse
 import dolfin as dlf
 
+print('Parsing through command-line arguments.....', end='')
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--dim",
                     help="dimension",
@@ -11,25 +14,26 @@ parser.add_argument("-r", "--refinement",
                     default=12,
                     type=int)
 args = parser.parse_args()
+print('[DONE]')
 
+print('Generating mesh.....', end='')
 mesh_dims = (args.refinement,)*args.dim
 if args.dim == 1:
     mesh = dlf.UnitIntervalMesh(*mesh_dims)
-    # name = 'bar'
 elif args.dim == 2:
     mesh = dlf.UnitSquareMesh(*mesh_dims)
-    # name = 'plate'
 elif args.dim == 3:
     mesh = dlf.UnitCubeMesh(*mesh_dims)
-    # name = 'cube'
 else:
     raise ValueError('Dimension %i is invalid!' % args.dim)
+print('[DONE]')
 
 # Region IDs
 ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
 
+print('Generating mesh function.....', end='')
 mesh_function = dlf.MeshFunction('size_t', mesh, args.dim-1)
 mesh_function.set_all(ALL_ELSE)
 
@@ -51,12 +55,17 @@ clip.mark(mesh_function, CLIP)
 
 traction = Traction()
 traction.mark(mesh_function, TRACTION)
+print('[DONE]')
 
 dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
-# name_dims = (name, dim_str)
 
 # Save files
-dlf.File('../meshfiles/mesh-%s.xml.gz' % dim_str) << mesh
-dlf.File('../meshfiles/mesh_function-%s.xml.gz' % dim_str) << mesh_function
-# dlf.File('meshfiles/mesh-%s-%s.xml.gz' % name_dims) << mesh
-# dlf.File('meshfiles/mesh_function-%s-%s.xml.gz' % name_dims) << mesh_function
+print('Writing files.....', end='')
+
+mesh_name = '../meshfiles/unit_domain-mesh-%s.xml.gz' % dim_str
+mesh_func_name = '../meshfiles/unit_domain-mesh_function-%s.xml.gz' % dim_str
+
+dlf.File(mesh_name) << mesh
+dlf.File(mesh_func_name) << mesh_function
+
+print('[DONE]')
