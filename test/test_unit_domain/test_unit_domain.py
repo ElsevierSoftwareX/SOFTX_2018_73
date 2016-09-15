@@ -3,7 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 
-from fenicsmechanics.mechanicsproblem import MechanicsProblem
+from fenicsmechanics_dev.mechanicsproblem import MechanicsProblem
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()
@@ -25,6 +25,9 @@ parser.add_argument('-inv', '--inverse',
 parser.add_argument('-inc', '--incompressible',
                     help='active incompressible material',
                     action='store_true')
+parser.add_argument('-hdf5',
+                    help="use HDF5 files",
+                    action='store_true')
 args = parser.parse_args()
 
 # Mesh file names based on arguments given
@@ -42,11 +45,19 @@ else:
 
 mesh_dir = '../meshfiles/'
 if args.inverse:
-    mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s.xml.gz' % name_dims
+    mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s' % name_dims
     result_file = dlf.File('results/inverse-disp-%s-%s.pvd' % name_dims)
 else:
-    mesh_file = mesh_dir + 'unit_domain-mesh-%s.xml.gz' % dim_str
+    mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
     result_file = dlf.File('results/forward-disp-%s-%s.pvd' % name_dims)
+
+mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
+if args.hdf5:
+    mesh_file += '.h5'
+    mesh_function += '.h5'
+else:
+    mesh_file += '.xml.gz'
+    mesh_function += '.xml.gz'
 
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):
@@ -55,7 +66,6 @@ if not os.path.isfile(mesh_file):
                     + 'with the same arguments first.')
 
 # Check if the mesh function file exists
-mesh_function = mesh_dir + 'unit_domain-mesh_function-%s.xml.gz' % dim_str
 if not os.path.isfile(mesh_function):
     raise Exception('The mesh function file, \'%s\', does not exist. ' % mesh_function
                     + 'Please run the script \'generate_mesh_files.py\''
@@ -123,14 +133,17 @@ config = {'mechanics' : {
 
 problem = MechanicsProblem(config, form_compiler_parameters=ffc_options)
 solver = dlf.NonlinearVariationalSolver(problem)
-solver.parameters['newton_solver']['linear_solver'] = 'superlu'
+solver.parameters['newton_solver']['linear_solver'] = 'mumps'
 solver.parameters['newton_solver']['absolute_tolerance'] = 1e-9
 solver.parameters['newton_solver']['relative_tolerance'] = 1e-8
 solver.solve()
 soln = problem.solution()
 
-mesh = problem.trial_space().mesh()
-mesh_func = dlf.MeshFunction('size_t', mesh, mesh_function)
+# mesh = problem.trial_space().mesh()
+# mesh_func = dlf.MeshFunction('size_t', mesh, mesh_function)
+
+mesh = problem.mesh
+mesh_func = problem.mesh_function
 
 if args.incompressible:
     soln, _ = dlf.split(soln)
@@ -154,7 +167,15 @@ if args.dim > 1:
 dlf.ALE.move(mesh, u_func)
 
 if not args.inverse:
-    dlf.File('../meshfiles/unit_domain-defm_mesh-%s-%s.xml.gz' % name_dims) << mesh
+    defm_mesh = '../meshfiles/unit_domain-defm_mesh-%s-%s' % name_dims
+    if args.hdf5:
+        defm_mesh += '.h5'
+        f = dlf.HDF5File(dlf.mpi_comm_world(), defm_mesh, 'w')
+        f.write(mesh, 'mesh')
+        f.close()
+    else:
+        defm_mesh += '.xml.gz'
+        dlf.File(defm_mesh) << mesh
 
 # Compute the total volume
 total_volume = dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=mesh))

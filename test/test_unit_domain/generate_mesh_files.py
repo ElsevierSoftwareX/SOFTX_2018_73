@@ -13,6 +13,9 @@ parser.add_argument("-r", "--refinement",
                     help="dimension",
                     default=12,
                     type=int)
+parser.add_argument('-hdf5',
+                    help="use HDF5 files",
+                    action='store_true')
 args = parser.parse_args()
 print('[DONE]')
 
@@ -62,10 +65,30 @@ dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
 # Save files
 print('Writing files.....', end='')
 
-mesh_name = '../meshfiles/unit_domain-mesh-%s.xml.gz' % dim_str
-mesh_func_name = '../meshfiles/unit_domain-mesh_function-%s.xml.gz' % dim_str
+# mesh_name = '../meshfiles/unit_domain-mesh-%s.xml.gz' % dim_str
+# mesh_func_name = '../meshfiles/unit_domain-mesh_function-%s.xml.gz' % dim_str
 
-dlf.File(mesh_name) << mesh
-dlf.File(mesh_func_name) << mesh_function
+mesh_name = '../meshfiles/unit_domain-mesh-%s' % dim_str
+mesh_func_name = '../meshfiles/unit_domain-mesh_function-%s' % dim_str
+
+if args.hdf5:
+    mesh_name += '.h5'
+    mesh_func_name += '.h5'
+
+    f1 = dlf.HDF5File(dlf.mpi_comm_world(), mesh_name, 'w')
+    f2 = dlf.HDF5File(dlf.mpi_comm_world(), mesh_func_name, 'w')
+
+    f1.write(mesh, 'mesh')
+    f2.write(mesh_function, 'mesh_function')
+
+    f1.close()
+    f2.close()
+
+else:
+    mesh_name += '.xml.gz'
+    mesh_func_name += '.xml.gz'
+
+    dlf.File(mesh_name) << mesh
+    dlf.File(mesh_func_name) << mesh_function
 
 print('[DONE]')

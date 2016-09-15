@@ -110,8 +110,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         self.config = config
 
         # Obtain mesh and mesh function (should this be member data?)
-        mesh = dlf.Mesh(config['mesh']['mesh_file'])
-        mesh_function = dlf.MeshFunction('size_t', mesh, config['mesh']['mesh_function'])
+        self.mesh = self.load_mesh()
+        self.mesh_function = self.load_mesh_function()
 
         # Define the finite element(s) (maybe add
         # functionality to specify different families?)
@@ -131,8 +131,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 s1 = 'Two element types, \'%s\', were specified ' % config['mesh']['element'] \
                      +'for a compressible material.'
                 raise ValueError(s1)
-            P_u = dlf.VectorElement('CG', mesh.ufl_cell(), int(fe_list[0][-1]))
-            P_p = dlf.FiniteElement('CG', mesh.ufl_cell(), int(fe_list[1][-1]))
+            P_u = dlf.VectorElement('CG', self.mesh.ufl_cell(), int(fe_list[0][-1]))
+            P_p = dlf.FiniteElement('CG', self.mesh.ufl_cell(), int(fe_list[1][-1]))
             element = P_u * P_p
         else:
             # Make sure material was specified as compressible if only
@@ -141,10 +141,10 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
                      + 'for an incompressible material.'
                 raise ValueError(s1)
-            element = dlf.VectorElement('CG', mesh.ufl_cell(), int(fe_list[0][-1]))
+            element = dlf.VectorElement('CG', self.mesh.ufl_cell(), int(fe_list[0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
-        functionSpace = dlf.FunctionSpace(mesh, element)
+        functionSpace = dlf.FunctionSpace(self.mesh, element)
 
         # Check that number of BC regions and BC values match
         dirichlet = config['formulation']['bcs']['dirichlet']
@@ -157,7 +157,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                              + 'values do not match!')
 
         # Identity tensor for later use
-        I = dlf.Identity(mesh.geometry().dim())
+        I = dlf.Identity(self.mesh.geometry().dim())
 
         # Material properties
         rho = config['mechanics']['material']['density']
@@ -178,7 +178,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         # Check if material is incompressible, and then formulate problem
         if config['mechanics']['material']['incompressible']:
             # Define Dirichlet BCs
-            bc_list = self.define_dirichlet_bcs(functionSpace.sub(0), mesh_function)
+            bc_list = self.define_dirichlet_bcs(functionSpace.sub(0)) # , self.mesh_function)
 
             # Define test function
             sys_v = dlf.TestFunction(functionSpace)
@@ -212,7 +212,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         else:
             # Define Dirichlet BCs
-            bc_list = self.define_dirichlet_bcs(functionSpace, mesh_function)
+            bc_list = self.define_dirichlet_bcs(functionSpace) #, mesh_function)
 
             xi = dlf.TestFunction(functionSpace)
 
@@ -233,32 +233,156 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         stress_tensor = stress_function(self)
 
         # Add contributions from external forces to the weak form
-        weak_form -= self.define_neumann_bcs(mesh, mesh_function, xi)
+        weak_form -= self.define_neumann_bcs(xi) # mesh, mesh_function, xi)
         weak_form -= rho*dlf.dot(xi, config['formulation']['body_force']) * dlf.dx
 
         weak_form += dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
         weak_form_deriv = dlf.derivative(weak_form, sys_u, sys_du)
 
         # Initialize NonlinearVariationalProblem object
-        dlf.NonlinearVariationalProblem.__init__(self, weak_form, sys_u, bc_list,
+        dlf.NonlinearVariationalProblem.__init__(self, weak_form,
+                                                 sys_u, bc_list,
                                                  weak_form_deriv,
                                                  **kwargs)
 
-    @staticmethod
-    def __check_bcs(bc_dict):
+        return None
+
+
+    def load_mesh(self, mesh_file=None):
+        """
+        Load the mesh file specified by the call to the function, or in the
+        problem config dictionary. If mesh_file is None, and the mesh for the
+        current object has already been loaded, the mesh stored as member
+        data is returned.
+
+
+        Parameters
+        ----------
+
+        mesh_file : str (default None)
+            Name of the file that contains the desired mesh information.
+
+
+        Returns
+        -------
+        mesh : dolfin.cpp.mesh.Mesh
+            This function returns a dolfin mesh object.
+
         """
 
+        if mesh_file is None:
+            mesh_file = self.config['mesh']['mesh_file']
 
-        """
-
-        values = bc_dict.values()
-        lengths = map(len, values)
-        if len(set(lengths)) == 1:
-            return True
+        if hasattr(self, 'mesh'):
+            mesh = self.mesh
         else:
-            return False
+            if mesh_file[-3:] == '.h5':
+                mesh = self.__load_mesh_hdf5(mesh_file)
+            else:
+                mesh = dlf.Mesh(mesh_file)
 
-    def define_dirichlet_bcs(self, functionSpace, mesh_function):
+        return mesh
+
+
+    def load_mesh_function(self, mesh_function=None):
+        """
+        Load the mesh function file specified by the call to the function, or
+        in the problem config dictionary. If mesh_function is None, and the
+        mesh function for the current object has already been loaded, the mesh
+        function stored as member data is returned.
+
+        Parameters
+        ----------
+
+        mesh_function : str (default None)
+            Name of the file that contains the desired mesh function information.
+
+
+        Returns
+        -------
+
+        mesh_func : dolfin.cpp.mesh.MeshFunctionSizet
+        This function returns a dolfin mesh function object.
+
+        """
+
+        if mesh_function is None:
+            mesh_function = self.config['mesh']['mesh_function']
+
+        if hasattr(self, 'mesh_function'):
+            mesh_func = self.mesh_function
+        else:
+            if mesh_function[-3:] == '.h5':
+                mesh_func = self.__load_mesh_function_hdf5(mesh_function, self.mesh)
+            else:
+                mesh_func = dlf.MeshFunction('size_t', self.mesh,
+                                             self.config['mesh']['mesh_function'])
+
+        return mesh_func
+
+
+    @staticmethod
+    def __load_mesh_hdf5(mesh_file):
+        """
+        Load dolfin mesh from an HDF5 file.
+
+        Parameters
+        ----------
+
+        mesh_file : str
+            Name of the file containing the mesh information
+
+        """
+
+        # Check dolfin for HDF5 support
+        if not dlf.has_hdf5():
+            s1 = 'The current installation of dolfin does not support HDF5 files.'
+            raise Exception(s1)
+
+        # Check file extension
+        if mesh_file[-3:] == '.h5':
+            f = dlf.HDF5File(dlf.mpi_comm_world(), mesh_file, 'r')
+            mesh = dlf.Mesh()
+            f.read(mesh, 'mesh', False)
+        else:
+            s1 = 'The file extension provided must be \'.h5\'.'
+            raise ValueError(s1)
+
+        return mesh
+
+
+    @staticmethod
+    def __load_mesh_function_hdf5(mesh_function, mesh):
+        """
+        Load a dolfin mesh function from an HDF5 file.
+
+        Parameters
+        ----------
+
+        mesh_function : str
+            Name of the file containing the mesh function information
+
+        """
+
+        # Check dolfin for HDF5 support
+        if not dlf.has_hdf5():
+            s1 = 'The current installation of dolfin does not support HDF5 files.'
+            raise Exception(s1)
+
+        # Check file extension
+        if mesh_function[-3:] == '.h5':
+            f = dlf.HDF5File(dlf.mpi_comm_world(), mesh_function, 'r')
+            mesh_func = dlf.MeshFunction('size_t', mesh)
+            f.read(mesh_func, 'mesh_function')
+        else:
+            s1 = 'The file extension provided must be \'.h5\'.'
+            raise ValueError(s1)
+
+        return mesh_func
+
+
+    # def define_dirichlet_bcs(self, functionSpace, mesh_function):
+    def define_dirichlet_bcs(self, functionSpace):
         """
 
 
@@ -267,10 +391,12 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         bc_list = list()
         for region, value in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
                                  self.config['formulation']['bcs']['dirichlet']['values']):
-            bc_list.append(dlf.DirichletBC(functionSpace, value, mesh_function, region))
+            bc_list.append(dlf.DirichletBC(functionSpace, value, self.mesh_function, region))
         return bc_list
 
-    def define_neumann_bcs(self, mesh, mesh_function, xi):
+
+    # def define_neumann_bcs(self, mesh, mesh_function, xi):
+    def define_neumann_bcs(self, xi):
         """
 
 
@@ -283,7 +409,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         if 'pressure' in tt_list or 'cauchy' in tt_list:
             Finv = dlf.inv(self.deformationGradient)
             J = self.jacobian
-            N = dlf.FacetNormal(mesh)
+            N = dlf.FacetNormal(self.mesh)
 
         if 'pressure' in tt_list:
             # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
@@ -296,7 +422,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         total_neumann_bcs = 0
 
         for region, tt, value in zip(region_list, tt_list, value_list):
-            ds_region = dlf.ds(region, domain=mesh, subdomain_data=mesh_function)
+            ds_region = dlf.ds(region, domain=self.mesh,
+                               subdomain_data=self.mesh_function)
             if tt == 'pressure':
                 # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
                 total_neumann_bcs -= dlf.dot(xi, value*n)*ds_region
@@ -310,3 +437,19 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 raise NotImplementedError('Neumann BC of type %s is not implemented!' % tt)
 
         return total_neumann_bcs
+
+
+    @staticmethod
+    def __check_bcs(bc_dict):
+        """
+        Make sure that the lengths of all the lists/tuples provided within the
+        neumann and dirichlet subdictionaries are the same.
+
+        """
+
+        values = bc_dict.values()
+        lengths = map(len, values)
+        if len(set(lengths)) == 1:
+            return True
+        else:
+            return False
