@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <VTKFile type="Collection" version="0.1">
   <Collection>
-    <DataSet timestep="0" part="0" file="inverse-disp-incomp_lin_elastic-12x12x12000000.pvtu" />
+    <DataSet timestep="0" part="0" file="test_lin_alg-disp000000.vtu" />
   </Collection>
 </VTKFile>

@@ -151,7 +151,7 @@ def forward_neo_hookean(F, J, la, mu, Finv=None):
     if Finv is None:
         Finv = dlf.inv(F)
 
-    return mu*F + (la*dlf.ln(J) - mu)*Finv.T
+    return mu*F  + (la*dlf.ln(J) - mu)*Finv.T
 
 
 def inverse_neo_hookean(f, j, la, mu):

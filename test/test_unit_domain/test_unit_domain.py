@@ -3,7 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 
-from fenicsmechanics_dev.mechanicsproblem import MechanicsProblem
+import fenicsmechanics_dev.mechanicsproblem as mech
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()
@@ -131,7 +131,28 @@ config = {'mechanics' : {
               }
           }
 
-problem = MechanicsProblem(config, form_compiler_parameters=ffc_options)
+problem = mech.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+
+############################################################
+# TESTING
+class InitialCondition(dlf.Expression):
+    def eval(self, values, x):
+        values[0] = 0.1*x[0]
+    def value_shape(self):
+        return (2,)
+
+v = dlf.Function(problem.functionSpace)
+v_init = InitialCondition()
+v.interpolate(v_init)
+
+problem.assembleLocalAccelMatrix()
+problem.assembleConvectiveAccelMatrix(v)
+
+M = problem._localAccelMatrix
+Cv = problem._convectiveAccelMatrix
+
+############################################################
+
 solver = dlf.NonlinearVariationalSolver(problem)
 solver.parameters['newton_solver']['linear_solver'] = 'mumps'
 solver.parameters['newton_solver']['absolute_tolerance'] = 1e-9
