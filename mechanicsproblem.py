@@ -4,7 +4,7 @@ import dolfin as dlf
 from . import materials
 from .utils import load_mesh, load_mesh_function
 
-class MechanicsProblem(dlf.NonlinearVariationalProblem):
+class MechanicsProblem:
     """
     This class represents the variational form of a continuum
     mechanics problem. The user The specific form and boundary
@@ -156,15 +156,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         # Passed all the checks, make config member data
         self.config = config
 
-        ## !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # MOVE THIS TO A FUNCTION THAT PERFORMS THE ASSEMBLY PROCESS????
         # Identity tensor for later use
         I = dlf.Identity(self.mesh.geometry().dim())
-
-        # Material properties
-        rho = config['mechanics']['material']['density']
-        la = config['mechanics']['material']['lambda']
-        mu = config['mechanics']['material']['mu']
 
         # Define functions that are the same for both cases
         sys_u = dlf.Function(self.functionSpace)
@@ -174,23 +167,21 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         self._trialFunction = sys_du
 
         # Initial condition if provided
-        if config['formulation'].has_key('initial_condition'):
+        if 'initial_condition' in config['formulation']:
             sys_u.interpolate(config['formulation']['initial_condition'])
-
-        # Initialize the weak form
-        weak_form = 0
 
         # Check if material is incompressible, and then formulate problem
         if config['mechanics']['material']['incompressible']:
+
             # Define Dirichlet BCs
             self.define_dirichlet_bcs(self.functionSpace.sub(0))
 
             # Define test function
-            sys_v = dlf.TestFunction(self.functionSpace)
+            sys_xi = dlf.TestFunction(self.functionSpace)
 
             # Obtain pointers to each sub function
             self.displacement, self.pressure = dlf.split(sys_u)
-            self.test_vector, self.test_scalar = dlf.split(sys_v)
+            self.test_vector, self.test_scalar = dlf.split(sys_xi)
 
             if config['mechanics']['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(self.displacement)
@@ -200,19 +191,6 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                 s1 = 'The material type, %s, has not been implemented!' \
                      % config['mechanics']['material']['type']
                 raise NotImplementedError(s1)
-
-            # Penalty parameter for incompressibility
-            kappa = config['mechanics']['material']['kappa']
-
-            # Weak form corresponding to incompressibility
-            if config['mechanics']['const_eqn'] == 'lin_elastic':
-                # Incompressibility constraint for linear elasticity
-                weak_form += (dlf.div(self.displacement) - la*self.pressure)\
-                             * self.test_scalar * dlf.dx
-            else:
-                # Incompressibility constraint for nonlinear
-                weak_form += (self.pressure - kappa*(self.jacobian - 1.0))\
-                             * self.test_scalar * dlf.dx
 
         else:
             # Define Dirichlet BCs
@@ -231,27 +209,10 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
                      % config['mechanics']['material']['type']
                 raise NotImplementedError(s1)
 
-        # Get access to the function defining the stress tensor
-        material_submodule = getattr(materials, config['mechanics']['material']['type'])
-        stress_function = getattr(material_submodule, config['mechanics']['const_eqn'])
-
-        # Define the stress tensor
-        stress_tensor = stress_function(self)
-
-        # Add contributions from external forces to the weak form
+        # Define Neumann BCs
         self.define_neumann_bcs()
-        weak_form -= self.get_neumann_bcs()
-        weak_form -= rho*dlf.dot(self.test_vector, config['formulation']['body_force']) * dlf.dx
 
-        weak_form += dlf.inner(dlf.grad(self.test_vector), stress_tensor)*dlf.dx
-        weak_form_deriv = dlf.derivative(weak_form, sys_u, sys_du)
-
-        # Initialize NonlinearVariationalProblem object
-        dlf.NonlinearVariationalProblem.__init__(self, weak_form,
-                                                 sys_u, self.dirichlet_bc_list,
-                                                 weak_form_deriv,
-                                                 **kwargs)
-
+        # Initialize PETSc matrices and vectors
         self.init_all()
 
         return None
@@ -279,6 +240,8 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
 
         """
+
+        # Check if bcs were even provided
 
         if self.config['mechanics']['material']['incompressible']:
             V = self.functionSpace.sub(0)
@@ -360,6 +323,53 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         return None
 
 
+    def define_forms(self):
+        """
+
+
+        """
+
+        # Check if problem was specified as unsteady. Assume it is steady
+        # if key was not provided.
+        try:
+            if self.config['formulation']['unsteady']:
+                self.ufl_local_accel = self.getUFLLocalAccel()
+            else:
+                self.ufl_local_accel = None
+        except KeyError:
+            self.ufl_local_accel = None
+
+        # Define UFL object corresponding to the body force term. Assume
+        # it is zero if key was not provided.
+        try:
+            if self.config['formulation']['body_force']:
+                self.ufl_body_force = self.getUFLBodyWork()
+            else:
+                self.ufl_body_force = None
+        except KeyError:
+            self.ufl_body_force = None
+
+        # Define UFL object corresponding to the traction force terms. Assume
+        # it is zero if key was not provided.
+        try:
+            if self.config['formulation']['bcs']['neumann']:
+                self.define_neumann_bcs()
+            else:
+                self.neumann_bcs = None
+
+        if self.config['formulation']['domain'] == 'eulerian':
+            self.ufl_convec_accel = self.getUFLConvectiveAccel()
+            self.ufl_convec_accel_diff = self.getUFLConvectiveAccelDifferential()
+        else:
+            self.ufl_convec_accel = None
+            self.ufl_convec_accel_diff = None
+
+        self.ufl_stress_work = self.getUFLStressWork()
+        self.ufl_stress_work_diff = self.getUFLStressWorkDifferential()
+
+        return None
+
+
     def init_all(self):
         """
         Initialize all of the necessary PETSc matrices and vector objects
@@ -414,7 +424,7 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         return None
 
 
-    def update_all(self):
+    def update_all(self, t=None):
         """
 
 
@@ -447,6 +457,9 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         if self._convectiveAccelVector is not None:
             self.assembleConvectiveAccelVector()
+
+        # Assemble the matrix from stress work
+        self.assembleStressWorkMatrix()
 
         # Assemble the vectors corresponding to body force, traction,
         # and their sum
@@ -619,6 +632,24 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
         return self._localAccelMatrix
 
 
+    def define_ufl_local_accel(self):
+        """
+
+        """
+
+        # Exit if form is already defined!
+        if hasattr(self, 'ufl_local_accel'):
+            return None
+
+        xi = self._testFunction
+        du = self._trialFunction
+        rho = self.config['mechanics']['material']['density']
+
+        self.ufl_local_accel = dlf.dot(xi, rho*du)*dlf.dx
+
+        return None
+
+
     def getUFLLocalAccel(self):
         """
         Return the matrix that comes from the differential of the local
@@ -642,11 +673,27 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         """
 
-        xi = self._testFunction
-        du = self._trialFunction
-        rho = self.config['mechanics']['material']['density']
+        if not hasattr(self, 'ufl_local_accel'):
+            self.define_ufl_local_accel()
 
-        return dlf.dot(xi, rho*du)*dlf.dx
+        return self.ufl_local_accel
+
+
+    def define_ufl_convec_accel(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_convec_accel'):
+            return None
+
+        xi = self.test_vector
+        rho = self.config['mechanics']['material']['density']
+        self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.velocity)\
+                                        * self.velocity)*dlf.dx
+
+        return None
 
 
     def getConvectiveAccelMatrix(self):
@@ -665,10 +712,28 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         """
 
-        xi = self._testFunction
-        rho = self.config['mechanics']['material']['density']
+        if not hasattr(self, 'ufl_convec_accel'):
+            self.define_ufl_convec_accel()
 
-        return dlf.dot(xi, rho*dlf.grad(self.velocity)*self.velocity)*dlf.dx
+        return self.ufl_convec_accel
+
+
+    def define_ufl_convec_accel_diff(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_convec_accel_diff'):
+            return None
+
+        if not hasattr(self, 'ufl_convec_accel'):
+            self.define_ufl_convec_accel()
+
+        self.ufl_convec_accel_diff = dlf.derivative(self.ufl_convec_accel_diff,
+                                                    self.velocity, self._trialFunction)
+
+        return None
 
 
     def getUFLConvectiveAccelDifferential(self):
@@ -690,10 +755,26 @@ class MechanicsProblem(dlf.NonlinearVariationalProblem):
 
         # Get access fo the function defining the stress tensor
         material_submodule = getattr(materials, self.config['mechanics']['material']['type'])
-        stress_function = getattr(material_submodule, self.config['mechanics']['const_eqn'])
+        # stress_function = getattr(material_submodule, self.config['mechanics']['const_eqn'])
+        if self.config['formulation']['inverse']:
+            stress_function = getattr(material_submodule, 'inverse_' + self.config['mechanics']['const_eqn'])
+        else:
+            stress_function = getattr(material_submodule, 'forward_' + self.config['mechanics']['const_eqn'])
 
-        stress_tensor = stress_function(self)
-        xi = self._testFunction
+        print 'stress_function = ', stress_function.__name__
+
+        # stress_tensor = stress_function(self)
+        if self.config['mechanics']['const_eqn'] == 'neo_hookean':
+            stress_tensor = stress_function(self.deformationGradient,
+                                            self.jacobian,
+                                            self.config['mechanics']['material']['lambda'],
+                                            self.config['mechanics']['material']['mu'])
+        else:
+            stress_tensor = stress_function(self.deformationGradient,
+                                            self.config['mechanics']['material']['lambda'],
+                                            self.config['mechanics']['material']['mu'])
+
+        xi = self.test_vector
 
         return dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
 

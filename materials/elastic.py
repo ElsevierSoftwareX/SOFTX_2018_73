@@ -3,43 +3,43 @@ import dolfin as dlf
 from ufl.domain import find_geometric_dimension as find_dim
 
 
-# This function might not be necessary!!!!!
-def elasticMaterial(problem, name='lin-elastic', strain=False,
-            incompressible=False, inverse=False):
-    """
-    Return the stress tensor of the specified constitutive equation.
-    # Return either the strain energy function or the stress tensor of the
-    # specified constitutive equation.
+# # This function might not be necessary!!!!!
+# def elasticMaterial(problem, name='lin-elastic', strain=False,
+#             incompressible=False, inverse=False):
+#     """
+#     Return the stress tensor of the specified constitutive equation.
+#     # Return either the strain energy function or the stress tensor of the
+#     # specified constitutive equation.
 
-    Parameters
-    ----------
+#     Parameters
+#     ----------
 
-    problem : MechanicsProblem
-        This object must be an instance of the MechanicsProblem class,
-        which contains necessary data to formulate the variational form,
-        such as material parameters.
-    name : string
-        The name of the constitutive equation used. To see a list of
-        implemented constitutive equations, print the list by the
-        name 'implemented'.
-    strain : bool
-        Should be set to True if the strain energy function is to be
-        returned as opposed
+#     problem : MechanicsProblem
+#         This object must be an instance of the MechanicsProblem class,
+#         which contains necessary data to formulate the variational form,
+#         such as material parameters.
+#     name : string
+#         The name of the constitutive equation used. To see a list of
+#         implemented constitutive equations, print the list by the
+#         name 'implemented'.
+#     strain : bool
+#         Should be set to True if the strain energy function is to be
+#         returned as opposed
 
-    """
+#     """
 
-    dim = find_dim(problem.deformationGradient)
-    I = dlf.Identity(dim)
+#     dim = find_dim(problem.deformationGradient)
+#     I = dlf.Identity(dim)
 
-    if problem.const_eqn.lower() == 'lin-elastic':
-        stress = lin_elastic(problem)
-    elif problem.const_eqn.lower() == 'neo-hookean':
-        stress = neo_hookean(problem)
-    else:
-        s1 = "The constitutive equation, '%s', has not been implemented."
-        raise NotImplementedError(s1 % problem.const_eqn.lower())
+#     if problem.const_eqn.lower() == 'lin-elastic':
+#         stress = lin_elastic(problem)
+#     elif problem.const_eqn.lower() == 'neo-hookean':
+#         stress = neo_hookean(problem)
+#     else:
+#         s1 = "The constitutive equation, '%s', has not been implemented."
+#         raise NotImplementedError(s1 % problem.const_eqn.lower())
 
-    return stress
+#     return stress
 
 
 def lin_elastic(problem):
@@ -58,24 +58,50 @@ def lin_elastic(problem):
 
     """
 
-    dim = find_dim(problem.deformationGradient)
+    if problem.config['formulation']['inverse']:
+        T = inverse_lin_elastic(problem.deformationGradient,
+                                problem.config['mechanics']['material']['lambda'],
+                                problem.config['mechanics']['material']['mu'])
+    else:
+        T = forward_lin_elastic(problem.deformationGradient,
+                                problem.config['mechanics']['material']['lambda'],
+                                problem.config['mechanics']['material']['mu'])
+
+    return T
+
+
+def forward_lin_elastic(F, la, mu):
+    """
+
+
+    """
+
+    dim = find_dim(F)
     I = dlf.Identity(dim)
-
-    # Check if the problem is an inverse problem.
-    if not problem.config['formulation']['inverse']:
-        epsilon = dlf.sym(problem.deformationGradient) - I
+    epsilon = dlf.sym(F) - I
+    if la.values() > 1e8:
+        T = 2.0*mu*epsilon
     else:
-        Finv = dlf.inv(problem.deformationGradient)
-        epsilon = dlf.sym(Finv) - I
+        T = la*dlf.tr(epsilon)*I + 2.0*mu*epsilon
 
-    # Check if the first Lame parameter is large.
-    if problem.config['mechanics']['material']['lambda'].values() > 1e8:
-        la = 0.0
+    return T
+
+
+def inverse_lin_elastic(F, la, mu):
+    """
+
+
+    """
+
+    dim = find_dim(F)
+    I = dlf.Identity(dim)
+    epsilon = dlf.sym(dlf.inv(F)) - I
+    if la.values() > 1e8:
+        T = 2.0*mu*epsilon
     else:
-        la = problem.config['mechanics']['material']['lambda']
-    mu = problem.config['mechanics']['material']['mu']
+        T = la*dlf.tr(epsilon)*I + 2.0*mu*epsilon
 
-    return la*dlf.tr(epsilon)*I + 2.0*mu*epsilon
+    return T
 
 
 def neo_hookean(problem):
