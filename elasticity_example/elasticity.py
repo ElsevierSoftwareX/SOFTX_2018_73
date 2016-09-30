@@ -86,7 +86,7 @@ v  = TestFunction(V)
 du = TrialFunction(V)
 
 # Elasticity parameters
-E      = 20.0                                            #Young's modulus
+E      = 200.0                                            #Young's modulus
 nu     = 0.49                                #Poisson's ratio
 mu     = Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
 inv_la = Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
