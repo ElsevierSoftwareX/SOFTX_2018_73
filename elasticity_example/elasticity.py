@@ -67,11 +67,11 @@ if not args.inverse:
     traction = Traction()
     traction.mark(sub_domains, TRACTION)
 else:
-    meshname = 'results/%s-%s-disp-%s.xml.gz' % name_dims
-    meshsubs = 'results/%s-%s-subdomains-%s.xml.gz' % name_dims
-    mesh = Mesh(meshname)
-    sub_domains = MeshFunction("size_t", mesh, meshsubs)
-    name_dims = ('inverse', 'comp_' + args.material, dim_str)
+    meshname = 'results/%s-%s-forward-%s.h5' % name_dims
+    f = HDF5File(mpi_comm_world(),meshname,'r')
+    mesh = Mesh()
+    f.read(mesh, "mesh", False)
+    sub_domains = MeshFunction("size_t", mesh)
 
 P2 = VectorElement("Lagrange", mesh.ufl_cell(), 2)
 V = FunctionSpace(mesh, P2)
@@ -170,8 +170,11 @@ if args.dim > 1:
 # Move the mesh according to solution
 ALE.move(mesh,u_func)
 if not args.inverse:
-    File('results/%s-%s-disp-%s.xml.gz' % name_dims) << mesh
-    File('results/%s-%s-subdomains-%s.xml.gz' % name_dims) << sub_domains
+  out_filename ="results/%s-%s-forward-%s.h5" % name_dims
+  Hdf = HDF5File(mesh.mpi_comm(), out_filename, "w")
+  Hdf.write(mesh, "mesh")
+  Hdf.write(sub_domains, "subdomains")
+  Hdf.close()
 
 # Compute the volume of each cell
 dgSpace = FunctionSpace(mesh, 'DG', 0)
