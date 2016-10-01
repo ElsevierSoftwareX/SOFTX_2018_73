@@ -241,22 +241,33 @@ class MechanicsProblem:
 
         """
 
-        # Check if bcs were even provided
+        # Check if bcs were even provided (exit function if they weren't).
+        try:
+            if 'dirichlet' not in self.config['formulation']['bcs']:
+                self.dirichlet_bcs = None
+                return None
+        except KeyError:
+            if 'bcs' not in self.config['formulation']:
+                # print '*** No boundary conditions were specified! ***'
+                self.dirichlet_bcs = None
+                return None
 
         if self.config['mechanics']['material']['incompressible']:
             V = self.functionSpace.sub(0)
         else:
             V = self.functionSpace
 
-        bc_list = list()
-        for region, value in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
-                                 self.config['formulation']['bcs']['dirichlet']['values']):
-            bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
+        steady_bc_list = list()
+        unsteady_bc_list = list()
+        for region, value, unsteady_bool in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
+                                                self.config['formulation']['bcs']['dirichlet']['values'],
+                                                self.config['formulation']['bcs']['dirichlet']['unsteady']):
+            if unsteady_bool:
+                unsteady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
+            else:
+                steady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
 
-        self.dirichlet_bc_list = bc_list
-
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # SEPARATE THIS INTO TWO LISTS, STEADY AND UNSTEADY.
+        self.dirichlet_bcs = {'unsteady': unsteady_bc_list, 'steady': steady_bc_list}
 
         return None
 
@@ -281,44 +292,71 @@ class MechanicsProblem:
 
         """
 
+        # Check if bcs were even provided (exit function if they weren't).
+        try:
+            if 'neumann' not in self.config['formulation']['bcs']:
+                self.neumann_bcs = None
+                return None
+        except KeyError:
+            if 'bcs' not in self.config['formulation']:
+                # print '*** No boundary conditions were specified! ***'
+                self.neumann_bcs = None
+                return None
+
         region_list = self.config['formulation']['bcs']['neumann']['regions']
         tt_list = self.config['formulation']['bcs']['neumann']['types']
         value_list = self.config['formulation']['bcs']['neumann']['values']
+        unsteady_list = self.config['formulation']['bcs']['neumann']['unsteady']
 
-        if 'pressure' in tt_list or 'cauchy' in tt_list:
-            Finv = dlf.inv(self.deformationGradient)
-            J = self.jacobian
-            N = dlf.FacetNormal(self.mesh)
+        domain = self.config['formulation']['domain']
 
-        if 'pressure' in tt_list:
-            # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
-            n = J*Finv.T*N # Nanson's formula
+        if domain == 'lagrangian':
+            if 'pressure' in tt_list or 'cauchy' in tt_list:
+                Finv = dlf.inv(self.deformationGradient)
+                J = self.jacobian
+                N = dlf.FacetNormal(self.mesh)
 
-        if 'cauchy' in tt_list:
-            # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
-            nanson_mag = J**2 * dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+            if 'pressure' in tt_list:
+                n = J*Finv.T*N # Nanson's formula
 
-        total_neumann_bcs = 0
+            if 'cauchy' in tt_list:
+                nanson_mag = J**2 * dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+        elif domain == 'eulerian':
+            if 'pressure' in tt_list:
+                n = dlf.FacetNormal(self.mesh)
 
-        for region, tt, value in zip(region_list, tt_list, value_list):
+            if 'piola' in tt_list:
+                s1 = 'Piola traction in an Eulerian formulation is not supported.'
+                raise ValueError(s1)
+        else:
+            s1 = 'Formulation with respect to \'%s\' is not supported.' % domain
+            raise ValueError(s1)
+
+        steady_neumann_bcs = 0
+        unsteady_neumann_bcs = 0
+        zipped_vals = zip(region_list, tt_list, value_list, unsteady_list)
+
+        for region, tt, value, unsteady_bool in zipped_vals:
             ds_region = dlf.ds(region, domain=self.mesh,
                                subdomain_data=self.mesh_function)
+            val = 0
             if tt == 'pressure':
-                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
-                total_neumann_bcs -= dlf.dot(self.test_vector, value*n)*ds_region
-            elif tt == 'cauchy':
-                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
-                total_neumann_bcs += nanson_mag*dlf.dot(self.test_vector, value)*ds_region
+                val -= dlf.dot(self.test_vector, value*n)*ds_region
+            elif tt == 'cauchy' and domain == 'lagrangian':
+                val += nanson_mag*dlf.dot(self.test_vector, value)*ds_region
+            elif tt == 'cauchy' and domain == 'eulerian':
+                val += dlf.dot(self.test_vector, value)*ds_region
             elif tt == 'piola':
-                # THIS IS ASSUMING THE PROBLEM IS FORMULATED IN LAGRANGIAN COORDINATES
-                total_neumann_bcs += dlf.dot(self.test_vector, value)*ds_region
+                val += dlf.dot(self.test_vector, value)*ds_region
             else:
                 raise NotImplementedError('Neumann BC of type %s is not implemented!' % tt)
 
-        self.neumann_bcs = total_neumann_bcs
+            if unsteady_bool:
+                unsteady_neumann_bcs += val
+            else:
+                steady_neumann_bcs += val
 
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # SEPARATE THIS INTO TWO LISTS, STEADY AND UNSTEADY.
+        self.neumann_bcs = {'steady': steady_neumann_bcs, 'unsteady': unsteady_neumann_bcs}
 
         return None
 
