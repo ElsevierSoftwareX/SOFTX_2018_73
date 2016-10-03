@@ -248,7 +248,6 @@ class MechanicsProblem:
                 return None
         except KeyError:
             if 'bcs' not in self.config['formulation']:
-                # print '*** No boundary conditions were specified! ***'
                 self.dirichlet_bcs = None
                 return None
 
@@ -320,16 +319,16 @@ class MechanicsProblem:
                 n = J*Finv.T*N # Nanson's formula
 
             if 'cauchy' in tt_list:
-                nanson_mag = J**2 * dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+                nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
         elif domain == 'eulerian':
             if 'pressure' in tt_list:
-                n = dlf.FacetNormal(self.mesh)
+                n = dlf.FacetNormal(self.mesh) # No need for Nanson's formula
 
             if 'piola' in tt_list:
                 s1 = 'Piola traction in an Eulerian formulation is not supported.'
                 raise ValueError(s1)
         else:
-            s1 = 'Formulation with respect to \'%s\' is not supported.' % domain
+            s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' % domain
             raise ValueError(s1)
 
         steady_neumann_bcs = 0
@@ -337,8 +336,10 @@ class MechanicsProblem:
         zipped_vals = zip(region_list, tt_list, value_list, unsteady_list)
 
         for region, tt, value, unsteady_bool in zipped_vals:
+
             ds_region = dlf.ds(region, domain=self.mesh,
                                subdomain_data=self.mesh_function)
+
             val = 0
             if tt == 'pressure':
                 val -= dlf.dot(self.test_vector, value*n)*ds_region
