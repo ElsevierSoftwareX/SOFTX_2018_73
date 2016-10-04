@@ -96,16 +96,14 @@ CLIP = 1
 TRACTION = 2
 
 # Problem configuration dictionary
-config = {'mechanics' : {
+config = {'material' : {
               'const_eqn' : args.material,
-              'material' : {
-                  'type' : 'elastic',
-                  'incompressible' : args.incompressible,
-                  'density' : 10.0,
-                  'lambda' : la,
-                  'mu' : mu,
-                  'kappa' : kappa
-                  }
+              'type' : 'elastic',
+              'incompressible' : args.incompressible,
+              'density' : 10.0,
+              'lambda' : la,
+              'mu' : mu,
+              'kappa' : kappa
               },
           'mesh' : {
               'mesh_file' : mesh_file,
@@ -133,8 +131,6 @@ config = {'mechanics' : {
               }
           }
 
-# import pdb
-# pdb.set_trace()
 problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 
 ############################################################

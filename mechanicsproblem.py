@@ -12,33 +12,32 @@ class MechanicsProblem:
     user in a dictionary of sub-dictionaries. The keys for the
     dictionary and their descriptions are shown below:
 
-    * 'mechanics'
+    * 'material'
+       * 'type' : str
+            The class of material that will be used, e.g.
+            elastic, viscous, viscoelastic, etc. The name
+            must match the name of a module inside of the
+            fenicsmechanics.materials sub-package.
        * 'const_eqn' : str
             The name of the constitutive equation to be
             used. The name must match a function name in
             the fenicsmechanics.materials subpackage, which
             returns the stress tensor.
-       * 'material'
-           * 'type' : str
-                The class of material that will be used, e.g.
-                elastic, viscous, viscoelastic, etc. The name
-                must match the name of a module inside of the
-                fenicsmechanics.materials sub-package.
-           * 'incompressible' : bool
-                True if the material is incompressible. An
-                additional weak form for the incompressibility
-                constraint will be added to the problem.
-           * 'density' : float, int, dolfin.Constant
-                Scalar specifying the density of the material.
-           * 'lambda' : float, int, dolfin.Constant
-                Scalar value used in constitutive equations. E.g.,
-                it is the first Lame parameter in linear elasticity.
-           * 'mu' : float, int, dolfin.Constant
-                Scalar value used in constitutive equations. E.g.,
-                it is the second Lame parameter in linear elasticity,
-                and the dynamic viscosity for a Newtonian fluid.
-           * 'kappa' : float, int, dolfin.Constant
-                Scalar value of the penalty parameter for incompressibility.
+       * 'incompressible' : bool
+            True if the material is incompressible. An
+            additional weak form for the incompressibility
+            constraint will be added to the problem.
+       * 'density' : float, int, dolfin.Constant
+            Scalar specifying the density of the material.
+       * 'lambda' : float, int, dolfin.Constant
+            Scalar value used in constitutive equations. E.g.,
+            it is the first Lame parameter in linear elasticity.
+       * 'mu' : float, int, dolfin.Constant
+            Scalar value used in constitutive equations. E.g.,
+            it is the second Lame parameter in linear elasticity,
+            and the dynamic viscosity for a Newtonian fluid.
+       * 'kappa' : float, int, dolfin.Constant
+            Scalar value of the penalty parameter for incompressibility.
 
     * 'mesh'
        * 'mesh_file' : str
@@ -113,48 +112,25 @@ class MechanicsProblem:
         self.mesh = load_mesh(config['mesh']['mesh_file'])
         self.mesh_function = load_mesh_function(config['mesh']['mesh_function'], self.mesh)
 
-        # Define the finite element(s) (maybe add
-        # functionality to specify different families?)
-        if 'element' not in config['mesh']:
-            raise ValueError('You need to specify the type of element(s) to use!')
+        # Check configuration dictionary
+        self.check_config(config)
+        self.config = config # Passed all the checks
 
-        fe_list = re.split('-|_| ', config['mesh']['element'])
-        if len(fe_list) > 2 or len(fe_list) == 0:
-            s1 = 'The current formulation allows 1 or 2 fields.\n'
-            s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len(fe_list)
-            raise NotImplementedError(s1 + s2)
-        elif len(fe_list) == 2:
-            # Make sure material was specified as incompressible if two
-            # element types are given.
-            if not config['mechanics']['material']['incompressible']:
-                s1 = 'Two element types, \'%s\', were specified ' % config['mesh']['element'] \
-                     +'for a compressible material.'
-                raise ValueError(s1)
-            P_u = dlf.VectorElement('CG', self.mesh.ufl_cell(), int(fe_list[0][-1]))
-            P_p = dlf.FiniteElement('CG', self.mesh.ufl_cell(), int(fe_list[1][-1]))
-            element = P_u * P_p
+        if config['material']['incompressible']:
+            P_u = dlf.VectorElement('CG',
+                                    self.mesh.ufl_cell(),
+                                    int(config['mesh']['element'][0][-1]))
+            P_p = dlf.FiniteElement('CG',
+                                    self.mesh.ufl_cell(),
+                                    int(config['mesh']['element'][1][-1]))
+            element = P_u*P_p
         else:
-            # Make sure material was specified as compressible if only
-            # one element type was given.
-            if config['mechanics']['material']['incompressible']:
-                s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
-                     + 'for an incompressible material.'
-                raise ValueError(s1)
-            element = dlf.VectorElement('CG', self.mesh.ufl_cell(), int(fe_list[0][-1]))
+            element = dlf.VectorElement('CG',
+                                        self.mesh.ufl_cell(),
+                                        int(config['mesh']['element'][0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
         self.functionSpace = dlf.FunctionSpace(self.mesh, element)
-
-        # Check that number of BC regions and BC values match
-        if not self.__check_bcs(config['formulation']['bcs']['dirichlet']):
-            raise ValueError('The number of Dirichlet boundary regions and ' \
-                             + 'values do not match!')
-        if not self.__check_bcs(config['formulation']['bcs']['neumann']):
-            raise ValueError('The number of Neumann boundary regions and ' \
-                             + 'values do not match!')
-
-        # Passed all the checks, make config member data
-        self.config = config
 
         # Identity tensor for later use
         I = dlf.Identity(self.mesh.geometry().dim())
@@ -171,7 +147,7 @@ class MechanicsProblem:
             sys_u.interpolate(config['formulation']['initial_condition'])
 
         # Check if material is incompressible, and then formulate problem
-        if config['mechanics']['material']['incompressible']:
+        if config['material']['incompressible']:
 
             # Define Dirichlet BCs
             self.define_dirichlet_bcs(self.functionSpace.sub(0))
@@ -183,13 +159,13 @@ class MechanicsProblem:
             self.displacement, self.pressure = dlf.split(sys_u)
             self.test_vector, self.test_scalar = dlf.split(sys_xi)
 
-            if config['mechanics']['material']['type'] == 'elastic':
+            if config['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(self.displacement)
                 self.deformationRateGradient = None
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, %s, has not been implemented!' \
-                     % config['mechanics']['material']['type']
+                     % config['material']['type']
                 raise NotImplementedError(s1)
 
         else:
@@ -200,13 +176,13 @@ class MechanicsProblem:
             self.test_vector, self.test_scalar = dlf.TestFunction(self.functionSpace), None
             self.displacement, self.pressure = sys_u, None
 
-            if config['mechanics']['material']['type'] == 'elastic':
+            if config['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(self.displacement)
                 self.deformationRateGradient = None
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, \'%s\', has not been implemented!' \
-                     % config['mechanics']['material']['type']
+                     % config['material']['type']
                 raise NotImplementedError(s1)
 
         # Define Neumann BCs
@@ -214,6 +190,127 @@ class MechanicsProblem:
 
         # Initialize PETSc matrices and vectors
         self.init_all()
+
+        return None
+
+
+    def check_config(self, config):
+        """
+
+
+        """
+
+        # Check if the finite element type is provided.
+        if 'element' not in config['mesh']:
+            raise ValueError('You need to specify the type of element(s) to use.')
+
+        # Make sure at most two element types are specified.
+        if isinstance(config['mesh']['element'], str):
+            fe_list = re.split('-|_| ', config['mesh']['element'])
+        else:
+            fe_list = config['mesh']['element']
+
+        len_fe_list = len(fe_list)
+        if len_fe_list == 0 or len_fe_list > 2:
+            s1 = 'The current formulation allows 1 or 2 fields.\n'
+            s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len(fe_list)
+            raise NotImplementedError(s1 + s2)
+        elif len_fe_list == 1 and config['material']['incompressible']:
+            s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
+                 + 'for an incompressible material.'
+            raise ValueError(s1)
+        elif len_fe_list == 2 and not config['material']['incompressible']:
+            s1 = 'Two element types, \'%s\', were specified ' % config['mesh']['element'] \
+                 +'for a compressible material.'
+            raise ValueError(s1)
+        else:
+            # Replace with list in case it was originally a string
+            config['mesh']['element'] = fe_list
+
+        # Check to make sure all strings are only 2 characters long.
+        str_len = set(map(len, config['mesh']['element']))
+        s1 = 'Element types must be of the form \'p<int>\', where <int> ' \
+             + 'is the polynomial degree to be used.' # error string
+
+        # All strings should have the same number of characters.
+        if not len(str_len) == 1:
+            raise ValueError(s1)
+
+        # All strings should consist of two characters.
+        str_len_val = str_len.pop()
+        if not str_len_val == 2:
+            raise ValueError(s1)
+
+        # Check to make sure first character is 'p'
+        if not fe_list[0][0] == 'p':
+            s1 = 'The finite element family, \'%s\', has not been implemented.' \
+                 % fe_list[0][0]
+            raise NotImplementedError(s1)
+
+        # Check domain formulation.
+        domain = config['formulation']['domain']
+        if not domain in ['lagrangian', 'eulerian']:
+            s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' \
+                 % config['formulation']['domain']
+            raise ValueError(s1)
+
+        # Make sure that the BC dictionaries have the same
+        # number of regions, values, bools, etc., if any were
+        # specified. If they are not specified, set them to None.
+        if 'bcs' in config['formulation']:
+            try:
+                if not self.__check_bcs(config['formulation']['bcs']['dirichlet']):
+                    raise ValueError('The number of Dirichlet boundary regions and ' \
+                                     + 'values do not match!')
+            except KeyError:
+                config['formulation']['bcs']['dirichlet'] = None
+                print '*** No Dirichlet BCs were specified. ***'
+
+            try:
+                if not self.__check_bcs(config['formulation']['bcs']['neumann']):
+                    raise ValueError('The number of Neumann boundary regions and ' \
+                                     + 'values do not match!')
+
+                # Make sure all Neumann BC types are supported with domain specified.
+                try:
+                    neumann_types = config['formulation']['bcs']['neumann']['types']
+                except KeyError:
+                    raise KeyError('The Neumann BC type must be specified for each region.')
+
+                # Check that types are valid
+                valid_types = {'pressure', 'cauchy', 'piola'}
+                union = valid_types.union(neumann_types)
+                if len(union) > 3:
+                    s1 = 'At least one Neumann BC type is unrecognized. The type string must'
+                    s2 = ' be one of the three: ' + ', '.join(list(valid_types))
+                    raise NotImplementedError(s1 + s2)
+
+                if domain == 'eulerian' and 'piola' in neumann_types:
+                    s1 = 'Piola traction in an Eulerian formulation is not supported.'
+                    raise NotImplementedError(s1)
+
+            except KeyError:
+                config['formulation']['bcs']['neumann'] = None
+                print '*** No Neumann BCs were specified. ***'
+        else:
+            config['formulation']['bcs'] = dict()
+            config['formulation']['bcs']['dirichlet'] = None
+            config['formulation']['bcs']['neumann'] = None
+
+        # Check if material type has been implemented.
+        try:
+            submodule = getattr(materials, config['material']['type'])
+            # Check if specific constitutive equation is available.
+            try:
+                const_eqn = getattr(submodule, config['material']['const_eqn'])
+            except AttributeError:
+                s1 = 'The constitutive equation, \'%s\', has not been implemented.' \
+                     % config['material']['const_eqn']
+                raise NotImplementedError(s1)
+        except AttributeError:
+            s1 = 'The class of materials, \'%s\', has not been implemented.' \
+                 % config['material']['type']
+            raise NotImplementedError(s1)
 
         return None
 
@@ -242,16 +339,11 @@ class MechanicsProblem:
         """
 
         # Check if bcs were even provided (exit function if they weren't).
-        try:
-            if 'dirichlet' not in self.config['formulation']['bcs']:
-                self.dirichlet_bcs = None
-                return None
-        except KeyError:
-            if 'bcs' not in self.config['formulation']:
-                self.dirichlet_bcs = None
-                return None
+        if self.config['formulation']['bcs']['dirichlet'] is None:
+            self.dirichlet_bcs = None
+            return None
 
-        if self.config['mechanics']['material']['incompressible']:
+        if self.config['material']['incompressible']:
             V = self.functionSpace.sub(0)
         else:
             V = self.functionSpace
@@ -266,7 +358,8 @@ class MechanicsProblem:
             else:
                 steady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
 
-        self.dirichlet_bcs = {'unsteady': unsteady_bc_list, 'steady': steady_bc_list}
+        # self.dirichlet_bcs = {'unsteady': unsteady_bc_list, 'steady': steady_bc_list}
+        self.dirichlet_bcs = steady_bc_list # NEED TO ADD SUPPORT FOR UNSTEADY BCs
 
         return None
 
@@ -292,15 +385,9 @@ class MechanicsProblem:
         """
 
         # Check if bcs were even provided (exit function if they weren't).
-        try:
-            if 'neumann' not in self.config['formulation']['bcs']:
-                self.neumann_bcs = None
-                return None
-        except KeyError:
-            if 'bcs' not in self.config['formulation']:
-                # print '*** No boundary conditions were specified! ***'
-                self.neumann_bcs = None
-                return None
+        if self.config['formulation']['bcs']['neumann'] is None:
+            self.dirichlet_bcs = None
+            return None
 
         region_list = self.config['formulation']['bcs']['neumann']['regions']
         tt_list = self.config['formulation']['bcs']['neumann']['types']
@@ -320,16 +407,9 @@ class MechanicsProblem:
 
             if 'cauchy' in tt_list:
                 nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
-        elif domain == 'eulerian':
+        else:
             if 'pressure' in tt_list:
                 n = dlf.FacetNormal(self.mesh) # No need for Nanson's formula
-
-            if 'piola' in tt_list:
-                s1 = 'Piola traction in an Eulerian formulation is not supported.'
-                raise ValueError(s1)
-        else:
-            s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' % domain
-            raise ValueError(s1)
 
         steady_neumann_bcs = 0
         unsteady_neumann_bcs = 0
@@ -357,7 +437,8 @@ class MechanicsProblem:
             else:
                 steady_neumann_bcs += val
 
-        self.neumann_bcs = {'steady': steady_neumann_bcs, 'unsteady': unsteady_neumann_bcs}
+        # self.neumann_bcs = {'steady': steady_neumann_bcs, 'unsteady': unsteady_neumann_bcs}
+        self.neumann_bcs = steady_neumann_bcs # NEED TO ADD SUPPORT FOR UNSTEADY
 
         return None
 
@@ -395,6 +476,8 @@ class MechanicsProblem:
                 self.define_neumann_bcs()
             else:
                 self.neumann_bcs = None
+        except:
+            pass
 
         if self.config['formulation']['domain'] == 'eulerian':
             self.ufl_convec_accel = self.getUFLConvectiveAccel()
@@ -682,7 +765,7 @@ class MechanicsProblem:
 
         xi = self._testFunction
         du = self._trialFunction
-        rho = self.config['mechanics']['material']['density']
+        rho = self.config['material']['density']
 
         self.ufl_local_accel = dlf.dot(xi, rho*du)*dlf.dx
 
@@ -728,7 +811,7 @@ class MechanicsProblem:
             return None
 
         xi = self.test_vector
-        rho = self.config['mechanics']['material']['density']
+        rho = self.config['material']['density']
         self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.velocity)\
                                         * self.velocity)*dlf.dx
 
@@ -793,25 +876,23 @@ class MechanicsProblem:
         """
 
         # Get access fo the function defining the stress tensor
-        material_submodule = getattr(materials, self.config['mechanics']['material']['type'])
-        # stress_function = getattr(material_submodule, self.config['mechanics']['const_eqn'])
+        material_submodule = getattr(materials, self.config['material']['type'])
+        # stress_function = getattr(material_submodule, self.config['material']['const_eqn'])
         if self.config['formulation']['inverse']:
-            stress_function = getattr(material_submodule, 'inverse_' + self.config['mechanics']['const_eqn'])
+            stress_function = getattr(material_submodule, 'inverse_' + self.config['material']['const_eqn'])
         else:
-            stress_function = getattr(material_submodule, 'forward_' + self.config['mechanics']['const_eqn'])
-
-        print 'stress_function = ', stress_function.__name__
+            stress_function = getattr(material_submodule, 'forward_' + self.config['material']['const_eqn'])
 
         # stress_tensor = stress_function(self)
-        if self.config['mechanics']['const_eqn'] == 'neo_hookean':
+        if self.config['material']['const_eqn'] == 'neo_hookean':
             stress_tensor = stress_function(self.deformationGradient,
                                             self.jacobian,
-                                            self.config['mechanics']['material']['lambda'],
-                                            self.config['mechanics']['material']['mu'])
+                                            self.config['material']['lambda'],
+                                            self.config['material']['mu'])
         else:
             stress_tensor = stress_function(self.deformationGradient,
-                                            self.config['mechanics']['material']['lambda'],
-                                            self.config['mechanics']['material']['mu'])
+                                            self.config['material']['lambda'],
+                                            self.config['material']['mu'])
 
         xi = self.test_vector
 
@@ -835,7 +916,7 @@ class MechanicsProblem:
 
         """
 
-        rho = self.config['mechanics']['material']['density']
+        rho = self.config['material']['density']
         b = self.config['formulation']['body_force']
         xi = self.test_vector
 

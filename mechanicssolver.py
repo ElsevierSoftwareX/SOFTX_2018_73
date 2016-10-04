@@ -38,7 +38,7 @@ class MechanicsSolver:
         b = self.mechanics_problem._totalLoadVector
         soln_vec = self.mechanics_problem.displacement.vector()
 
-        for bc in self.mechanics_problem.dirichlet_bc_list:
+        for bc in self.mechanics_problem.dirichlet_bcs:
             bc.apply(A)
             bc.apply(b)
 
