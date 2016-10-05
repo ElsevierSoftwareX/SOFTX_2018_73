@@ -188,9 +188,6 @@ class MechanicsProblem:
                      % self.config['material']['type']
                 raise NotImplementedError(s1)
 
-        # # Define Neumann BCs
-        # self.define_ufl_neumann_bcs()
-
         # Define all necessary forms
         self.define_forms()
 
@@ -202,6 +199,27 @@ class MechanicsProblem:
 
     def check_config(self, user_config):
         """
+        Check that all parameters provided in 'user_config' are valid
+        based on the current capabilities of the package. If certain
+        keys are not provided, they are added with a value of 'None'.
+        An exception is raised when a parameter is found to be invalid.
+
+
+        Parameters
+        ----------
+
+        user_config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            MechanicsProblem to see the format of the dictionary.
+
+
+        Results
+        -------
+
+        config : dict
+            A copy of user_config with possibly new keys that are needed
+            if they were not originally provided.
 
 
         """
@@ -346,7 +364,7 @@ class MechanicsProblem:
 
     def define_dirichlet_bcs(self, functionSpace):
         """
-        Return a list of Dirichlet BC objects based on the problem configuration
+        Define a list of Dirichlet BC objects based on the problem configuration
         provided by the user.
 
 
@@ -356,13 +374,6 @@ class MechanicsProblem:
         functionSpace : dolfin.functions.functionspace.FunctionSpace
             dolfin object representing the discrete function space that
             will be used to approximate the solution to the weak form.
-
-
-        Returns
-        -------
-
-        bc_list : list
-            list of dolfin.fem.bcs.DirichletBC objects.
 
 
         """
@@ -377,41 +388,20 @@ class MechanicsProblem:
         else:
             V = self.functionSpace
 
-        steady_bc_list = list()
-        unsteady_bc_list = list()
-        for region, value, unsteady_bool in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
-                                                self.config['formulation']['bcs']['dirichlet']['values'],
-                                                self.config['formulation']['bcs']['dirichlet']['unsteady']):
-            if unsteady_bool:
-                unsteady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
-            else:
-                steady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
-
-        # IT MIGHT NOT BE NECESSARY TO SEPARATE THIS. JUST UPDATE THE
-        # TIME-DEPENDENT EXPRESSION...?
-        #
-        # self.dirichlet_bcs = {'unsteady': unsteady_bc_list, 'steady': steady_bc_list}
-        self.dirichlet_bcs = steady_bc_list # NEED TO ADD SUPPORT FOR UNSTEADY BCs
+        self.dirichlet_bcs = list()
+        for region, value in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
+                                 self.config['formulation']['bcs']['dirichlet']['values']):
+            self.dirichlet_bcs.append(dlf.DirichletBC(V, value, self.mesh_function, region))
 
         return None
 
 
     def define_ufl_neumann_bcs(self):
         """
-        Return the ufl form expressing the Neumann boundary conditions
-        based on the problem configuration provided by the user.
-
-
-        Parameters
-        ----------
-
-        xi : dolfin.functions.function.Argument
-
-
-        Returns
-        -------
-
-        total_neumann_bcs :
+        Define the UFL object representing the Neumann boundary
+        conditions based on the problem configuration given by
+        the user. The function exits if the object has already
+        been defined.
 
 
         """
@@ -448,44 +438,33 @@ class MechanicsProblem:
             if 'pressure' in tt_list:
                 n = dlf.FacetNormal(self.mesh) # No need for Nanson's formula
 
-        # steady_neumann_bcs = 0
-        # unsteady_neumann_bcs = 0
         self.ufl_neumann_bcs = 0
-        zipped_vals = zip(region_list, tt_list, value_list, unsteady_list)
+        zipped_vals = zip(region_list, tt_list, value_list)
 
-        for region, tt, value, unsteady_bool in zipped_vals:
+        for region, tt, value in zipped_vals:
 
             ds_region = dlf.ds(region, domain=self.mesh,
                                subdomain_data=self.mesh_function)
 
-            val = 0
             if tt == 'pressure':
-                val -= dlf.dot(self.test_vector, value*n)*ds_region
+                val = -dlf.dot(self.test_vector, value*n)*ds_region
             elif tt == 'cauchy' and domain == 'lagrangian':
-                val += nanson_mag*dlf.dot(self.test_vector, value)*ds_region
+                val = nanson_mag*dlf.dot(self.test_vector, value)*ds_region
             elif tt == 'cauchy' and domain == 'eulerian':
-                val += dlf.dot(self.test_vector, value)*ds_region
+                val = dlf.dot(self.test_vector, value)*ds_region
             else: # piola traction in lagrangian coordinates
-                val += dlf.dot(self.test_vector, value)*ds_region
-
-            # if unsteady_bool:
-            #     unsteady_neumann_bcs += val
-            # else:
-            #     steady_neumann_bcs += val
+                val = dlf.dot(self.test_vector, value)*ds_region
 
             self.ufl_neumann_bcs += val
-
-        # IT MIGHT NOT BE NECESSARY TO SEPARATE THIS. JUST UPDATE THE
-        # TIME-DEPENDENT EXPRESSION...?
-        #
-        # self.neumann_bcs = {'steady': steady_neumann_bcs, 'unsteady': unsteady_neumann_bcs}
-        # self.ufl_neumann_bcs = steady_neumann_bcs # NEED TO ADD SUPPORT FOR UNSTEADY
 
         return None
 
 
     def define_ufl_local_accel(self):
         """
+        Define the UFL object corresponding to the local acceleration
+        term in the weak form. The function exits if it has already
+        been defined.
 
 
         """
@@ -504,7 +483,10 @@ class MechanicsProblem:
 
     def define_ufl_local_accel_diff(self):
         """
-
+        Define the UFL object that describes the matrix that results
+        from taking the Gateaux derivative of the local acceleration
+        term in the weak form. The function exits if it has already
+        been defined.
 
         """
 
@@ -522,7 +504,9 @@ class MechanicsProblem:
 
     def define_ufl_convec_accel(self):
         """
-
+        Define the UFL object corresponding to the convective acceleration
+        term in the weak form. The function exits if it has already been
+        defined.
 
         """
 
@@ -539,7 +523,9 @@ class MechanicsProblem:
 
     def define_ufl_convec_accel_diff(self):
         """
-
+        Define the UFL object corresponding to the Gateaux derivative of
+        the convective acceleration term in the weak form. The function
+        exits if it has already been defined.
 
         """
 
@@ -558,7 +544,9 @@ class MechanicsProblem:
 
     def define_ufl_stress_work(self):
         """
-
+        Define the UFL object corresponding to the stress tensor term
+        in the weak form. The function exits if it has already been
+        defined.
 
         """
 
@@ -578,7 +566,9 @@ class MechanicsProblem:
 
     def define_ufl_stress_work_diff(self):
         """
-
+        Define the UFL object corresponding to the Gateaux derivative of
+        the stress tensor term in the weak form. The function exits if it
+        has already been defined.
 
         """
 
@@ -604,7 +594,8 @@ class MechanicsProblem:
 
     def define_ufl_body_force(self):
         """
-
+        Define the UFL object corresponding to the body force term in
+        the weak form. The function exits if it has already been defined.
 
         """
 
@@ -622,7 +613,8 @@ class MechanicsProblem:
 
     def define_forms(self):
         """
-
+        Define all of the forms necessary for the problem specified
+        by the user.
 
         """
 
@@ -728,40 +720,47 @@ class MechanicsProblem:
 
     def update_time(self, t):
         """
-
+        Update the time parameter in the BCs that depend on time explicitly.
+        Also, the body force expression if necessary.
 
         """
 
         if self.dirichlet_bcs is not None:
             self.update_dirichlet_time(t)
 
+        neumann_updated = False
         if self.ufl_neumann_bcs is not None:
-            self.update_neumann_time(t)
+            neumann_updated = self.update_neumann_time(t)
 
+        bodyforce_updated = False
         if self.ufl_body_force is not None:
-            self.update_bodyforce_time(t)
+            bodyforce_updated = self.update_bodyforce_time(t)
+
+        if neumann_updated or bodyforce_updated:
+            self.assembleLoadVector()
 
         return None
 
 
     def update_dirichlet_time(self, t):
         """
-
+        Update the time parameter in the Dirichlet BCs that depend on time
+        explicitly.
 
         """
 
-        need_to_update = False
         for expr in self.config['formulation']['bcs']['dirichlet']['values']:
             if hasattr(expr, 't'):
                 expr.t = t
-                need_to_update = True
 
         return None
 
 
     def update_neumann_time(self, t):
         """
-
+        Update the time parameter in the Neumann BCs that depend on time
+        explicitly. The PETSc vector corresponding to this term is assembled
+        again if necessary.
 
         """
 
@@ -774,26 +773,33 @@ class MechanicsProblem:
         if need_to_update:
             self.assembleTractionVector()
 
-        return None
+        return need_to_update
 
 
     def update_bodyforce_time(self, t):
         """
-
+        Update the time parameter in the body force expression if it depends
+        on time explicitly. The PETSc vector corresponding to this term is
+        assembled again if necessary.
 
         """
+
+        need_to_update = False
 
         expr = self.config['formulation']['body_force']
         if hasattr(expr, 't'):
             expr.t = t
             self.assembleBodyForceVector()
+            need_to_update = True
 
-        return None
+        return need_to_update
 
 
     def assemble_all(self):
         """
-
+        Assemble the PETSc matrices and vectors that correspond to the
+        necessary terms based on the problem configuration provided by
+        the user.
 
         """
 
