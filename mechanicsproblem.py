@@ -308,6 +308,7 @@ class MechanicsProblem:
                 config['formulation']['bcs']['neumann'] = None
                 print '*** No Neumann BCs were specified. ***'
         else:
+            print '*** No BCs (Neumann or Dirichlet) were specified. ***'
             config['formulation']['bcs'] = dict()
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
@@ -731,9 +732,14 @@ class MechanicsProblem:
 
         """
 
-        self.update_dirichlet_time(t)
-        self.update_neumann_time(t)
-        self.update_bodyforce_time(t)
+        if self.dirichlet_bcs is not None:
+            self.update_dirichlet_time(t)
+
+        if self.ufl_neumann_bcs is not None:
+            self.update_neumann_time(t)
+
+        if self.ufl_body_force is not None:
+            self.update_bodyforce_time(t)
 
         return None
 
@@ -965,7 +971,7 @@ class MechanicsProblem:
 
     def get_dirichlet_bcs(self):
 
-        return self.dirichlet_bc_list
+        return self.dirichlet_bcs
 
 
     def get_ufl_neumann_bcs(self):
