@@ -106,28 +106,27 @@ class MechanicsProblem:
 
     """
 
-    def __init__(self, config, **kwargs):
-
-        # Obtain mesh and mesh function
-        self.mesh = load_mesh(config['mesh']['mesh_file'])
-        self.mesh_function = load_mesh_function(config['mesh']['mesh_function'], self.mesh)
+    def __init__(self, user_config, **kwargs):
 
         # Check configuration dictionary
-        self.check_config(config)
-        self.config = config # Passed all the checks
+        self.config = self.check_config(user_config)
 
-        if config['material']['incompressible']:
+        # Obtain mesh and mesh function
+        self.mesh = load_mesh(self.config['mesh']['mesh_file'])
+        self.mesh_function = load_mesh_function(self.config['mesh']['mesh_function'], self.mesh)
+
+        if self.config['material']['incompressible']:
             P_u = dlf.VectorElement('CG',
                                     self.mesh.ufl_cell(),
-                                    int(config['mesh']['element'][0][-1]))
+                                    int(self.config['mesh']['element'][0][-1]))
             P_p = dlf.FiniteElement('CG',
                                     self.mesh.ufl_cell(),
-                                    int(config['mesh']['element'][1][-1]))
+                                    int(self.config['mesh']['element'][1][-1]))
             element = P_u*P_p
         else:
             element = dlf.VectorElement('CG',
                                         self.mesh.ufl_cell(),
-                                        int(config['mesh']['element'][0][-1]))
+                                        int(self.config['mesh']['element'][0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
         self.functionSpace = dlf.FunctionSpace(self.mesh, element)
@@ -143,11 +142,11 @@ class MechanicsProblem:
         self._trialFunction = sys_du
 
         # Initial condition if provided
-        if 'initial_condition' in config['formulation']:
-            sys_u.interpolate(config['formulation']['initial_condition'])
+        if 'initial_condition' in self.config['formulation']:
+            sys_u.interpolate(self.config['formulation']['initial_condition'])
 
         # Check if material is incompressible, and then formulate problem
-        if config['material']['incompressible']:
+        if self.config['material']['incompressible']:
 
             # Define Dirichlet BCs
             self.define_dirichlet_bcs(self.functionSpace.sub(0))
@@ -158,14 +157,16 @@ class MechanicsProblem:
             # Obtain pointers to each sub function
             self.displacement, self.pressure = dlf.split(sys_u)
             self.test_vector, self.test_scalar = dlf.split(sys_xi)
+            self.trial_vector, self.trial_scalar = dlf.split(sys_du)
 
+            # THIS SHOULD CHECK FOR VISCOUS MATERIALS IN THE FUTURE
             if config['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(self.displacement)
                 self.deformationRateGradient = None
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, %s, has not been implemented!' \
-                     % config['material']['type']
+                     % self.config['material']['type']
                 raise NotImplementedError(s1)
 
         else:
@@ -173,20 +174,25 @@ class MechanicsProblem:
             self.define_dirichlet_bcs(self.functionSpace)
 
             # Make test function (displacement) member data
-            self.test_vector, self.test_scalar = dlf.TestFunction(self.functionSpace), None
             self.displacement, self.pressure = sys_u, None
+            self.test_vector, self.test_scalar = dlf.TestFunction(self.functionSpace), None
+            self.trial_vector, self.trial_scalar = sys_du, None
 
-            if config['material']['type'] == 'elastic':
+            # THIS SHOULD CHECK FOR VISCOUS MATERIALS IN THE FUTURE
+            if self.config['material']['type'] == 'elastic':
                 self.deformationGradient = I + dlf.grad(self.displacement)
                 self.deformationRateGradient = None
                 self.jacobian = dlf.det(self.deformationGradient)
             else:
                 s1 = 'The material type, \'%s\', has not been implemented!' \
-                     % config['material']['type']
+                     % self.config['material']['type']
                 raise NotImplementedError(s1)
 
-        # Define Neumann BCs
-        self.define_neumann_bcs()
+        # # Define Neumann BCs
+        # self.define_ufl_neumann_bcs()
+
+        # Define all necessary forms
+        self.define_forms()
 
         # Initialize PETSc matrices and vectors
         self.init_all()
@@ -194,12 +200,16 @@ class MechanicsProblem:
         return None
 
 
-    def check_config(self, config):
+    def check_config(self, user_config):
         """
 
 
         """
 
+        # Make a copy to avoid altering the original object
+        config = user_config.copy()
+
+        ############################################################
         # Check if the finite element type is provided.
         if 'element' not in config['mesh']:
             raise ValueError('You need to specify the type of element(s) to use.')
@@ -213,7 +223,7 @@ class MechanicsProblem:
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
             s1 = 'The current formulation allows 1 or 2 fields.\n'
-            s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len(fe_list)
+            s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len_fe_list
             raise NotImplementedError(s1 + s2)
         elif len_fe_list == 1 and config['material']['incompressible']:
             s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
@@ -247,6 +257,7 @@ class MechanicsProblem:
                  % fe_list[0][0]
             raise NotImplementedError(s1)
 
+        ############################################################
         # Check domain formulation.
         domain = config['formulation']['domain']
         if not domain in ['lagrangian', 'eulerian']:
@@ -254,10 +265,13 @@ class MechanicsProblem:
                  % config['formulation']['domain']
             raise ValueError(s1)
 
+        ############################################################
         # Make sure that the BC dictionaries have the same
         # number of regions, values, bools, etc., if any were
         # specified. If they are not specified, set them to None.
         if 'bcs' in config['formulation']:
+
+            # Check Dirichlet BCs
             try:
                 if not self.__check_bcs(config['formulation']['bcs']['dirichlet']):
                     raise ValueError('The number of Dirichlet boundary regions and ' \
@@ -266,6 +280,7 @@ class MechanicsProblem:
                 config['formulation']['bcs']['dirichlet'] = None
                 print '*** No Dirichlet BCs were specified. ***'
 
+            # Check Neumann BCs
             try:
                 if not self.__check_bcs(config['formulation']['bcs']['neumann']):
                     raise ValueError('The number of Neumann boundary regions and ' \
@@ -297,9 +312,11 @@ class MechanicsProblem:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
 
+        ############################################################
         # Check if material type has been implemented.
         try:
             submodule = getattr(materials, config['material']['type'])
+
             # Check if specific constitutive equation is available.
             try:
                 const_eqn = getattr(submodule, config['material']['const_eqn'])
@@ -312,7 +329,18 @@ class MechanicsProblem:
                  % config['material']['type']
             raise NotImplementedError(s1)
 
-        return None
+        ############################################################
+        # Check for unsteady flag in dictionary. Assume problem is
+        # a steady-state problem if not provided.
+        if 'unsteady' not in config['formulation']:
+            config['formulation']['unsteady'] = False
+
+        ############################################################
+        # Check if body force was provided. Assume zero if not.
+        if 'body_force' not in config['formulation']:
+            config['formulation']['body_force'] = None
+
+        return config
 
 
     def define_dirichlet_bcs(self, functionSpace):
@@ -338,7 +366,7 @@ class MechanicsProblem:
 
         """
 
-        # Check if bcs were even provided (exit function if they weren't).
+        # Exit function if no Dirichlet BCs were provided.
         if self.config['formulation']['bcs']['dirichlet'] is None:
             self.dirichlet_bcs = None
             return None
@@ -358,13 +386,16 @@ class MechanicsProblem:
             else:
                 steady_bc_list.append(dlf.DirichletBC(V, value, self.mesh_function, region))
 
+        # IT MIGHT NOT BE NECESSARY TO SEPARATE THIS. JUST UPDATE THE
+        # TIME-DEPENDENT EXPRESSION...?
+        #
         # self.dirichlet_bcs = {'unsteady': unsteady_bc_list, 'steady': steady_bc_list}
         self.dirichlet_bcs = steady_bc_list # NEED TO ADD SUPPORT FOR UNSTEADY BCs
 
         return None
 
 
-    def define_neumann_bcs(self):
+    def define_ufl_neumann_bcs(self):
         """
         Return the ufl form expressing the Neumann boundary conditions
         based on the problem configuration provided by the user.
@@ -384,9 +415,13 @@ class MechanicsProblem:
 
         """
 
-        # Check if bcs were even provided (exit function if they weren't).
+        # Exit function if already defined.
+        if hasattr(self, 'ufl_neumann_bcs'):
+            return None
+
+        # Exit function if no Neumann BCs were provided.
         if self.config['formulation']['bcs']['neumann'] is None:
-            self.dirichlet_bcs = None
+            self.ufl_neumann_bcs = None
             return None
 
         region_list = self.config['formulation']['bcs']['neumann']['regions']
@@ -396,6 +431,7 @@ class MechanicsProblem:
 
         domain = self.config['formulation']['domain']
 
+        # Check if Nanson's formula is necessary
         if domain == 'lagrangian':
             if 'pressure' in tt_list or 'cauchy' in tt_list:
                 Finv = dlf.inv(self.deformationGradient)
@@ -411,8 +447,9 @@ class MechanicsProblem:
             if 'pressure' in tt_list:
                 n = dlf.FacetNormal(self.mesh) # No need for Nanson's formula
 
-        steady_neumann_bcs = 0
-        unsteady_neumann_bcs = 0
+        # steady_neumann_bcs = 0
+        # unsteady_neumann_bcs = 0
+        self.ufl_neumann_bcs = 0
         zipped_vals = zip(region_list, tt_list, value_list, unsteady_list)
 
         for region, tt, value, unsteady_bool in zipped_vals:
@@ -427,18 +464,157 @@ class MechanicsProblem:
                 val += nanson_mag*dlf.dot(self.test_vector, value)*ds_region
             elif tt == 'cauchy' and domain == 'eulerian':
                 val += dlf.dot(self.test_vector, value)*ds_region
-            elif tt == 'piola':
+            else: # piola traction in lagrangian coordinates
                 val += dlf.dot(self.test_vector, value)*ds_region
-            else:
-                raise NotImplementedError('Neumann BC of type %s is not implemented!' % tt)
 
-            if unsteady_bool:
-                unsteady_neumann_bcs += val
-            else:
-                steady_neumann_bcs += val
+            # if unsteady_bool:
+            #     unsteady_neumann_bcs += val
+            # else:
+            #     steady_neumann_bcs += val
 
+            self.ufl_neumann_bcs += val
+
+        # IT MIGHT NOT BE NECESSARY TO SEPARATE THIS. JUST UPDATE THE
+        # TIME-DEPENDENT EXPRESSION...?
+        #
         # self.neumann_bcs = {'steady': steady_neumann_bcs, 'unsteady': unsteady_neumann_bcs}
-        self.neumann_bcs = steady_neumann_bcs # NEED TO ADD SUPPORT FOR UNSTEADY
+        # self.ufl_neumann_bcs = steady_neumann_bcs # NEED TO ADD SUPPORT FOR UNSTEADY
+
+        return None
+
+
+    def define_ufl_local_accel(self):
+        """
+
+
+        """
+
+        # Exit if form is already defined!
+        if hasattr(self, 'ufl_local_accel'):
+            return None
+
+        xi = self.test_vector
+        rho = self.config['material']['density']
+
+        self.ufl_local_accel = dlf.dot(xi, rho*self.acceleration)*dlf.dx
+
+        return None
+
+
+    def define_ufl_local_accel_diff(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_local_accel_diff'):
+            return None
+
+        xi = self.test_vector
+        du = self.trial_vector
+        rho = self.config['material']['density']
+
+        self.ufl_local_accel_diff = dlf.dot(xi, rho*du)*dlf.dx
+
+        return None
+
+
+    def define_ufl_convec_accel(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_convec_accel'):
+            return None
+
+        xi = self.test_vector
+        rho = self.config['material']['density']
+        self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.velocity)\
+                                        * self.velocity)*dlf.dx
+
+        return None
+
+
+    def define_ufl_convec_accel_diff(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_convec_accel_diff'):
+            return None
+
+        if not hasattr(self, 'ufl_convec_accel'):
+            self.define_ufl_convec_accel()
+
+        self.ufl_convec_accel_diff = dlf.derivative(self.ufl_convec_accel,
+                                                    self.velocity,
+                                                    self._trialFunction)
+
+        return None
+
+
+    def define_ufl_stress_work(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_stress_work'):
+            return None
+
+        # Get access to the function defining the stress tensor
+        material_submodule = getattr(materials, self.config['material']['type'])
+        stress_function = getattr(material_submodule, self.config['material']['const_eqn'])
+        stress_tensor = stress_function(self)
+
+        xi = self.test_vector
+        self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
+
+        return None
+
+
+    def define_ufl_stress_work_diff(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_stress_work_diff'):
+            return None
+
+        if not hasattr(self, 'ufl_stress_work'):
+            self.define_ufl_stress_work()
+
+        if self.config['material']['type'] == 'elastic':
+            self.ufl_stress_work_diff = dlf.derivative(self.ufl_stress_work,
+                                                       self.displacement,
+                                                       self.trial_vector)
+        else:
+            # # TAKE DERIVATIVE AT VELOCITY IF VISCOUS MATERIAL.
+            # self.ufl_stress_work_diff = dlf.derivative(self.ufl_stress_work,
+            #                                            self.velocity,
+            #                                            self.trial_vector)
+            raise NotImplementedError('Material type is not implemented.')
+
+        return None
+
+
+    def define_ufl_body_force(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'ufl_body_force'):
+            return None
+
+        rho = self.config['material']['density']
+        b = self.config['formulation']['body_force']
+        xi = self.test_vector
+
+        self.ufl_body_force = dlf.dot(xi, rho*b)*dlf.dx
 
         return None
 
@@ -449,45 +625,38 @@ class MechanicsProblem:
 
         """
 
-        # Check if problem was specified as unsteady. Assume it is steady
-        # if key was not provided.
-        try:
-            if self.config['formulation']['unsteady']:
-                self.ufl_local_accel = self.getUFLLocalAccel()
-            else:
-                self.ufl_local_accel = None
-        except KeyError:
+        # Check if problem was specified as unsteady.
+        if self.config['formulation']['unsteady']:
+            self.define_local_accel()
+            self.define_local_accel_diff()
+        else:
             self.ufl_local_accel = None
+            self.ufl_local_accel_diff = None
 
-        # Define UFL object corresponding to the body force term. Assume
-        # it is zero if key was not provided.
-        try:
-            if self.config['formulation']['body_force']:
-                self.ufl_body_force = self.getUFLBodyWork()
-            else:
-                self.ufl_body_force = None
-        except KeyError:
-            self.ufl_body_force = None
-
-        # Define UFL object corresponding to the traction force terms. Assume
-        # it is zero if key was not provided.
-        try:
-            if self.config['formulation']['bcs']['neumann']:
-                self.define_neumann_bcs()
-            else:
-                self.neumann_bcs = None
-        except:
-            pass
-
+        # Define UFL objects corresponding to the convective acceleration
+        # if problem is formulated with respect to Eulerian coordinates
         if self.config['formulation']['domain'] == 'eulerian':
-            self.ufl_convec_accel = self.getUFLConvectiveAccel()
-            self.ufl_convec_accel_diff = self.getUFLConvectiveAccelDifferential()
+            self.define_ufl_convec_accel()
+            self.define_ufl_convec_accel_diff()
         else:
             self.ufl_convec_accel = None
             self.ufl_convec_accel_diff = None
 
-        self.ufl_stress_work = self.getUFLStressWork()
-        self.ufl_stress_work_diff = self.getUFLStressWorkDifferential()
+        # Define UFL objects corresponding to the stress tensor term.
+        # This should always be non-zero for deformable bodies.
+        self.define_ufl_stress_work()
+        self.define_ufl_stress_work_diff()
+
+        # Define UFL object corresponding to the body force term. Assume
+        # it is zero if key was not provided.
+        if self.config['formulation']['body_force']:
+            self.define_ufl_body_force()
+        else:
+            self.ufl_body_force = None
+
+        # Define UFL object corresponding to the traction force terms. Assume
+        # it is zero if key was not provided.
+        self.define_ufl_neumann_bcs()
 
         return None
 
@@ -499,39 +668,16 @@ class MechanicsProblem:
 
         """
 
-        # Check if problem was specified as unsteady. Assume it is steady
-        # if key was not provided.
-        try:
-            if self.config['formulation']['unsteady']:
-                self._localAccelMatrix = dlf.PETScMatrix()
-            else:
-                self._localAccelMatrix = None
-        except KeyError:
+        # Check if problem was specified as unsteady.
+        if self.ufl_local_accel is not None:
+            self._localAccelMatrix = dlf.PETScMatrix()
+            self._localAccelVector = dlf.PETScVector()
+        else:
             self._localAccelMatrix = None
-
-        # Initialize the vector corresponding to the body force term. Assume
-        # it is zero if key was not provided.
-        try:
-            if self.config['formulation']['body_force']:
-                self._bodyForceVector = dlf.PETScVector()
-            else:
-                self._bodyForceVector = None
-        except KeyError:
-            self._bodyForceVector = None
-
-        # Initialize vector corresponding to the traction force terms. Assume
-        # it is zero if key was not provided.
-        try:
-            if self.config['formulation']['bcs']['neumann']:
-                self._tractionVector = dlf.PETScVector()
-            else:
-                self._tractionVector = None
-        except KeyError:
-            self._tractionVector = None
+            self._localAccelVector = None
 
         # Check if problem was formulated in Eulerian coordinates
-        # to include the convective acceleration term. Note that
-        # this MUST be provided, hence no exception handling.
+        # to include the convective acceleration term.
         if self.config['formulation']['domain'] == 'eulerian':
             self._convectiveAccelMatrix = dlf.PETScMatrix()
             self._convectiveAccelVector = dlf.PETScVector()
@@ -539,9 +685,22 @@ class MechanicsProblem:
             self._convectiveAccelMatrix = None
             self._convectiveAccelVector = None
 
-        # This should always be non-zero, otherwise there is no
-        # problem to solve.
+        # This should always be non-zero for deformable bodies.
         self._stressWorkMatrix = dlf.PETScMatrix()
+        self._stressWorkVector = dlf.PETScVector()
+
+        # Initialize the vector corresponding to the body force term.
+        if self.ufl_body_force is not None:
+            self._bodyForceWorkVector = dlf.PETScVector()
+        else:
+            self._bodyForceWorkVector = None
+
+        # Initialize vector corresponding to the traction force terms. Assume
+        # it is zero if key was not provided.
+        if self.ufl_neumann_bcs is not None:
+            self._tractionWorkVector = dlf.PETScVector()
+        else:
+            self._tractionWorkVector = None
 
         return None
 
@@ -560,6 +719,69 @@ class MechanicsProblem:
         # - Body force
         # - Functions storing solutions (displacement, velocity, pressure)
 
+        if t is not None:
+            self.update_time(t)
+
+        return None
+
+
+    def update_time(self, t):
+        """
+
+
+        """
+
+        self.update_dirichlet_time(t)
+        self.update_neumann_time(t)
+        self.update_bodyforce_time(t)
+
+        return None
+
+
+    def update_dirichlet_time(self, t):
+        """
+
+
+        """
+
+        need_to_update = False
+        for expr in self.config['formulation']['bcs']['dirichlet']['values']:
+            if hasattr(expr, 't'):
+                expr.t = t
+                need_to_update = True
+
+        return None
+
+
+    def update_neumann_time(self, t):
+        """
+
+
+        """
+
+        need_to_update = False
+        for expr in self.config['formulation']['bcs']['neumann']['values']:
+            if hasattr(expr, 't'):
+                expr.t = t
+                need_to_update = True
+
+        if need_to_update:
+            self.assembleTractionVector()
+
+        return None
+
+
+    def update_bodyforce_time(self, t):
+        """
+
+
+        """
+
+        expr = self.config['formulation']['body_force']
+        if hasattr(expr, 't'):
+            expr.t = t
+            self.assembleBodyForceVector()
+
         return None
 
 
@@ -572,6 +794,7 @@ class MechanicsProblem:
         # Assemble local acceleration matrix is problem is unsteady.
         if self._localAccelMatrix is not None:
             self.assembleLocalAccelMatrix()
+            self.assembleLocalAccelVector()
 
         # Assemble convective acceleration matrix and vector.
         if self._convectiveAccelMatrix is not None:
@@ -582,6 +805,7 @@ class MechanicsProblem:
 
         # Assemble the matrix from stress work
         self.assembleStressWorkMatrix()
+        self.assembleStressWorkVector()
 
         # Assemble the vectors corresponding to body force, traction,
         # and their sum
@@ -694,20 +918,20 @@ class MechanicsProblem:
 
         """
 
-        body_not_none = self._bodyForceVector is not None
-        trac_not_none = self._tractionVector is not None
+        body_not_none = self._bodyForceWorkVector is not None
+        trac_not_none = self._tractionWorkVector is not None
 
         if body_not_none and trac_not_none:
             self.assembleBodyForceVector()
             self.assembleTractionVector()
-            self._totalLoadVector = self._bodyForceVector \
-                                    + self._tractionVector
+            self._totalLoadVector = self._bodyForceWorkVector \
+                                    + self._tractionWorkVector
         elif body_not_none:
             self.assembleBodyForceVector()
-            self._totalLoadVector = dlf.PETScVector(self._bodyForceVector)
+            self._totalLoadVector = dlf.PETScVector(self._bodyForceWorkVector)
         elif trac_not_none:
             self.assembleTractionVector()
-            self._totalLoadVector = dlf.PETScVector(self._tractionVector)
+            self._totalLoadVector = dlf.PETScVector(self._tractionWorkVector)
         else:
             s1 = 'Total load vector is zero. There is no problem to solve! '
             s2 = 'Check the specified body and traction forces.'
@@ -723,7 +947,7 @@ class MechanicsProblem:
         """
 
         body_work = self.getUFLBodyWork()
-        dlf.assemble(body_work, tensor=self._bodyForceVector)
+        dlf.assemble(body_work, tensor=self._bodyForceWorkVector)
 
         return None
 
@@ -734,7 +958,7 @@ class MechanicsProblem:
 
         """
 
-        dlf.assemble(self.neumann_bcs, tensor=self._tractionVector)
+        dlf.assemble(self.ufl_neumann_bcs, tensor=self._tractionWorkVector)
 
         return None
 
@@ -744,32 +968,14 @@ class MechanicsProblem:
         return self.dirichlet_bc_list
 
 
-    def get_neumann_bcs(self):
+    def get_ufl_neumann_bcs(self):
 
-        return self.neumann_bcs
+        return self.ufl_neumann_bcs
 
 
     def getLocalAccelMatrix(self):
 
         return self._localAccelMatrix
-
-
-    def define_ufl_local_accel(self):
-        """
-
-        """
-
-        # Exit if form is already defined!
-        if hasattr(self, 'ufl_local_accel'):
-            return None
-
-        xi = self._testFunction
-        du = self._trialFunction
-        rho = self.config['material']['density']
-
-        self.ufl_local_accel = dlf.dot(xi, rho*du)*dlf.dx
-
-        return None
 
 
     def getUFLLocalAccel(self):
@@ -801,23 +1007,6 @@ class MechanicsProblem:
         return self.ufl_local_accel
 
 
-    def define_ufl_convec_accel(self):
-        """
-
-
-        """
-
-        if hasattr(self, 'ufl_convec_accel'):
-            return None
-
-        xi = self.test_vector
-        rho = self.config['material']['density']
-        self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.velocity)\
-                                        * self.velocity)*dlf.dx
-
-        return None
-
-
     def getConvectiveAccelMatrix(self):
 
         return self._convectiveAccelMatrix
@@ -838,25 +1027,6 @@ class MechanicsProblem:
             self.define_ufl_convec_accel()
 
         return self.ufl_convec_accel
-
-
-    def define_ufl_convec_accel_diff(self):
-        """
-
-
-        """
-
-        if hasattr(self, 'ufl_convec_accel_diff'):
-            return None
-
-        if not hasattr(self, 'ufl_convec_accel'):
-            self.define_ufl_convec_accel()
-
-        self.ufl_convec_accel_diff = dlf.derivative(self.ufl_convec_accel_diff,
-                                                    self.velocity, self._trialFunction)
-
-        return None
-
 
     def getUFLConvectiveAccelDifferential(self):
         """

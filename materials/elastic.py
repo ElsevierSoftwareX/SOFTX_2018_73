@@ -60,12 +60,12 @@ def lin_elastic(problem):
 
     if problem.config['formulation']['inverse']:
         T = inverse_lin_elastic(problem.deformationGradient,
-                                problem.config['mechanics']['material']['lambda'],
-                                problem.config['mechanics']['material']['mu'])
+                                problem.config['material']['lambda'],
+                                problem.config['material']['mu'])
     else:
         T = forward_lin_elastic(problem.deformationGradient,
-                                problem.config['mechanics']['material']['lambda'],
-                                problem.config['mechanics']['material']['mu'])
+                                problem.config['material']['lambda'],
+                                problem.config['material']['mu'])
 
     return T
 
@@ -126,11 +126,11 @@ def neo_hookean(problem):
     dim = find_dim(F)
     I = dlf.Identity(dim)
 
-    la = problem.config['mechanics']['material']['lambda']
-    mu = problem.config['mechanics']['material']['mu']
+    la = problem.config['material']['lambda']
+    mu = problem.config['material']['mu']
 
     if problem.config['formulation']['inverse']:
-        if problem.config['mechanics']['material']['incompressible']:
+        if problem.config['material']['incompressible']:
             fbar = J**(-1.0/dim)*F
             jbar = dlf.det(fbar)
             stress = inverse_neo_hookean(fbar, jbar, la, mu)
@@ -141,7 +141,7 @@ def neo_hookean(problem):
             # the current to the reference configuration.
             stress = inverse_neo_hookean(F, J, la, mu)
     else:
-        if problem.config['mechanics']['material']['incompressible']:
+        if problem.config['material']['incompressible']:
             Fbar = J**(-1.0/dim)*F
             Jbar = dlf.det(Fbar)
             stress = forward_neo_hookean(Fbar, Jbar, la, mu)
