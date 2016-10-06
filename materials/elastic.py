@@ -3,45 +3,6 @@ import dolfin as dlf
 from ufl.domain import find_geometric_dimension as find_dim
 
 
-# # This function might not be necessary!!!!!
-# def elasticMaterial(problem, name='lin-elastic', strain=False,
-#             incompressible=False, inverse=False):
-#     """
-#     Return the stress tensor of the specified constitutive equation.
-#     # Return either the strain energy function or the stress tensor of the
-#     # specified constitutive equation.
-
-#     Parameters
-#     ----------
-
-#     problem : MechanicsProblem
-#         This object must be an instance of the MechanicsProblem class,
-#         which contains necessary data to formulate the variational form,
-#         such as material parameters.
-#     name : string
-#         The name of the constitutive equation used. To see a list of
-#         implemented constitutive equations, print the list by the
-#         name 'implemented'.
-#     strain : bool
-#         Should be set to True if the strain energy function is to be
-#         returned as opposed
-
-#     """
-
-#     dim = find_dim(problem.deformationGradient)
-#     I = dlf.Identity(dim)
-
-#     if problem.const_eqn.lower() == 'lin-elastic':
-#         stress = lin_elastic(problem)
-#     elif problem.const_eqn.lower() == 'neo-hookean':
-#         stress = neo_hookean(problem)
-#     else:
-#         s1 = "The constitutive equation, '%s', has not been implemented."
-#         raise NotImplementedError(s1 % problem.const_eqn.lower())
-
-#     return stress
-
-
 def lin_elastic(problem):
     """
     Return the Cauchy stress tensor of a linear elastic material. The

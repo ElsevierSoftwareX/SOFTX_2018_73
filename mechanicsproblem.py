@@ -71,38 +71,29 @@ class MechanicsProblem:
                     boundary conditions are to be imposed. These IDs
                     must match those used by the mesh function provided.
                     The order must match the order used in the list of
-                    unsteady booleans, and values.
-               * 'unsteady' : list, tuple
-                    List of booleans specifying whether each region is time
-                    dependent (True) or not (False). The order must match
-                    the order used in the list of region IDs, and values.
+                    values.
                * 'values' : list, tuple
                     List of values (dolfin.Constant or dolfin.Expression)
                     for each region Dirichlet boundary region specified.
                     The order must match the order used in the list of
-                    region IDs, and unsteady booleans.
+                    region IDs.
            * 'neumann'
                * 'regions' : list, tuple
                     List of the region IDs (int) on which Neumann
                     boundary conditions are to be imposed. These IDs
                     must match those used by the mesh function provided.
                     The order must match the order used in the list of
-                    types, unsteady booleans, and values.
+                    types and values.
                * 'types' : list, tuple
                     List of strings specifying whether a 'pressure', 'piola',
                     or 'cauchy' is provided for each region. The order
-                    must match the order used in the list of region IDs,
-                    unsteady booleans, and values.
-               * 'unsteady' : list, tuple
-                    List of booleans specifying whether each region is time
-                    dependent (True) or not (False). The order must match
-                    the order used in the list of region IDs, types, and
-                    values.
+                    must match the order used in the list of region IDs
+                    and values.
                * 'values' : list, tuple
                     List of values (dolfin.Constant or dolfin.Expression)
                     for each Dirichlet boundary region specified. The order
-                    must match the order used in the list of region IDs,
-                    types, and unsteady booleans.
+                    must match the order used in the list of region IDs
+                    and types.
 
     """
 
@@ -116,16 +107,13 @@ class MechanicsProblem:
         self.mesh_function = load_mesh_function(self.config['mesh']['mesh_function'], self.mesh)
 
         if self.config['material']['incompressible']:
-            P_u = dlf.VectorElement('CG',
-                                    self.mesh.ufl_cell(),
+            P_u = dlf.VectorElement('CG', self.mesh.ufl_cell(),
                                     int(self.config['mesh']['element'][0][-1]))
-            P_p = dlf.FiniteElement('CG',
-                                    self.mesh.ufl_cell(),
+            P_p = dlf.FiniteElement('CG', self.mesh.ufl_cell(),
                                     int(self.config['mesh']['element'][1][-1]))
             element = P_u*P_p
         else:
-            element = dlf.VectorElement('CG',
-                                        self.mesh.ufl_cell(),
+            element = dlf.VectorElement('CG', self.mesh.ufl_cell(),
                                         int(self.config['mesh']['element'][0][-1]))
 
         # Define the function space (already data in NonlinearVariationalProblem)
@@ -135,10 +123,19 @@ class MechanicsProblem:
         I = dlf.Identity(self.mesh.geometry().dim())
 
         # Define functions that are the same for both cases
-        sys_u = dlf.Function(self.functionSpace)
+        sys_v = dlf.Function(self.functionSpace)
+        sys_a = dlf.Function(self.functionSpace)
         sys_du = dlf.TrialFunction(self.functionSpace)
+        if self.config['material']['type'] == 'elastic':
+            sys_u = dlf.Function(self.functionSpace)
+            self._solnFunction = sys_u
+        else:
+            self._solnFunction = sys_v
 
-        self._solnFunction = sys_u
+        if self.config['formulation']['unsteady']:
+            sys_v0 = dlf.Function(self.functionSpace)
+
+
         self._trialFunction = sys_du
 
         # Initial condition if provided
@@ -155,19 +152,12 @@ class MechanicsProblem:
             sys_xi = dlf.TestFunction(self.functionSpace)
 
             # Obtain pointers to each sub function
-            self.displacement, self.pressure = dlf.split(sys_u)
+            if self.config['material']['type'] == 'elastic':
+                self.displacement, self.pressure = dlf.split(sys_u)
+            else:
+                self.velocity, self.pressure = dlf.split(sys_v)
             self.test_vector, self.test_scalar = dlf.split(sys_xi)
             self.trial_vector, self.trial_scalar = dlf.split(sys_du)
-
-            # THIS SHOULD CHECK FOR VISCOUS MATERIALS IN THE FUTURE
-            if config['material']['type'] == 'elastic':
-                self.deformationGradient = I + dlf.grad(self.displacement)
-                self.deformationRateGradient = None
-                self.jacobian = dlf.det(self.deformationGradient)
-            else:
-                s1 = 'The material type, %s, has not been implemented!' \
-                     % self.config['material']['type']
-                raise NotImplementedError(s1)
 
         else:
             # Define Dirichlet BCs
@@ -178,15 +168,18 @@ class MechanicsProblem:
             self.test_vector, self.test_scalar = dlf.TestFunction(self.functionSpace), None
             self.trial_vector, self.trial_scalar = sys_du, None
 
-            # THIS SHOULD CHECK FOR VISCOUS MATERIALS IN THE FUTURE
-            if self.config['material']['type'] == 'elastic':
-                self.deformationGradient = I + dlf.grad(self.displacement)
-                self.deformationRateGradient = None
-                self.jacobian = dlf.det(self.deformationGradient)
-            else:
-                s1 = 'The material type, \'%s\', has not been implemented!' \
-                     % self.config['material']['type']
-                raise NotImplementedError(s1)
+        # THIS SHOULD CHECK FOR VISCOUS MATERIALS IN THE FUTURE
+        #
+        # Check material type to determine which deformation tensors
+        # are necessary.
+        if self.config['material']['type'] == 'elastic':
+            self.deformationGradient = I + dlf.grad(self.displacement)
+            self.deformationRateGradient = None
+            self.jacobian = dlf.det(self.deformationGradient)
+        else:
+            s1 = 'The material type, \'%s\', has not been implemented!' \
+                 % self.config['material']['type']
+            raise NotImplementedError(s1)
 
         # Define all necessary forms
         self.define_forms()
@@ -224,7 +217,7 @@ class MechanicsProblem:
 
         """
 
-        # Make a copy to avoid altering the original object
+        # Use a copy to avoid altering the original object
         config = user_config.copy()
 
         ############################################################
@@ -285,72 +278,25 @@ class MechanicsProblem:
 
         ############################################################
         # Make sure that the BC dictionaries have the same
-        # number of regions, values, bools, etc., if any were
+        # number of regions, values, etc., if any were
         # specified. If they are not specified, set them to None.
         if 'bcs' in config['formulation']:
-
-            # Check Dirichlet BCs
-            try:
-                if not self.__check_bcs(config['formulation']['bcs']['dirichlet']):
-                    raise ValueError('The number of Dirichlet boundary regions and ' \
-                                     + 'values do not match!')
-            except KeyError:
-                config['formulation']['bcs']['dirichlet'] = None
-                print '*** No Dirichlet BCs were specified. ***'
-
-            # Check Neumann BCs
-            try:
-                if not self.__check_bcs(config['formulation']['bcs']['neumann']):
-                    raise ValueError('The number of Neumann boundary regions and ' \
-                                     + 'values do not match!')
-
-                # Make sure all Neumann BC types are supported with domain specified.
-                try:
-                    neumann_types = config['formulation']['bcs']['neumann']['types']
-                except KeyError:
-                    raise KeyError('The Neumann BC type must be specified for each region.')
-
-                # Check that types are valid
-                valid_types = {'pressure', 'cauchy', 'piola'}
-                union = valid_types.union(neumann_types)
-                if len(union) > 3:
-                    s1 = 'At least one Neumann BC type is unrecognized. The type string must'
-                    s2 = ' be one of the three: ' + ', '.join(list(valid_types))
-                    raise NotImplementedError(s1 + s2)
-
-                if domain == 'eulerian' and 'piola' in neumann_types:
-                    s1 = 'Piola traction in an Eulerian formulation is not supported.'
-                    raise NotImplementedError(s1)
-
-            except KeyError:
-                config['formulation']['bcs']['neumann'] = None
-                print '*** No Neumann BCs were specified. ***'
+            # Check Dirichlet and Neumann BCs
+            self.check_dirichlet(config)
+            self.check_neumann(config)
         else:
-            print '*** No BCs (Neumann or Dirichlet) were specified. ***'
+            print '*** No BCs (Neumann and Dirichlet) were specified. ***'
             config['formulation']['bcs'] = dict()
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
 
         ############################################################
         # Check if material type has been implemented.
-        try:
-            submodule = getattr(materials, config['material']['type'])
-
-            # Check if specific constitutive equation is available.
-            try:
-                const_eqn = getattr(submodule, config['material']['const_eqn'])
-            except AttributeError:
-                s1 = 'The constitutive equation, \'%s\', has not been implemented.' \
-                     % config['material']['const_eqn']
-                raise NotImplementedError(s1)
-        except AttributeError:
-            s1 = 'The class of materials, \'%s\', has not been implemented.' \
-                 % config['material']['type']
-            raise NotImplementedError(s1)
+        self.check_material_const_eqn(config)
 
         ############################################################
-        # Check for unsteady flag in dictionary. Assume problem is
-        # a steady-state problem if not provided.
+        # Check for unsteady flag in 'formulation' dictionary. Assume
+        # problem is a steady-state problem if not provided.
         if 'unsteady' not in config['formulation']:
             config['formulation']['unsteady'] = False
 
@@ -360,6 +306,143 @@ class MechanicsProblem:
             config['formulation']['body_force'] = None
 
         return config
+
+
+    def check_material_const_eqn(self, config):
+        """
+        Check if the material type and the specific constitutive equation
+        specified in the config dictionary are implemented.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            MechanicsProblem to see the format of the dictionary.
+
+
+        """
+
+        try:
+            submodule = getattr(materials, config['material']['type'])
+
+            # Check if specific constitutive equation is available.
+            try:
+                const_eqn = getattr(submodule, config['material']['const_eqn'])
+            except AttributeError:
+                s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
+                     % config['material']['const_eqn'] \
+                     + 'within the material type, \'%s\'.' % config['material']['type']
+                raise NotImplementedError(s1)
+        except AttributeError:
+            s1 = 'The class of materials, \'%s\', has not been implemented.' \
+                 % config['material']['type']
+            raise NotImplementedError(s1)
+
+        return None
+
+
+    def check_dirichlet(self, config):
+        """
+        Check if the number of parameters for each key in the dirichlet
+        sub-dictionary are equal. If the key 'dirichlet' does not exist,
+        it is added to the dictionary with the value None.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            MechanicsProblem to see the format of the dictionary.
+
+
+        """
+
+        try:
+            # Recognize if the user already specified None.
+            if config['formulation']['bcs']['dirichlet'] is None:
+                raise AttributeError
+
+            if not self.__check_bc_params(config['formulation']['bcs']['dirichlet']):
+                raise ValueError('The number of Dirichlet boundary regions and ' \
+                                 + 'values do not match!')
+        except AttributeError:
+            print '*** No Dirichlet BCs were specified. ***'
+        except KeyError:
+            config['formulation']['bcs']['dirichlet'] = None
+            print '*** No Dirichlet BCs were specified. ***'
+
+        return None
+
+
+    def check_neumann(self, config):
+        """
+        Check if the number of parameters for each key in the neumann
+        sub-dictionary are equal. If the key 'neumann' does not exist,
+        it is added to the dictionary with the value None.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            MechanicsProblem to see the format of the dictionary.
+
+
+        """
+
+        try:
+            # Recognize if the user already specified None.
+            if config['formulation']['bcs']['neumann'] is None:
+                raise AttributeError
+
+            if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
+                raise ValueError('The number of Neumann boundary regions and ' \
+                                 + 'values do not match!')
+
+            # Make sure all Neumann BC types are supported with domain specified.
+            try:
+                neumann_types = config['formulation']['bcs']['neumann']['types']
+            except KeyError:
+                raise KeyError('The Neumann BC type must be specified for each region.')
+
+            # Check that types are valid
+            valid_types = {'pressure', 'cauchy', 'piola'}
+            union = valid_types.union(neumann_types)
+            if len(union) > 3:
+                s1 = 'At least one Neumann BC type is unrecognized. The type string must'
+                s2 = ' be one of the three: ' + ', '.join(list(valid_types))
+                raise NotImplementedError(s1 + s2)
+
+            domain = config['formulation']['domain']
+            if domain == 'eulerian' and 'piola' in neumann_types:
+                s1 = 'Piola traction in an Eulerian formulation is not supported.'
+                raise NotImplementedError(s1)
+
+        except AttributeError:
+            print '*** No Neumann BCs were specified. ***'
+        except KeyError:
+            config['formulation']['bcs']['neumann'] = None
+            print '*** No Neumann BCs were specified. ***'
+
+        return None
+
+
+    # def define_functions(self):
+    #     """
+
+
+    #     """
+
+    #     # Need to figure out which functions to define in different cases.
+
+    #     return None
 
 
     def define_dirichlet_bcs(self, functionSpace):
@@ -418,7 +501,6 @@ class MechanicsProblem:
         region_list = self.config['formulation']['bcs']['neumann']['regions']
         tt_list = self.config['formulation']['bcs']['neumann']['types']
         value_list = self.config['formulation']['bcs']['neumann']['values']
-        unsteady_list = self.config['formulation']['bcs']['neumann']['unsteady']
 
         domain = self.config['formulation']['domain']
 
@@ -700,20 +782,42 @@ class MechanicsProblem:
 
     def update_all(self, t=None):
         """
+        Update all matrices and vectors that depend explicitly on time or
+        that depend on the state of the problem (velocity/displacement).
+        If no time value is provided, only the values that depend on the
+        state are updated.
+
+
+        Parameters
+        ----------
+
+        t : scalar (default None)
 
 
         """
 
-        # UPDATE THE MATRICES AND VECTORS THAT DEPEND ON THE CURRENT STATE.
-        # Will have to check:
-        #
-        # - Dirichlet BCs
-        # - Neumann BCs
-        # - Body force
-        # - Functions storing solutions (displacement, velocity, pressure)
-
         if t is not None:
             self.update_time(t)
+
+        # Update the assembled PETSc matrices and vectors that
+        # depend on the current state.
+
+        # Update the matrices/vectors coming from local acceleration
+        if self._localAccelMatrix is not None:
+            self.assembleLocalAccelMatrix()
+            self.assembleLocalAccelVector()
+
+        # Update the matrices/vectors coming from convective acceleration
+        if self._convectiveAccelMatrix is not None:
+            self.assembleConvectiveAccelMatrix()
+            self.assembleConvectiveAccelVector()
+
+        # Update the matrices/vectors coming from the stress work term
+        self.assembleStressWorkMatrix()
+        self.assembleStressWorkVector()
+
+        # Assemble the total load vector (i.e. residual vector)
+        self.assembleLoadVector()
 
         return None
 
@@ -728,16 +832,16 @@ class MechanicsProblem:
         if self.dirichlet_bcs is not None:
             self.update_dirichlet_time(t)
 
-        neumann_updated = False
+        # neumann_updated = False
         if self.ufl_neumann_bcs is not None:
             neumann_updated = self.update_neumann_time(t)
 
-        bodyforce_updated = False
+        # bodyforce_updated = False
         if self.ufl_body_force is not None:
             bodyforce_updated = self.update_bodyforce_time(t)
 
-        if neumann_updated or bodyforce_updated:
-            self.assembleLoadVector()
+        # if neumann_updated or bodyforce_updated:
+        #     self.assembleLoadVector()
 
         return None
 
@@ -793,6 +897,29 @@ class MechanicsProblem:
             need_to_update = True
 
         return need_to_update
+
+
+    # def step_setup(self):
+    #     """
+
+
+    #     """
+
+    #     # NEED TO FIGURE OUT HOW I WILL HANDLE TIME DEPENDENCY
+
+    #     if self.displacement0 is not None:
+    #         self.displacement0.assign(self.displacement)
+
+    #     if self.velocity0 is not None:
+    #         self.velocity0.assign(self.velocity)
+
+    #     if self.acceleration0 is not None:
+    #         self.acceleration0.assign(self.acceleration)
+
+    #     if self.pressure0 is not None:
+    #         self.pressure0.assign(self.)
+
+    #     return None
 
 
     def assemble_all(self):
@@ -908,20 +1035,16 @@ class MechanicsProblem:
         return None
 
 
-    def assembleStressWorkVector(self, tensor=None):
+    def assembleStressWorkVector(self):
         """
 
 
         """
 
         stress_work = self.getUFLStressWork()
+        dlf.assemble(stress_work, tensor=self._stressWorkVector)
 
-        if tensor is None:
-            tensor = dlf.PETScVector()
-
-        dlf.assemble(stress_work, tensor=tensor)
-
-        return tensor
+        return None
 
 
     def assembleLoadVector(self):
@@ -945,9 +1068,15 @@ class MechanicsProblem:
             self.assembleTractionVector()
             self._totalLoadVector = dlf.PETScVector(self._tractionWorkVector)
         else:
-            s1 = 'Total load vector is zero. There is no problem to solve! '
-            s2 = 'Check the specified body and traction forces.'
-            raise ValueError(s1+s2)
+            pass
+
+        self._totalLoadVector -= self._stressWorkVector
+
+        if self.config['formulation']['unsteady']:
+            self._totalLoadVector -= self._localAccelVector
+
+        if self.config['formulation']['domain'] == 'eulerian':
+            self._totalLoadVector -= self._convectiveAccelVector
 
         return None
 
@@ -1106,7 +1235,7 @@ class MechanicsProblem:
 
 
     @staticmethod
-    def __check_bcs(bc_dict):
+    def __check_bc_params(bc_dict):
         """
         Make sure that the lengths of all the lists/tuples provided within the
         neumann and dirichlet subdictionaries are the same.

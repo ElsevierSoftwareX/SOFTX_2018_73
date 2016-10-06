@@ -32,6 +32,9 @@ config = {'material' : {
               'domain' : 'lagrangian',
               'inverse' : False,
               'body_force' : body_force,
+              'bcs' : {
+                  'dirichlet' : None
+                  }
               }
           }
 

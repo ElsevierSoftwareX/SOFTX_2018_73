@@ -67,12 +67,10 @@ config = {'material' : {
                   'dirichlet' : {
                       'regions' : [CLIP],
                       'values' : [dlf.Constant((0.,)*dim)],
-                      'unsteady' : [False]
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
                       'types' : ['cauchy'],
-                      'unsteady' : [False],
                       'values' : [trac]
                       }
                   }

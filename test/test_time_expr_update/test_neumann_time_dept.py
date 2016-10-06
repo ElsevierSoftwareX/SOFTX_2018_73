@@ -14,7 +14,7 @@ TRACTION = 2
 trac_clip = dlf.Expression(['t', 'pow(t, 2)'],
                            t=0.0, degree=2)
 
-press_trac = dlf.Expression('cos(t)',
+press_trac = dlf.Expression('10.0*cos(t)',
                             t=0.0, degree=2)
 
 body_force = dlf.Constant([0.0]*2)
@@ -45,9 +45,8 @@ config = {'material' : {
               'body_force' : body_force,
               'bcs' : {
                   'neumann' : {
-                      'regions' : [CLIP, TRACTION], # MORE REGIONS THAN ACTUALLY DEFINED
+                      'regions' : [CLIP, TRACTION],
                       'types' : ['piola', 'pressure'],
-                      'unsteady' : [True, True],
                       'values' : [trac_clip, press_trac]
                       }
                   }
@@ -66,16 +65,12 @@ pres_val = np.zeros(1)
 
 while t <= tf:
 
-    # print values to check
-
-    t += dt
-
     problem.update_time(t)
     problem.config['formulation']['bcs']['neumann']['values'][0].eval(trac_vals, zero)
     problem.config['formulation']['bcs']['neumann']['values'][1].eval(pres_val, zero)
 
     exp_trac = np.array([t, t**2])
-    exp_pres = np.cos(t)
+    exp_pres = 10.0*np.cos(t)
 
     print '************************************************************'
     print 't = %.2f' % t
@@ -87,3 +82,5 @@ while t <= tf:
     print 'exp_pres  = ', exp_pres
     print '\n'
     print 'vector    = \n', problem._tractionWorkVector.array()
+
+    t += dt

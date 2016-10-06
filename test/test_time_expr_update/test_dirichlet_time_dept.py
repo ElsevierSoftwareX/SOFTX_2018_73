@@ -43,7 +43,6 @@ config = {'material' : {
                   'dirichlet' : {
                       'regions' : [CLIP, TRACTION], # MORE REGIONS THAN ACTUALLY DEFINED
                       'values' : [disp_clip, disp_trac],
-                      'unsteady' : [False, True]
                       }
                   }
               }

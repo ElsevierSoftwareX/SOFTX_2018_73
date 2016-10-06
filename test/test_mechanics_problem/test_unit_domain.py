@@ -119,12 +119,10 @@ config = {'material' : {
                   'dirichlet' : {
                       'regions' : [CLIP],
                       'values' : [dlf.Constant((0.,)*args.dim)],
-                      'unsteady' : [False]
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
                       'types' : ['cauchy'],
-                      'unsteady' : [False],
                       'values' : [trac]
                       }
                   }
@@ -136,7 +134,7 @@ problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
 print 'Solving linear algebra problem...'
-my_solver.solve()
+my_solver.solve(tol=1e-8)
 print '...[DONE]'
 
 # Save solution before mesh is moved.
