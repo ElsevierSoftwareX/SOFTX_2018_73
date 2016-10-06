@@ -133,9 +133,9 @@ problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
-print 'Solving linear algebra problem...'
-my_solver.solve(tol=1e-8)
-print '...[DONE]'
+# print 'Solving linear algebra problem...'
+my_solver.solve(tol=1e-10)
+# print '...[DONE]'
 
 # Save solution before mesh is moved.
 if args.dim > 1:

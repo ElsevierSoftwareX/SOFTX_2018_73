@@ -36,20 +36,12 @@ class MechanicsSolver:
 
         """
 
-        A = self.mechanics_problem._stressWorkMatrix
-        b = self.mechanics_problem._totalLoadVector
-        soln_vec = self.mechanics_problem.displacement.vector()
-
-        for bc in self.mechanics_problem.dirichlet_bcs:
-            bc.apply(A)
-            bc.apply(b)
-
-        dlf.solve(A, soln_vec, b)
+        # NEED TIME ITERATION SCHEME HERE
 
         return None
 
 
-    def solve(self, maxIters=50, tol=1e-10):
+    def solve(self, maxIters=50, tol=1e-10, lin_solver='mumps'):
         """
 
 
@@ -63,26 +55,26 @@ class MechanicsSolver:
             # self.mechanics_problem.update_all()
             raise NotImplementedError('Time-dependent problems have not been implemented!')
         else:
-            self.nonlinear_solve(maxIters=maxIters, tol=tol)
+            self.nonlinear_solve(maxIters=maxIters, tol=tol, lin_solver=lin_solver)
 
         return None
 
 
-    def nonlinear_solve(self, maxIters=50, tol=1e-10):
+    def nonlinear_solve(self, maxIters=50, tol=1e-10, lin_solver='mumps'):
         """
 
 
         """
-
-        # Need to code Newton iteration.
-        #
-        # Use b.norm('l2') where b is a dlf.PETScVector().
-        # It works in parallel!
 
         soln_vec = self.mechanics_problem.displacement.vector()
         du = dlf.PETScVector()
         norm = 1.0
         count = 0
+
+        try:
+            rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        except:
+            rank = 0
 
         while norm >= tol:
 
@@ -102,7 +94,7 @@ class MechanicsSolver:
                 bc.apply(A)
                 bc.apply(b)
 
-            dlf.solve(A, du, b)
+            dlf.solve(A, du, b, lin_solver)
 
             # Prepare for the next iteration
             # self.mechanics_problem.displacement.vector()[:] += du
@@ -110,11 +102,7 @@ class MechanicsSolver:
             norm = du.norm('l2')
             count += 1
 
-            # print '********************************************************************************'
-            print 'Iteration %i: norm = %.6e' % (count, norm)
-            # print 'soln_vec = \n', soln_vec.array()
-            # print 'du = \n', du.array()
-            # print 'A = \n', A.array()
-            # print 'b = \n', b.array()
+            if rank == 0:
+                print 'Iteration %i: norm = %.6e' % (count, norm)
 
         return None
