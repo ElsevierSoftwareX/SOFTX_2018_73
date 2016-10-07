@@ -2,8 +2,8 @@
 
 from __future__ import print_function
 import sys
-from dolfin import *
 import argparse
+import dolfin    as df
 import utilities as ut
 import numpy     as np
 
@@ -27,14 +27,16 @@ parser.add_argument("-p", "--pressure",
 args = parser.parse_args()
 
 # Optimization options for the form compiler
-parameters['form_compiler']['cpp_optimize'] = True
-parameters['form_compiler']['quadrature_degree'] = 3
+df.parameters['form_compiler']['cpp_optimize'] = True
+df.parameters['form_compiler']['quadrature_degree'] = 3
 ffc_options = {'optimize' : True,
                'eliminate_zeros' : True,
                'precompute_basis_const' : True,
                'precompute_ip_const' : True}
 
-rank = MPI.rank(mpi_comm_world())
+rank = df.MPI.rank(df.mpi_comm_world())
+if rank !=0:
+    df.set_log_level(df.ERROR)
 
 # --- GLOBAL VARIABLES --------------------------------------------------------
 output_dir = 'results_jiacheng'
@@ -148,34 +150,34 @@ def dirichletbc_y_movement_inlet(x, on_boundary):
     tol = mesh_edge_size/5.0
     return (abs(x[2]-length)<tol and abs(x[0]) < tol)
 
-class inner_wall_surface(SubDomain):
+class inner_wall_surface(df.SubDomain):
     def inside(self, x, on_boundary):
         tol = mesh_edge_size/5.0
         #tol = DOLFIN_EPS
-        #return on_boundary and abs(sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
-        return abs(sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
+        #return on_boundary and abs(df.sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
+        return abs(df.sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
 
-class inlet_surface(SubDomain):
+class inlet_surface(df.SubDomain):
     def inside(self, x, on_boundary):
         tol = mesh_edge_size/5.0
         #tol = DOLFIN_EPS
-        #return on_boundary and abs(sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
+        #return on_boundary and abs(df.sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
         return abs(x[2]-length)<tol
 
-class outlet_surface(SubDomain):
+class outlet_surface(df.SubDomain):
     def inside(self, x, on_boundary):
         tol = mesh_edge_size/5.0
         #tol = DOLFIN_EPS
-        #return on_boundary and abs(sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
+        #return on_boundary and abs(df.sqrt(x[0]*x[0]+x[1]*x[1])-radius)<tol
         return abs(x[2])<tol
 
 TOL = mesh_edge_size/3.0
 
-class Pinpoint(SubDomain):
+class Pinpoint(df.SubDomain):
 
     def __init__(self, coords):
         self.coords = np.array(coords)
-        SubDomain.__init__(self)
+        df.SubDomain.__init__(self)
     def move(self, coords):
         self.coords[:] = np.array(coords)
     def inside(self, x, on_boundary):
@@ -184,14 +186,14 @@ class Pinpoint(SubDomain):
 # -----------------------------------------------------------------------------
 
 meshname = 'short_cylinder_mesh_parallel.hdf5'
-hdf = HDF5File(mpi_comm_world(), meshname, 'r')
-mesh = Mesh()
+hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
+mesh = df.Mesh()
 hdf.read(mesh, 'mesh', False)
 hdf.close()
 mesh_dim = mesh.topology().dim()
 
 # subdomain dimension = topological dim - 1
-sub_boundaries = MeshFunction("size_t", mesh, mesh_dim-1)
+sub_boundaries = df.MeshFunction("size_t", mesh, mesh_dim-1)
 sub_boundaries.set_all(HNBC)
 
 inletBC = inlet_surface()
@@ -201,59 +203,60 @@ outletBC.mark(sub_boundaries, HDBC)
 traction = inner_wall_surface()
 traction.mark(sub_boundaries, INBC)
 
-ds = ds(INBC, domain=mesh, subdomain_data=sub_boundaries)
+ds = df.ds(INBC, domain=mesh, subdomain_data=sub_boundaries)
+dx = df.dx
 
 node_number = mesh.num_vertices()
 element_number = mesh.num_cells()
 connectivity_matrix = mesh.cells()
 
 
-Pvec  = VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Pscal = FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Vvec  = FunctionSpace(mesh, Pvec)
-Vscal = FunctionSpace(mesh, Pscal)
+Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+Pscal = df.FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+Vvec  = df.FunctionSpace(mesh, Pvec)
+Vscal = df.FunctionSpace(mesh, Pscal)
 
 # Define Dirichlet BC
-zeroVec = Constant((0.,)*mesh_dim)
+zeroVec = df.Constant((0.,)*mesh_dim)
 #fix inlet/outlet in all directions
-bc1    = DirichletBC(Vvec, zeroVec, dirichletbc_inlet)
-bc2    = DirichletBC(Vvec, zeroVec, dirichletbc_outlet)
+bc1    = df.DirichletBC(Vvec, zeroVec, dirichletbc_inlet)
+bc2    = df.DirichletBC(Vvec, zeroVec, dirichletbc_outlet)
 #fix inlet/outlet only in z-direction
-bc1    = DirichletBC(Vvec.sub(2), 0.0, dirichletbc_inlet)
-bc2    = DirichletBC(Vvec.sub(2), 0.0, dirichletbc_outlet)
-bc3_pi = DirichletBC(Vvec.sub(1), 0.0, Pinpoint([radius, 0.0, Z_high]), 'pointwise')
-bc4_pi = DirichletBC(Vvec.sub(1), 0.0, Pinpoint([-1*radius, 0.0, Z_high]), 'pointwise')
-bc5_pi = DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, radius, Z_high]), 'pointwise')
-bc6_pi = DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, -1*radius, Z_high]), 'pointwise')
-bc3_po = DirichletBC(Vvec.sub(1), 0.0, Pinpoint([radius, 0.0, 0.0]), 'pointwise')
-bc4_po = DirichletBC(Vvec.sub(1), 0.0, Pinpoint([-1*radius, 0.0, 0.0]), 'pointwise')
-bc5_po = DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, radius, 0.0]), 'pointwise')
-bc6_po = DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, -1*radius, 0.0]), 'pointwise')
+bc1    = df.DirichletBC(Vvec.sub(2), 0.0, dirichletbc_inlet)
+bc2    = df.DirichletBC(Vvec.sub(2), 0.0, dirichletbc_outlet)
+bc3_pi = df.DirichletBC(Vvec.sub(1), 0.0, Pinpoint([radius, 0.0, Z_high]), 'pointwise')
+bc4_pi = df.DirichletBC(Vvec.sub(1), 0.0, Pinpoint([-1*radius, 0.0, Z_high]), 'pointwise')
+bc5_pi = df.DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, radius, Z_high]), 'pointwise')
+bc6_pi = df.DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, -1*radius, Z_high]), 'pointwise')
+bc3_po = df.DirichletBC(Vvec.sub(1), 0.0, Pinpoint([radius, 0.0, 0.0]), 'pointwise')
+bc4_po = df.DirichletBC(Vvec.sub(1), 0.0, Pinpoint([-1*radius, 0.0, 0.0]), 'pointwise')
+bc5_po = df.DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, radius, 0.0]), 'pointwise')
+bc6_po = df.DirichletBC(Vvec.sub(0), 0.0, Pinpoint([0.0, -1*radius, 0.0]), 'pointwise')
 
 bcs = [bc1, bc2, bc3_pi, bc4_pi, bc5_pi, bc6_pi, bc3_po, bc4_po, bc5_po, bc6_po]
 
 # Applied external surface forces
-pressure = Function (Vscal)
+pressure = df.Function (Vscal)
 
 # Define mixed functions
-u  = Function(Vvec)
-v  = TestFunction(Vvec)
-du = TrialFunction(Vvec)
+u  = df.Function(Vvec)
+v  = df.TestFunction(Vvec)
+du = df.TrialFunction(Vvec)
 
 # define normal directions
-normal = FacetNormal(mesh)
+normal = df.FacetNormal(mesh)
 
 # Elasticity parameters
 E      = 200.0                                            #Young's modulus
 nu     = 0.49                                #Poisson's ratio
-mu     = Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
-inv_la = Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
+mu     = df.Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
+inv_la = df.Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
 
 # Jacobian for later use
-I = Identity(mesh_dim)
-F = I + grad(u)
-invF = inv(F)
-J = det(F)
+I     = df.Identity(mesh_dim)
+F     = I + df.grad(u)
+invF  = df.inv(F)
+J     = df.det(F)
 
 
 # Stress tensor depending on constitutive equation
@@ -261,17 +264,17 @@ if args.inverse: #inverse formulation
   if args.material == 'lin-elast':
       # Weak form (momentum)
       stress = ut.inverse_lin_elastic(u, mu, inv_la)
-      G = inner(grad(v), stress) * dx - dot(n, v) * ds
+      G = df.inner(df.grad(v), stress) * dx - df.dot(n, v) * ds
   else:
       # Weak form (momentum)
       sigma = ut.inverse_neo_hookean(u, mu, inv_la)
-      G = inner(grad(v), sigma) * dx
-  G += pressure * inner(n, v) * ds
+      G = df.inner(df.grad(v), sigma) * dx
+  G += pressure * df.inner(n, v) * ds
 else: #forward
   if args.material == 'lin-elast':
       # Weak form (momentum)
       stress = ut.forward_lin_elastic(u, mu, inv_la)
-      G = inner(grad(v), stress) * dx + dot(normal, v) * ds
+      G = df.inner(df.grad(v), stress) * dx + df.dot(normal, v) * ds
   else:
       if args.material == 'neo-hooke':
       # Weak form (momentum)
@@ -282,40 +285,41 @@ else: #forward
           sigma_isc = 0
       # Weak form (momentum)
       FS = ut.forward_neo_hookean(u, mu, inv_la)
-      G  = inner(grad(v), FS) * dx
-      G += pressure*J*inner(inv(F.T)*normal, v)*ds
+      G  = df.inner(df.grad(v), FS) * dx
+      G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
 
 # Overall weak form and its derivative
-dG = derivative(G, u, du)
+dG = df.derivative(G, u, du)
 
 # create file for storing solution
-ufile = File('%s/cylinder.pvd' % output_dir)
+ufile = df.File('%s/cylinder.pvd' % output_dir)
 ufile << u # print initial zero solution
 
 P_start = args.pressure*0.2
 for P_current in np.linspace(P_start, args.pressure, num=5):
     temp_array = pressure.vector().get_local()
-    print(P_current)
+    if rank == 0:
+        print(P_current)
     temp_array[:] = P_current
     pressure.vector().set_local(temp_array)
 
-    solve(G == 0, u, bcs, J=dG,
+    df.solve(G == 0, u, bcs, J=dG,
               form_compiler_parameters=ffc_options)
     # print solution
     ufile << u
 
 
 # Extract the displacement
-begin("extract displacement")
+df.begin("extract displacement")
 P1_vec = VectorElement("Lagrange", mesh.ufl_cell(), 1)
 W = FunctionSpace(mesh, P1_vec)
 u_func = TrialFunction(W)
 u_test = TestFunction(W)
-a = dot(u_test, u_func) * dx
-L = dot(u, u_test) * dx
+a = df.dot(u_test, u_func) * dx
+L = df.dot(u, u_test) * dx
 u_func = Function(W)
 solve(a == L, u_func)
-end()
+df.end()
 
 # Extract the Jacobian
 P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
@@ -333,20 +337,20 @@ if rank == 0:
 ALE.move(mesh,u_func)
 if not args.inverse:
   out_filename ="%s/forward-cylinder.h5" % output_dir
-  Hdf = HDF5File(mesh.mpi_comm(), out_filename, "w")
+  Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
   Hdf.write(mesh, "mesh")
   Hdf.write(sub_boundaries, "subdomains")
   Hdf.close()
 
 # Compute the volume of each cell
-dgSpace = FunctionSpace(mesh, 'DG', 0)
-dg_v = TestFunction(dgSpace)
-form_volumes = dg_v * dx
-volumes = assemble(form_volumes)
-volume_func = Function(dgSpace)
+dgSpace = df.FunctionSpace(mesh, 'DG', 0)
+dg_v = df.TestFunction(dgSpace)
+form_volumes = dg_v * df.dx
+volumes = df.assemble(form_volumes)
+volume_func = df.Function(dgSpace)
 volume_func.vector()[:] = volumes
 
 # Compute the total volume
-total_volume = assemble(Constant(1.0)*dx(domain=mesh))
+total_volume = df.assemble(Constant(1.0)*dx(domain=mesh))
 if rank == 0:
     print ('Total volume: %.8f' % total_volume)

@@ -2,8 +2,8 @@
 
 from __future__ import print_function
 import sys
-from dolfin import *
 import argparse
+import dolfin    as df
 import utilities as ut
 
 parser = argparse.ArgumentParser()
@@ -37,28 +37,30 @@ parser.add_argument("-p", "--pressure",
 args = parser.parse_args()
 
 # Optimization options for the form compiler
-parameters['form_compiler']['cpp_optimize'] = True
-parameters['form_compiler']['quadrature_degree'] = 3
+df.parameters['form_compiler']['cpp_optimize'] = True
+df.parameters['form_compiler']['quadrature_degree'] = 3
 ffc_options = {'optimize' : True,
                'eliminate_zeros' : True,
                'precompute_basis_const' : True,
                'precompute_ip_const' : True}
 
-rank = MPI.rank(mpi_comm_world())
+rank = df.MPI.rank(df.mpi_comm_world())
+if rank !=0:
+    df.set_log_level(df.ERROR)
 
 # Region IDs
 ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
 
-class Clip(SubDomain):
+class Clip(df.SubDomain):
     def inside(self, x, on_boundary):
-        return abs(x[0]) < DOLFIN_EPS \
+        return abs(x[0]) < df.DOLFIN_EPS \
             and on_boundary
 
-class Traction(SubDomain):
+class Traction(df.SubDomain):
     def inside(self, x, on_boundary):
-        return abs(x[0] - 1.0) < DOLFIN_EPS \
+        return abs(x[0] - 1.0) < df.DOLFIN_EPS \
             and on_boundary
 
 mesh_dims = (args.refinement,)*args.dim
@@ -67,18 +69,18 @@ name_dims = ('elongation', 'comp_' + args.material, dim_str)
 
 if args.inverse:
     meshname = 'results/%s-%s-forward-%s.h5' % name_dims
-    f = HDF5File(mpi_comm_world(),meshname,'r')
+    f = df.HDF5File(mpi_comm_world(),meshname,'r')
     mesh = Mesh()
     f.read(mesh, "mesh", False)
-    sub_domains = MeshFunction("size_t", mesh)
+    sub_domains = df.MeshFunction("size_t", mesh)
 else:
     if args.dim == 1:
-        mesh = UnitIntervalMesh(*mesh_dims)
+        mesh = df.UnitIntervalMesh(*mesh_dims)
     elif args.dim == 2:
-        mesh = UnitSquareMesh(*mesh_dims)
+        mesh = df.UnitSquareMesh(*mesh_dims)
     else:
-        mesh = UnitCubeMesh(*mesh_dims)
-    sub_domains = MeshFunction("size_t", mesh, args.dim-1)
+        mesh = df.UnitCubeMesh(*mesh_dims)
+    sub_domains = df.MeshFunction("size_t", mesh, args.dim-1)
     sub_domains.set_all(ALL_ELSE)
     clip = Clip()
     clip.mark(sub_domains, CLIP)
@@ -86,125 +88,129 @@ else:
     traction.mark(sub_domains, TRACTION)
 
 if args.incompressible:
-    P2 = VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-    P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+    P2 = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
     TH = P2 * P1
-    W = FunctionSpace(mesh, TH)
+    W = df.FunctionSpace(mesh, TH)
     Vvec = W.sub(0)
 
     # Define mixed functions
-    sys_u = Function(W)
-    sys_v = TestFunction(W)
-    sys_du = TrialFunction(W)
-    u, p = split(sys_u)
-    v, q = split(sys_v)
-    du, dp = split(sys_du)
+    sys_u  = df.Function(W)
+    sys_v  = df.TestFunction(W)
+    sys_du = df.TrialFunction(W)
+    u, p   = df.split(sys_u)
+    v, q   = df.split(sys_v)
+    du, dp = df.split(sys_du)
 else:
-    Pvec  = VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-    Vvec  = FunctionSpace(mesh, Pvec)
+    Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    Vvec  = df.FunctionSpace(mesh, Pvec)
     # Define mixed functions
-    u  = Function(Vvec)
-    v  = TestFunction(Vvec)
-    du = TrialFunction(Vvec)
+    u  = df.Function(Vvec)
+    v  = df.TestFunction(Vvec)
+    du = df.TrialFunction(Vvec)
 
-Pscal = FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Vscal = FunctionSpace(mesh, Pscal)
+Pscal = df.FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+Vscal = df.FunctionSpace(mesh, Pscal)
 
 # Define Dirichlet BC
-zeroVec = Constant((0.,)*args.dim)
-bcs = DirichletBC(Vvec, zeroVec, sub_domains, CLIP)
+zeroVec = df.Constant((0.,)*args.dim)
+bcs     = df.DirichletBC(Vvec, zeroVec, sub_domains, CLIP)
 
 
 # Elasticity parameters
 E      = 200.0                                       #Young's modulus
 nu     = 0.49                                        #Poisson's ratio
-mu     = Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
-inv_la = Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
+mu     = df.Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
+inv_la = df.Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
 
 # Jacobian for later use
-I = Identity(args.dim)
-F = I + grad(u)
-invF = inv(F)
-J = det(F)
+I = df.Identity(args.dim)
+F = I + df.grad(u)
+invF = df.inv(F)
+J = df.det(F)
 
 # Applied external surface forces
-trac = Constant((5.0,) + (0.0,)*(args.dim-1))
-pressure = Function (Vscal)
-ds_right = ds(TRACTION, domain=mesh, subdomain_data=sub_domains)
+trac     = df.Constant((5.0,) + (0.0,)*(args.dim-1))
+pressure = df.Function (Vscal)
+ds_right = df.ds(TRACTION, domain=mesh, subdomain_data=sub_domains)
 
 # Stress tensor depending on constitutive equation
 stress = ut.computeStressTensorPenalty(u, mu, inv_la, args.material, args.inverse)
 if args.inverse or args.material == "linear":
-    G = inner(grad(v), stress) * dx - dot(trac, v) * ds_right
+    G = df.inner(df.grad(v), stress) * df.dx - df.dot(trac, v) * ds_right
 else:
-    G = inner(grad(v), stress) * dx - inner(J * invF.T * trac, v) * ds_right
+    G = df.inner(df.grad(v), stress) * df.dx - df.inner(J * invF.T * trac, v) * ds_right
 
 # Overall weak form and its derivative
 if args.incompressible:
     G = G1 + G2
-    dG = derivative(G, sys_u, sys_du)
+    dG = df.derivative(G, sys_u, sys_du)
 
-    solve(G == 0, sys_u, bcs, J=dG,
+    df.solve(G == 0, sys_u, bcs, J=dG,
           form_compiler_parameters=ffc_options)
 else:
-    dG = derivative(G, u, du)
+    dG = df.derivative(G, u, du)
 
-    solve(G == 0, u, bcs, J=dG,
+    df.solve(G == 0, u, bcs, J=dG,
           form_compiler_parameters=ffc_options)
 
 
 # Extract the displacement
-begin("extract displacement")
-P1_vec = VectorElement("Lagrange", mesh.ufl_cell(), 1)
-W = FunctionSpace(mesh, P1_vec)
-u_func = TrialFunction(W)
-u_test = TestFunction(W)
-a = dot(u_test, u_func) * dx
-L = dot(u, u_test) * dx
-u_func = Function(W)
-solve(a == L, u_func)
-end()
+df.begin("extract displacement")
+P1_vec = df.VectorElement("Lagrange", mesh.ufl_cell(), 1)
+W = df.FunctionSpace(mesh, P1_vec)
+u_func = df.TrialFunction(W)
+u_test = df.TestFunction(W)
+a = df.dot(u_test, u_func) * df.dx
+L = df.dot(u, u_test) * df.dx
+u_func = df.Function(W)
+df.solve(a == L, u_func)
+df.end()
 
 # Extract the Jacobian
-P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-Q = FunctionSpace(mesh, P1)
-J_func = TrialFunction(Q)
-J_test = TestFunction(Q)
-a = J_func * J_test * dx
-L = J * J_test * dx
-J_func = Function(Q)
-solve(a == L, J_func)
+df.begin("extract jacobian")
+P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+Q = df.FunctionSpace(mesh, P1)
+J_func = df.TrialFunction(Q)
+J_test = df.TestFunction(Q)
+a = J_func * J_test * df.dx
+L = J * J_test * df.dx
+J_func = df.Function(Q)
+df.solve(a == L, J_func)
 if rank == 0:
   print('J = \n', J_func.vector().array())
+df.end()
 
 # Save displacement, pressure, and Jacobian
+df.begin("Print mesh")
 if args.dim > 1:
-    File('results/%s-%s-disp-%s.pvd' % name_dims) << u_func
-#File('results/%s-%s-disp-%s.xml' % name_dims) << u_func
-#File('results/%s-%s-pressure-%s.pvd' % name_dims) << p_func
-#File('results/%s-%s-pressure-%s.xml' % name_dims) << p_func
-#File('results/%s-%s-jacobian-%s.pvd' % name_dims) << J_func
-#File('results/%s-%s-jacobian-%s.xml' % name_dims) << J_func
+    df.File('results/%s-%s-disp-%s.pvd' % name_dims) << u_func
+#df.File('results/%s-%s-disp-%s.xml' % name_dims) << u_func
+#df.File('results/%s-%s-pressure-%s.pvd' % name_dims) << p_func
+#df.File('results/%s-%s-pressure-%s.xml' % name_dims) << p_func
+#df.File('results/%s-%s-jacobian-%s.pvd' % name_dims) << J_func
+#df.File('results/%s-%s-jacobian-%s.xml' % name_dims) << J_func
 
 # Move the mesh according to solution
-ALE.move(mesh,u_func)
+df.ALE.move(mesh,u_func)
 if not args.inverse:
   out_filename ="results/%s-%s-forward-%s.h5" % name_dims
-  Hdf = HDF5File(mesh.mpi_comm(), out_filename, "w")
+  Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
   Hdf.write(mesh, "mesh")
   Hdf.write(sub_domains, "subdomains")
   Hdf.close()
+df.end()
 
 # Compute the volume of each cell
-dgSpace = FunctionSpace(mesh, 'DG', 0)
-dg_v = TestFunction(dgSpace)
-form_volumes = dg_v * dx
-volumes = assemble(form_volumes)
-volume_func = Function(dgSpace)
+dgSpace = df.FunctionSpace(mesh, 'DG', 0)
+dg_v = df.TestFunction(dgSpace)
+form_volumes = dg_v * df.dx
+volumes = df.assemble(form_volumes)
+volume_func = df.Function(dgSpace)
 volume_func.vector()[:] = volumes
 #File('results/%s-%s-volume-%s.pvd' % name_dims) << volume_func
 
 # Compute the total volume
-total_volume = assemble(Constant(1.0)*dx(domain=mesh))
+total_volume = df.assemble(df.Constant(1.0)*df.dx(domain=mesh))
 if rank == 0:
     print ('Total volume: %.8f' % total_volume)
