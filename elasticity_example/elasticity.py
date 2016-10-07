@@ -18,11 +18,22 @@ parser.add_argument("-r", "--refinement",
                     type=int)
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
-                    default='lin-elast',
-                    choices=['lin-elast','neo-hooke','aniso'])
+                    default='linear',
+                    choices=['linear','neo-hooke','aniso'])
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
+parser.add_argument("-ic","--incompressible",
+                    help="block formulation for incompressible materials",
+                    action='store_true')
+parser.add_argument("-pd", "--polynomial_degree",
+                    help="polynomial degree of the ansatz functions",
+                    default=1,
+                    type=int)
+parser.add_argument("-p", "--pressure",
+                    help="target pressure of inflation test in kPA",
+                    default=5,
+                    type=float)
 args = parser.parse_args()
 
 # Optimization options for the form compiler
@@ -53,7 +64,14 @@ class Traction(SubDomain):
 mesh_dims = (args.refinement,)*args.dim
 dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
 name_dims = ('elongation', 'comp_' + args.material, dim_str)
-if not args.inverse:
+
+if args.inverse:
+    meshname = 'results/%s-%s-forward-%s.h5' % name_dims
+    f = HDF5File(mpi_comm_world(),meshname,'r')
+    mesh = Mesh()
+    f.read(mesh, "mesh", False)
+    sub_domains = MeshFunction("size_t", mesh)
+else:
     if args.dim == 1:
         mesh = UnitIntervalMesh(*mesh_dims)
     elif args.dim == 2:
@@ -66,28 +84,40 @@ if not args.inverse:
     clip.mark(sub_domains, CLIP)
     traction = Traction()
     traction.mark(sub_domains, TRACTION)
-else:
-    meshname = 'results/%s-%s-forward-%s.h5' % name_dims
-    f = HDF5File(mpi_comm_world(),meshname,'r')
-    mesh = Mesh()
-    f.read(mesh, "mesh", False)
-    sub_domains = MeshFunction("size_t", mesh)
 
-P2 = VectorElement("Lagrange", mesh.ufl_cell(), 2)
-V = FunctionSpace(mesh, P2)
+if args.incompressible:
+    P2 = VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+    TH = P2 * P1
+    W = FunctionSpace(mesh, TH)
+    Vvec = W.sub(0)
+
+    # Define mixed functions
+    sys_u = Function(W)
+    sys_v = TestFunction(W)
+    sys_du = TrialFunction(W)
+    u, p = split(sys_u)
+    v, q = split(sys_v)
+    du, dp = split(sys_du)
+else:
+    Pvec  = VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    Vvec  = FunctionSpace(mesh, Pvec)
+    # Define mixed functions
+    u  = Function(Vvec)
+    v  = TestFunction(Vvec)
+    du = TrialFunction(Vvec)
+
+Pscal = FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+Vscal = FunctionSpace(mesh, Pscal)
 
 # Define Dirichlet BC
 zeroVec = Constant((0.,)*args.dim)
-bcs = DirichletBC(V, zeroVec, sub_domains, CLIP)
+bcs = DirichletBC(Vvec, zeroVec, sub_domains, CLIP)
 
-# Define mixed functions
-u  = Function(V)
-v  = TestFunction(V)
-du = TrialFunction(V)
 
 # Elasticity parameters
-E      = 200.0                                            #Young's modulus
-nu     = 0.49                                #Poisson's ratio
+E      = 200.0                                       #Young's modulus
+nu     = 0.49                                        #Poisson's ratio
 mu     = Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
 inv_la = Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
 
@@ -99,40 +129,29 @@ J = det(F)
 
 # Applied external surface forces
 trac = Constant((5.0,) + (0.0,)*(args.dim-1))
+pressure = Function (Vscal)
 ds_right = ds(TRACTION, domain=mesh, subdomain_data=sub_domains)
 
 # Stress tensor depending on constitutive equation
-if args.inverse: #inverse formulation
-  if args.material == 'lin-elast':
-      # Weak form (momentum)
-      stress = ut.inverse_lin_elastic(u, mu, inv_la)
-      G = inner(grad(v), stress) * dx - dot(trac, v) * ds_right
-  else:
-      # Weak form (momentum)
-      sigma = ut.inverse_neo_hookean(u, mu, inv_la)
-      G = inner(grad(v), sigma) * dx - inner(trac, v) * ds_right
-else: #forward
-  if args.material == 'lin-elast':
-      # Weak form (momentum)
-      stress = ut.forward_lin_elastic(u, mu, inv_la)
-      G = inner(grad(v), stress) * dx - dot(trac, v) * ds_right
-  else:
-      if args.material == 'neo-hooke':
-      # Weak form (momentum)
-        FS = ut.forward_neo_hookean(u, mu, inv_la)
-      elif args.material == 'aniso':
-        FS = ut.forward_aniso(u, mu, inv_la)
-      else:
-          sigma_isc = 0
-      # Weak form (momentum)
-      FS = ut.forward_neo_hookean(u, mu, inv_la)
-      G = inner(grad(v), FS) * dx - inner(J * invF.T * trac, v) * ds_right
+stress = ut.computeStressTensorPenalty(u, mu, inv_la, args.material, args.inverse)
+if args.inverse or args.material == "linear":
+    G = inner(grad(v), stress) * dx - dot(trac, v) * ds_right
+else:
+    G = inner(grad(v), stress) * dx - inner(J * invF.T * trac, v) * ds_right
 
 # Overall weak form and its derivative
-dG = derivative(G, u, du)
+if args.incompressible:
+    G = G1 + G2
+    dG = derivative(G, sys_u, sys_du)
 
-solve(G == 0, u, bcs, J=dG,
+    solve(G == 0, sys_u, bcs, J=dG,
           form_compiler_parameters=ffc_options)
+else:
+    dG = derivative(G, u, du)
+
+    solve(G == 0, u, bcs, J=dG,
+          form_compiler_parameters=ffc_options)
+
 
 # Extract the displacement
 begin("extract displacement")

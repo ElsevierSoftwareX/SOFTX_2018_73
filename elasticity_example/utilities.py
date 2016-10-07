@@ -189,3 +189,27 @@ def inverse_volumetricStress(u, p):
 
     sigma_vol = p*I
     return sigma_vol
+
+# compute Stress tensor depending on constitutive equation
+def computeStressTensorPenalty(u, mu, inv_la, material, inverse):
+
+  if inverse: #inverse formulation
+    if material == 'linear':
+        stress = inverse_lin_elastic(u, mu, inv_la)
+    elif material == 'neo-hooke':
+        stress = inverse_neo_hookean(u, mu, inv_la)
+    elif material == 'aniso':
+        stress = inverse_neo_hookean(u, mu, inv_la)
+    else:
+        stress = 0
+  else: #forward
+    if   material == 'linear':
+        stress = forward_lin_elastic(u, mu, inv_la)
+    elif material == 'neo-hooke':
+        stress = forward_neo_hookean(u, mu, inv_la)
+    elif material == 'aniso':
+        stress = forward_aniso(u, mu, inv_la)
+    else:
+        stress = 0
+
+  return stress
