@@ -34,6 +34,14 @@ parser.add_argument("-p", "--pressure",
                     help="target pressure of inflation test in kPA",
                     default=5,
                     type=float)
+parser.add_argument("-nu", "--poissons_ratio",
+                    help="poissons ratio",
+                    default=0.4,
+                    type=float)
+parser.add_argument("-mu", "--shear_modulus",
+                    help="poissons ratio",
+                    default=10.,
+                    type=float)
 args = parser.parse_args()
 
 # Optimization options for the form compiler
@@ -69,10 +77,12 @@ name_dims = ('elongation', 'comp_' + args.material, dim_str)
 
 if args.inverse:
     meshname = 'results/%s-%s-forward-%s.h5' % name_dims
-    f = df.HDF5File(mpi_comm_world(),meshname,'r')
-    mesh = Mesh()
+    f = df.HDF5File(df.mpi_comm_world(),meshname,'r')
+    mesh = df.Mesh()
     f.read(mesh, "mesh", False)
     sub_domains = df.MeshFunction("size_t", mesh)
+    f.read(sub_domains, "subdomains")
+    name_dims = ('inverse', 'incomp_' + args.material, dim_str)
 else:
     if args.dim == 1:
         mesh = df.UnitIntervalMesh(*mesh_dims)
@@ -118,10 +128,16 @@ bcs     = df.DirichletBC(Vvec, zeroVec, sub_domains, CLIP)
 
 
 # Elasticity parameters
-E      = 200.0                                       #Young's modulus
-nu     = 0.49                                        #Poisson's ratio
-mu     = df.Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
-inv_la = df.Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
+nu     = df.Constant(args.poissons_ratio)           #Poisson's ratio nu
+mu     = df.Constant(args.shear_modulus)            #shear modulus mu
+inv_la = df.Constant((1.-2.*nu)/(2.*mu*nu))         #reciprocal 2nd Lame
+E      = df.Constant(2.*mu*(1.+nu))                 #Young's modulus E
+if args.poissons_ratio < (0.5 - 1e-12):
+    la     = df.Constant(2.*mu*nu/(1.-2*nu))            #Lame's 1st param lambda
+    kappa  = df.Constant(2.*mu*(1.+nu)/(3.*(1.-2*nu)))  #bulk modulus kappa
+else:
+    la     = df.Constant(0.)
+    kappa  = df.Constant(0.)
 
 # Jacobian for later use
 I = df.Identity(args.dim)
@@ -135,15 +151,25 @@ pressure = df.Function (Vscal)
 ds_right = df.ds(TRACTION, domain=mesh, subdomain_data=sub_domains)
 
 # Stress tensor depending on constitutive equation
-stress = ut.computeStressTensorPenalty(u, mu, inv_la, args.material, args.inverse)
+stress = ut.computeIsochoricStressTensor(u, mu, inv_la, args.material, args.inverse,
+                                         args.incompressible)
+
+G = df.inner(df.grad(v), stress) * df.dx #material part
+
+if args.incompressible:
+    stress_vol = ut.computeVolumetricStressTensor(u, p, args.inverse)
+    G += df.inner(df.grad(v), stress_vol) * df.dx
+
+    B  = ut.incompressibilityCondition(u)
+    G += B*q*df.dx - inv_la*p*q*df.dx
+
 if args.inverse or args.material == "linear":
-    G = df.inner(df.grad(v), stress) * df.dx - df.dot(trac, v) * ds_right
+    G -= df.dot(trac, v) * ds_right
 else:
-    G = df.inner(df.grad(v), stress) * df.dx - df.inner(J * invF.T * trac, v) * ds_right
+    G -= df.inner(J * invF.T * trac, v) * ds_right
 
 # Overall weak form and its derivative
 if args.incompressible:
-    G = G1 + G2
     dG = df.derivative(G, sys_u, sys_du)
 
     df.solve(G == 0, sys_u, bcs, J=dG,

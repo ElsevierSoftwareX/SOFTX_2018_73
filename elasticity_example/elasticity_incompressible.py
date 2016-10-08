@@ -132,9 +132,9 @@ if args.inverse: #inverse formulation
   else:
       # Weak form (momentum)
       if args.material == 'neo-hooke':
-          sigma_isc = ut.incompressible_inverse_neo_hookean(u, mu)
+          sigma_isc = ut.incompressible_inverse_neo_hookean(u, mu, True)
       elif args.material == 'aniso':
-          sigma_isc = ut.incompressible_inverse_aniso(u, mu)
+          sigma_isc = ut.incompressible_inverse_aniso(u, mu, True)
       else:
           sigma_isc = 0
       sigma_vol = ut.inverse_volumetricStress(u, p)
@@ -154,9 +154,9 @@ else: #forward
   else:
       if args.material == 'neo-hooke':
       # Weak form (momentum)
-        S_isc = ut.incompressible_forward_neo_hookean(u, mu)
+        S_isc = ut.incompressible_forward_neo_hookean(u, mu, True)
       elif args.material == 'aniso':
-        S_isc = ut.incompressible_forward_aniso(u, mu)
+        S_isc = ut.incompressible_forward_aniso(u, mu, True)
       else:
           sigma_isc = 0
       S_vol = ut.volumetricStress(u, p)
