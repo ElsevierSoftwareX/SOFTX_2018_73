@@ -23,7 +23,7 @@ parser.add_argument("-pd", "--polynomial_degree",
 parser.add_argument("-ic","--incompressible",
                     help="block formulation for incompressible materials",
                     action='store_true')
-parser.add_argument("-p", "--pressure",
+parser.add_argument("--pressure",
                     help="target pressure of inflation test in kPA",
                     default=5,
                     type=float)
@@ -225,9 +225,29 @@ element_number = mesh.num_cells()
 connectivity_matrix = mesh.cells()
 
 
-Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+if args.incompressible:
+    P2 = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+    TH = P2 * P1
+    W = df.FunctionSpace(mesh, TH)
+    Vvec = W.sub(0)
+
+    # Define mixed functions
+    sys_u  = df.Function(W)
+    sys_v  = df.TestFunction(W)
+    sys_du = df.TrialFunction(W)
+    u, p   = df.split(sys_u)
+    v, q   = df.split(sys_v)
+    du, dp = df.split(sys_du)
+else:
+    Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
+    Vvec  = df.FunctionSpace(mesh, Pvec)
+    # Define mixed functions
+    u  = df.Function(Vvec)
+    v  = df.TestFunction(Vvec)
+    du = df.TrialFunction(Vvec)
+
 Pscal = df.FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Vvec  = df.FunctionSpace(mesh, Pvec)
 Vscal = df.FunctionSpace(mesh, Pscal)
 
 # Define Dirichlet BC
@@ -252,10 +272,6 @@ bcs = [bc1, bc2, bc3_pi, bc4_pi, bc5_pi, bc6_pi, bc3_po, bc4_po, bc5_po, bc6_po]
 # Applied external surface forces
 pressure = df.Function (Vscal)
 
-# Define mixed functions
-u  = df.Function(Vvec)
-v  = df.TestFunction(Vvec)
-du = df.TrialFunction(Vvec)
 
 # define normal directions
 normal = df.FacetNormal(mesh)
@@ -296,10 +312,15 @@ else:
     G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
 
 # Overall weak form and its derivative
-dG = df.derivative(G, u, du)
+if args.incompressible:
+    dG = df.derivative(G, sys_u, sys_du)
+else:
+    dG = df.derivative(G, u, du)
 
 # create file for storing solution
 ufile = df.File('%s/cylinder.pvd' % output_dir)
+if args.incompressible:
+    u, p = sys_u.split()
 ufile << u # print initial zero solution
 
 scaling = 1./args.loading_steps
@@ -312,8 +333,15 @@ for P_current in np.linspace(P_start, args.pressure, num=args.loading_steps):
     temp_array[:] = P_current
     pressure.vector().set_local(temp_array)
 
-    df.solve(G == 0, u, bcs, J=dG,
+    # Overall weak form and its derivative
+    if args.incompressible:
+        df.solve(G == 0, sys_u, bcs, J=dG,
               form_compiler_parameters=ffc_options)
+        u, p = sys_u.split()
+    else:
+        df.solve(G == 0, u, bcs, J=dG,
+              form_compiler_parameters=ffc_options)
+
     # print solution
     ufile << u
 
