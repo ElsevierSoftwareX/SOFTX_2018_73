@@ -11,19 +11,34 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
-                    default='lin-elast',
-                    choices=['lin-elast','neo-hooke','aniso'])
+                    default='linear',
+                    choices=['linear','neo-hooke','aniso'])
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
-parser.add_argument("-d", "--polynomial_degree",
+parser.add_argument("-pd", "--polynomial_degree",
                     help="polynomial degree of the ansatz functions",
                     default=1,
                     type=int)
+parser.add_argument("-ic","--incompressible",
+                    help="block formulation for incompressible materials",
+                    action='store_true')
 parser.add_argument("-p", "--pressure",
                     help="target pressure of inflation test in kPA",
                     default=5,
                     type=float)
+parser.add_argument("-nu", "--poissons_ratio",
+                    help="poissons ratio",
+                    default=0.4,
+                    type=float)
+parser.add_argument("-mu", "--shear_modulus",
+                    help="poissons ratio",
+                    default=10.,
+                    type=float)
+parser.add_argument("-ls", "--loading_steps",
+                    help="number of loading steps",
+                    default=5,
+                    type=int)
 args = parser.parse_args()
 
 # Optimization options for the form compiler
@@ -204,7 +219,6 @@ traction = inner_wall_surface()
 traction.mark(sub_boundaries, INBC)
 
 ds = df.ds(INBC, domain=mesh, subdomain_data=sub_boundaries)
-dx = df.dx
 
 node_number = mesh.num_vertices()
 element_number = mesh.num_cells()
@@ -247,10 +261,16 @@ du = df.TrialFunction(Vvec)
 normal = df.FacetNormal(mesh)
 
 # Elasticity parameters
-E      = 200.0                                            #Young's modulus
-nu     = 0.49                                #Poisson's ratio
-mu     = df.Constant(E/(2.*(1. + nu)))                  #1st Lame parameter
-inv_la = df.Constant(((1. + nu)*(1. - 2.*nu))/(E*nu))   #reciprocal 2nd Lame
+nu     = df.Constant(args.poissons_ratio)           #Poisson's ratio nu
+mu     = df.Constant(args.shear_modulus)            #shear modulus mu
+inv_la = df.Constant((1.-2.*nu)/(2.*mu*nu))         #reciprocal 2nd Lame
+E      = df.Constant(2.*mu*(1.+nu))                 #Young's modulus E
+if args.poissons_ratio < (0.5 - 1e-12):
+    la     = df.Constant(2.*mu*nu/(1.-2*nu))            #Lame's 1st param lambda
+    kappa  = df.Constant(2.*mu*(1.+nu)/(3.*(1.-2*nu)))  #bulk modulus kappa
+else:
+    la     = df.Constant(0.)
+    kappa  = df.Constant(0.)
 
 # Jacobian for later use
 I     = df.Identity(mesh_dim)
@@ -258,35 +278,22 @@ F     = I + df.grad(u)
 invF  = df.inv(F)
 J     = df.det(F)
 
+stress = ut.computeIsochoricStressTensor(u, mu, inv_la, args.material,
+                args.inverse, args.incompressible)
 
-# Stress tensor depending on constitutive equation
-if args.inverse: #inverse formulation
-  if args.material == 'lin-elast':
-      # Weak form (momentum)
-      stress = ut.inverse_lin_elastic(u, mu, inv_la)
-      G = df.inner(df.grad(v), stress) * dx - df.dot(n, v) * ds
-  else:
-      # Weak form (momentum)
-      sigma = ut.inverse_neo_hookean(u, mu, inv_la)
-      G = df.inner(df.grad(v), sigma) * dx
-  G += pressure * df.inner(n, v) * ds
-else: #forward
-  if args.material == 'lin-elast':
-      # Weak form (momentum)
-      stress = ut.forward_lin_elastic(u, mu, inv_la)
-      G = df.inner(df.grad(v), stress) * dx + df.dot(normal, v) * ds
-  else:
-      if args.material == 'neo-hooke':
-      # Weak form (momentum)
-        FS = ut.forward_neo_hookean(u, mu, inv_la)
-      elif args.material == 'aniso':
-        FS = ut.forward_aniso(u, mu, inv_la)
-      else:
-          sigma_isc = 0
-      # Weak form (momentum)
-      FS = ut.forward_neo_hookean(u, mu, inv_la)
-      G  = df.inner(df.grad(v), FS) * dx
-      G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
+G = df.inner(df.grad(v), stress) * df.dx #material part
+
+if args.incompressible:
+    stress_vol = ut.computeVolumetricStressTensor(u, p, args.inverse)
+    G += df.inner(df.grad(v), stress_vol) * df.dx
+
+    B  = ut.incompressibilityCondition(u)
+    G += B*q*df.dx - inv_la*p*q*df.dx
+
+if args.inverse or args.material == "linear":
+    G += df.inner(normal, v) * ds
+else:
+    G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
 
 # Overall weak form and its derivative
 dG = df.derivative(G, u, du)
@@ -295,8 +302,10 @@ dG = df.derivative(G, u, du)
 ufile = df.File('%s/cylinder.pvd' % output_dir)
 ufile << u # print initial zero solution
 
-P_start = args.pressure*0.2
-for P_current in np.linspace(P_start, args.pressure, num=5):
+scaling = 1./args.loading_steps
+
+P_start = args.pressure*scaling
+for P_current in np.linspace(P_start, args.pressure, num=args.loading_steps):
     temp_array = pressure.vector().get_local()
     if rank == 0:
         print(P_current)
@@ -311,30 +320,30 @@ for P_current in np.linspace(P_start, args.pressure, num=5):
 
 # Extract the displacement
 df.begin("extract displacement")
-P1_vec = VectorElement("Lagrange", mesh.ufl_cell(), 1)
-W = FunctionSpace(mesh, P1_vec)
-u_func = TrialFunction(W)
-u_test = TestFunction(W)
-a = df.dot(u_test, u_func) * dx
-L = df.dot(u, u_test) * dx
-u_func = Function(W)
-solve(a == L, u_func)
+P1_vec = df.VectorElement("Lagrange", mesh.ufl_cell(), 1)
+W = df.FunctionSpace(mesh, P1_vec)
+u_func = df.TrialFunction(W)
+u_test = df.TestFunction(W)
+a = df.dot(u_test, u_func) * df.dx
+L = df.dot(u, u_test) * df.dx
+u_func = df.Function(W)
+df.solve(a == L, u_func)
 df.end()
 
 # Extract the Jacobian
-P1 = FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-Q = FunctionSpace(mesh, P1)
-J_func = TrialFunction(Q)
-J_test = TestFunction(Q)
-a = J_func * J_test * dx
-L = J * J_test * dx
-J_func = Function(Q)
-solve(a == L, J_func)
+P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
+Q = df.FunctionSpace(mesh, P1)
+J_func = df.TrialFunction(Q)
+J_test = df.TestFunction(Q)
+a = J_func * J_test * df.dx
+L = J * J_test * df.dx
+J_func = df.Function(Q)
+df.solve(a == L, J_func)
 if rank == 0:
   print('J = \n', J_func.vector().array())
 
 # Move the mesh according to solution
-ALE.move(mesh,u_func)
+df.ALE.move(mesh,u_func)
 if not args.inverse:
   out_filename ="%s/forward-cylinder.h5" % output_dir
   Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
@@ -351,6 +360,6 @@ volume_func = df.Function(dgSpace)
 volume_func.vector()[:] = volumes
 
 # Compute the total volume
-total_volume = df.assemble(Constant(1.0)*dx(domain=mesh))
+total_volume = df.assemble(df.Constant(1.0)*df.dx(domain=mesh))
 if rank == 0:
     print ('Total volume: %.8f' % total_volume)
