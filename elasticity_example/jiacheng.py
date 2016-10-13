@@ -33,7 +33,7 @@ parser.add_argument("-nu", "--poissons_ratio",
                     type=float)
 parser.add_argument("-mu", "--shear_modulus",
                     help="poissons ratio",
-                    default=10.,
+                    default=100.,
                     type=float)
 parser.add_argument("-ls", "--loading_steps",
                     help="number of loading steps",
@@ -43,6 +43,7 @@ args = parser.parse_args()
 
 # Optimization options for the form compiler
 df.parameters['form_compiler']['cpp_optimize'] = True
+df.parameters['form_compiler']['representation'] = "quadrature"
 df.parameters['form_compiler']['quadrature_degree'] = 3
 ffc_options = {'optimize' : True,
                'eliminate_zeros' : True,
@@ -314,8 +315,14 @@ else:
 # Overall weak form and its derivative
 if args.incompressible:
     dG = df.derivative(G, sys_u, sys_du)
+    problem = df.NonlinearVariationalProblem(G, sys_u, bcs, J=dG,
+              form_compiler_parameters=ffc_options)
 else:
     dG = df.derivative(G, u, du)
+    problem = df.NonlinearVariationalProblem(G, u, bcs, J=dG,
+              form_compiler_parameters=ffc_options)
+
+solver = df.NonlinearVariationalSolver(problem)
 
 # create file for storing solution
 ufile = df.File('%s/cylinder.pvd' % output_dir)
@@ -332,15 +339,11 @@ for P_current in np.linspace(P_start, args.pressure, num=args.loading_steps):
         print(P_current)
     temp_array[:] = P_current
     pressure.vector().set_local(temp_array)
+    solver.solve()
 
     # Overall weak form and its derivative
     if args.incompressible:
-        df.solve(G == 0, sys_u, bcs, J=dG,
-              form_compiler_parameters=ffc_options)
         u, p = sys_u.split()
-    else:
-        df.solve(G == 0, u, bcs, J=dG,
-              form_compiler_parameters=ffc_options)
 
     # print solution
     ufile << u
