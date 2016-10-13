@@ -39,6 +39,10 @@ parser.add_argument("-ls", "--loading_steps",
                     help="number of loading steps",
                     default=5,
                     type=int)
+parser.add_argument("--solver",
+                    help="choose solving method",
+                    default='direct',
+                    choices=['direct','gmres'])
 args = parser.parse_args()
 
 # Optimization options for the form compiler
@@ -323,6 +327,9 @@ else:
               form_compiler_parameters=ffc_options)
 
 solver = df.NonlinearVariationalSolver(problem)
+prm = solver.parameters
+if args.solver == 'gmres':
+    prm['newton_solver']['linear_solver'] = 'gmres'
 
 # create file for storing solution
 ufile = df.File('%s/cylinder.pvd' % output_dir)
