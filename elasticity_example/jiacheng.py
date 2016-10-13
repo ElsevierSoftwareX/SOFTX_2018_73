@@ -41,8 +41,8 @@ parser.add_argument("-ls", "--loading_steps",
                     type=int)
 parser.add_argument("--solver",
                     help="choose solving method",
-                    default='direct',
-                    choices=['direct','gmres'])
+                    default='umfpack',
+                    choices=['umfpack','mumps','pastix','hypre_amg','ml_amg','petsc_amg'])
 args = parser.parse_args()
 
 # Optimization options for the form compiler
@@ -328,8 +328,31 @@ else:
 
 solver = df.NonlinearVariationalSolver(problem)
 prm = solver.parameters
-if args.solver == 'gmres':
-    prm['newton_solver']['linear_solver'] = 'gmres'
+prm['newton_solver']['absolute_tolerance']   = 1E-8
+prm['newton_solver']['relative_tolerance']   = 1E-7
+prm['newton_solver']['maximum_iterations']   = 25
+prm['newton_solver']['relaxation_parameter'] = 1.0
+if args.solver == 'umfpack':
+    prm['newton_solver']['linear_solver'] = 'umfpack'
+if args.solver == 'pastix':
+    prm['newton_solver']['linear_solver'] = 'pastix'
+if args.solver == 'mumps':
+    prm['newton_solver']['linear_solver'] = 'mumps'
+if args.solver == 'ml_amg':
+    ML_param = {"max levels"           : 3,
+                "output"               : 10,
+                "smoother: type"       : "ML symmetric Gauss-Seidel",
+                "aggregation: type"    : "Uncoupled",
+                "ML validate parameter list" : False
+    }
+    prm['newton_solver']['linear_solver']  =  'gmres'
+    prm['newton_solver']['preconditioner'] = 'ml_amg'
+if args.solver == 'hypre_amg':
+    prm['newton_solver']['linear_solver']  = 'gmres'
+    prm['newton_solver']['preconditioner'] = 'hypre_amg'
+if args.solver == 'petsc_amg':
+    prm['newton_solver']['linear_solver']  = 'gmres'
+    prm['newton_solver']['preconditioner'] = 'petsc_amg'
 
 # create file for storing solution
 ufile = df.File('%s/cylinder.pvd' % output_dir)
