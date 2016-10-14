@@ -2,6 +2,15 @@ import dolfin   as df
 import ufl
 import warnings
 
+def sym_product(A, B):
+    D=0.5*(df.as_tensor(A[df.i,df.k]*B[df.j,df.l],(df.i,df.j,df.k,df.l))+\
+           df.as_tensor(A[df.i,df.l]*B[df.j,df.k],(df.i,df.j,df.k,df.l)))
+    return D
+
+def contraction(A, D):
+    B=1.0*df.as_tensor(A[df.k,df.l]*D[df.k,df.l,df.i,df.j],(df.i,df.j))
+    return B
+
 def forward_lin_elastic(u, mu, inv_la, incompressible):
 
     I = df.Identity(ufl.domain.find_geometric_dimension(u))
@@ -178,4 +187,5 @@ def incompressibilityCondition(u):
     # First Piola-Kirchhoff stress tensor
     Bvol = df.ln(J)*df.inv(J)
     return Bvol
+
 

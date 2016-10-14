@@ -6,12 +6,13 @@ import argparse
 import dolfin    as df
 import utilities as ut
 import numpy     as np
+import materials as mat
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
-                    default='linear',
+                    default='neo-hooke',
                     choices=['linear','neo-hooke','aniso'])
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
@@ -31,8 +32,12 @@ parser.add_argument("-nu", "--poissons_ratio",
                     help="poissons ratio",
                     default=0.4,
                     type=float)
+parser.add_argument("-kappa", "--bulk_modulus",
+                    help="bulk modulus",
+                    default=1000.0,
+                    type=float)
 parser.add_argument("-mu", "--shear_modulus",
-                    help="poissons ratio",
+                    help="shear modulus",
                     default=100.,
                     type=float)
 parser.add_argument("-ls", "--loading_steps",
@@ -41,7 +46,7 @@ parser.add_argument("-ls", "--loading_steps",
                     type=int)
 parser.add_argument("--solver",
                     help="choose solving method",
-                    default='umfpack',
+                    default='mumps',
                     choices=['umfpack','mumps','pastix','hypre_amg','ml_amg','petsc_amg'])
 args = parser.parse_args()
 
@@ -229,31 +234,27 @@ node_number = mesh.num_vertices()
 element_number = mesh.num_cells()
 connectivity_matrix = mesh.cells()
 
-
-if args.incompressible:
-    P2 = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-    P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-    TH = P2 * P1
-    W = df.FunctionSpace(mesh, TH)
-    Vvec = W.sub(0)
-
-    # Define mixed functions
-    sys_u  = df.Function(W)
-    sys_v  = df.TestFunction(W)
-    sys_du = df.TrialFunction(W)
-    u, p   = df.split(sys_u)
-    v, q   = df.split(sys_v)
-    du, dp = df.split(sys_du)
-else:
-    Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-    Vvec  = df.FunctionSpace(mesh, Pvec)
-    # Define mixed functions
-    u  = df.Function(Vvec)
-    v  = df.TestFunction(Vvec)
-    du = df.TrialFunction(Vvec)
-
+Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
 Pscal = df.FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
 Vscal = df.FunctionSpace(mesh, Pscal)
+
+if args.incompressible:
+    p_degree = max(args.polynomial_degree-1, 1)
+    Qelem = df.FiniteElement("Lagrange", mesh.ufl_cell(), p_degree )
+    TH = Pvec * Qelem
+    M = df.FunctionSpace(mesh, TH)
+    Vvec = M.sub(0)
+else:
+    Vvec  = df.FunctionSpace(mesh, Pvec)
+    M = Vvec
+
+state = df.Function(M)
+u = df.split(state)[0] if args.incompressible else state
+p = df.split(state)[1] if args.incompressible else None
+
+stest = df.TestFunction(M)
+v = df.split(stest)[0] if args.incompressible else stest
+q = df.split(stest)[1] if args.incompressible else None
 
 # Define Dirichlet BC
 zeroVec = df.Constant((0.,)*mesh_dim)
@@ -286,12 +287,13 @@ nu     = df.Constant(args.poissons_ratio)           #Poisson's ratio nu
 mu     = df.Constant(args.shear_modulus)            #shear modulus mu
 inv_la = df.Constant((1.-2.*nu)/(2.*mu*nu))         #reciprocal 2nd Lame
 E      = df.Constant(2.*mu*(1.+nu))                 #Young's modulus E
-if args.poissons_ratio < (0.5 - 1e-12):
+kappa  = df.Constant(args.bulk_modulus)  #bulk modulus kappa
+if args.poissons_ratio < (0.5 - 1e-12) or args.bulk_modulus < 10e6:
     la     = df.Constant(2.*mu*nu/(1.-2*nu))            #Lame's 1st param lambda
-    kappa  = df.Constant(2.*mu*(1.+nu)/(3.*(1.-2*nu)))  #bulk modulus kappa
+    inv_kappa = df.Constant(1./args.bulk_modulus)
 else:
-    la     = df.Constant(0.)
-    kappa  = df.Constant(0.)
+    la        = None
+    inv_kappa = df.Constant(0.)
 
 # Jacobian for later use
 I     = df.Identity(mesh_dim)
@@ -299,17 +301,21 @@ F     = I + df.grad(u)
 invF  = df.inv(F)
 J     = df.det(F)
 
-stress = ut.computeIsochoricStressTensor(u, mu, inv_la, args.material,
-                args.inverse, args.incompressible)
+mat = mat.NeoHookeMaterial(mu=args.shear_modulus, kappa=args.bulk_modulus,
+                       incompressible=args.incompressible)
 
-G = df.inner(df.grad(v), stress) * df.dx #material part
+strain_energy_formulation = False
+
+if strain_energy_formulation:
+    #strain energy formulation
+    G  = df.derivative(mat.strain_energy(u,p) * df.dx, state, stest)
+else:
+    #stress formulation
+    G = df.inner(df.grad(v), mat.stress_tensor(u, p)) * df.dx
 
 if args.incompressible:
-    stress_vol = ut.computeVolumetricStressTensor(u, p, args.inverse)
-    G += df.inner(df.grad(v), stress_vol) * df.dx
-
     B  = ut.incompressibilityCondition(u)
-    G += B*q*df.dx - inv_la*p*q*df.dx
+    G += B*q*df.dx - inv_kappa*p*q*df.dx
 
 if args.inverse or args.material == "linear":
     G += df.inner(normal, v) * ds
@@ -317,15 +323,11 @@ else:
     G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
 
 # Overall weak form and its derivative
-if args.incompressible:
-    dG = df.derivative(G, sys_u, sys_du)
-    problem = df.NonlinearVariationalProblem(G, sys_u, bcs, J=dG,
-              form_compiler_parameters=ffc_options)
-else:
-    dG = df.derivative(G, u, du)
-    problem = df.NonlinearVariationalProblem(G, u, bcs, J=dG,
+dG = df.derivative(G, state, df.TrialFunction(M))
+problem = df.NonlinearVariationalProblem(G, state, bcs, J=dG,
               form_compiler_parameters=ffc_options)
 
+#solver
 solver = df.NonlinearVariationalSolver(problem)
 prm = solver.parameters
 prm['newton_solver']['absolute_tolerance']   = 1E-8
@@ -357,7 +359,7 @@ if args.solver == 'petsc_amg':
 # create file for storing solution
 ufile = df.File('%s/cylinder.pvd' % output_dir)
 if args.incompressible:
-    u, p = sys_u.split()
+    u, p = state.split()
 ufile << u # print initial zero solution
 
 scaling = 1./args.loading_steps
@@ -373,7 +375,7 @@ for P_current in np.linspace(P_start, args.pressure, num=args.loading_steps):
 
     # Overall weak form and its derivative
     if args.incompressible:
-        u, p = sys_u.split()
+        u, p = state.split()
 
     # print solution
     ufile << u
