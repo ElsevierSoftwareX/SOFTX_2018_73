@@ -1,7 +1,7 @@
 import argparse
 import dolfin as dlf
 
-from fenicsmechanics_dev.materials import elastic
+from fenicsmechanics.materials import elastic
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()

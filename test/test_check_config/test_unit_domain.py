@@ -3,8 +3,8 @@ import sys
 import argparse
 import dolfin as dlf
 
-import fenicsmechanics_dev.mechanicsproblem as mprob
-import fenicsmechanics_dev.mechanicssolver as msolv
+import fenicsmechanics.mechanicsproblem as mprob
+import fenicsmechanics.mechanicssolver as msolv
 
 dim = 2
 mesh_file = '../meshfiles/unit_domain-mesh-12x12.xml.gz'
