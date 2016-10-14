@@ -30,18 +30,7 @@ class MechanicsSolver:
         return None
 
 
-    def time_step(self):
-        """
-
-
-        """
-
-        # NEED TIME ITERATION SCHEME HERE
-
-        return None
-
-
-    def solve(self, maxIters=50, tol=1e-10, lin_solver='mumps'):
+    def solve(self, maxIters=50, tol=1e-10, lin_solver='mumps', fname=None):
         """
 
 
@@ -49,11 +38,8 @@ class MechanicsSolver:
 
         self.mechanics_problem.assemble_all()
 
-        if self.mechanics_problem.config['formulation']['unsteady']:
-            # Call the step function for each time step. Make sure all
-            # matrices and vectors are updated appropriately.
-            # self.mechanics_problem.update_all()
-            raise NotImplementedError('Time-dependent problems have not been implemented!')
+        if self.mechanics_problem.config['formulation']['time']['unsteady']:
+            self.explicit_euler(fname=fname)
         else:
             self.nonlinear_solve(maxIters=maxIters, tol=tol, lin_solver=lin_solver)
 
@@ -104,5 +90,82 @@ class MechanicsSolver:
 
             if rank == 0:
                 print 'Iteration %i: norm = %.6e' % (count, norm)
+
+        return None
+
+
+    def explicit_euler(self, fname=None):
+        """
+
+
+        """
+
+        if fname:
+            result_file = dlf.File(fname)
+
+        mp = self.mechanics_problem
+        t, tf = mp.config['formulation']['time']['interval']
+        dt = mp.config['formulation']['time']['dt']
+
+        while t <= tf:
+            t += dt
+            print '****************************************'
+            print 't = %.3f' % t
+            mp.update_all(t)
+            un, vn = self.explicit_euler_step()
+
+            print 'un = \n', un.array()
+            print 'vn = \n', vn.array()
+
+            mp.displacement.vector()[:] = un
+            mp.velocity.vector()[:] = vn
+
+            if fname:
+                result_file << mp.displacement
+
+        return None
+
+
+    def explicit_euler_step(self):
+        """
+
+
+        """
+
+        mp = self.mechanics_problem
+        dt = mp.config['formulation']['time']['dt']
+        u0 = mp.displacement.vector()
+        v0 = mp.velocity.vector()
+        M = mp._localAccelMatrix
+
+        # This should always be non-zero for deformable bodies.
+        f0 = -mp._stressWorkVector
+
+        # Check if body force is applied
+        if mp._bodyForceWorkVector is not None:
+            f0 += mp._bodyForceWorkVector
+
+        # Check if traction boundary condition was applied.
+        if mp._tractionWorkVector is not None:
+            f0 += mp._tractionWorkVector
+
+        # Check if convective acceleration is non-zero.
+        if mp._convectiveAccelVector is not None:
+            f0 -= mp._convectiveAccelVector
+
+        un = u0 + dt*v0
+        vn = dlf.PETScVector()
+        dlf.solve(M, vn, M*v0 + dt*f0)
+
+        return un, vn
+
+
+    def implicit_euler_step(self):
+        """
+
+
+        """
+
+        raise NotImplementedError('This function has not been implemented yet.')
 
         return None
