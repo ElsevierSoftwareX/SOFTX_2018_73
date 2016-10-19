@@ -74,17 +74,30 @@ class MechanicsProblem:
             Value of the body force throughout the body.
         * 'bcs'
             * 'dirichlet'
-                * 'regions' : list, tuple
-                    List of the region IDs (int) on which Dirichlet
-                    boundary conditions are to be imposed. These IDs
-                    must match those used by the mesh function provided.
-                    The order must match the order used in the list of
-                    values.
-                * 'values' : list, tuple
-                    List of values (dolfin.Constant or dolfin.Expression)
-                    for each region Dirichlet boundary region specified.
-                    The order must match the order used in the list of
-                    region IDs.
+                * 'velocity'
+                    * 'regions' : list, tuple
+                        List of the region IDs (int) on which Dirichlet
+                        boundary conditions are to be imposed. These IDs
+                        must match those used by the mesh function provided.
+                        The order must match the order used in the list of
+                        values.
+                    * 'values' : list, tuple
+                        List of values (dolfin.Constant or dolfin.Expression)
+                        for each region Dirichlet boundary region specified.
+                        The order must match the order used in the list of
+                        region IDs.
+                * 'displacement'
+                    * 'regions' : list, tuple
+                        List of the region IDs (int) on which Dirichlet
+                        boundary conditions are to be imposed. These IDs
+                        must match those used by the mesh function provided.
+                        The order must match the order used in the list of
+                        values.
+                    * 'values' : list, tuple
+                        List of values (dolfin.Constant or dolfin.Expression)
+                        for each region Dirichlet boundary region specified.
+                        The order must match the order used in the list of
+                        region IDs.
             * 'neumann'
                 * 'regions' : list, tuple
                     List of the region IDs (int) on which Neumann
@@ -217,25 +230,11 @@ class MechanicsProblem:
         # Make sure that the BC dictionaries have the same
         # number of regions, values, etc., if any were
         # specified. If they are not specified, set them to None.
-        if 'bcs' in config['formulation']:
-            # Check Dirichlet and Neumann BCs
-            self.check_dirichlet(config)
-            self.check_neumann(config)
-        else:
-            print '*** No BCs (Neumann and Dirichlet) were specified. ***'
-            config['formulation']['bcs'] = dict()
-            config['formulation']['bcs']['dirichlet'] = None
-            config['formulation']['bcs']['neumann'] = None
+        self.check_bcs(config)
 
         ############################################################
         # Check if material type has been implemented.
         self.check_material_const_eqn(config)
-
-        # ############################################################
-        # # Check for unsteady flag in 'formulation' dictionary. Assume
-        # # problem is a steady-state problem if not provided.
-        # if 'unsteady' not in config['formulation']:
-        #     config['formulation']['time']['unsteady'] = False
 
         ############################################################
         # Check if body force was provided. Assume zero if not.
@@ -269,8 +268,7 @@ class MechanicsProblem:
                  % config['formulation']['time']['integrator']
             raise NotImplementedError(s1)
 
-        types = (dlf.Constant, float)
-        if not isinstance(config['formulation']['time']['dt'], types):
+        if not isinstance(config['formulation']['time']['dt'], float):
             s1 = 'The \'dt\' parameter must be a scalar value of type: ' \
                  + 'dolfin.Constant, float'
             raise TypeError(s1)
@@ -314,6 +312,28 @@ class MechanicsProblem:
         return None
 
 
+    def check_bcs(self, config):
+        """
+
+
+        """
+
+        try:
+            if config['formulation']['bcs'] is not None:
+                # Check Dirichlet and Neumann BCs
+                self.check_dirichlet(config)
+                self.check_neumann(config)
+            else:
+                raise ValueError
+        except (KeyError, ValueError):
+            config['formulation']['bcs'] = dict()
+            config['formulation']['bcs']['neumann'] = None
+            config['formulation']['bcs']['dirichlet'] = None
+            print '*** No BCs (Neumann and Dirichlet) were specified. ***'
+
+        return None
+
+
     def check_dirichlet(self, config):
         """
         Check if the number of parameters for each key in the dirichlet
@@ -335,18 +355,82 @@ class MechanicsProblem:
         try:
             # Recognize if the user already specified None.
             if config['formulation']['bcs']['dirichlet'] is None:
-                raise AttributeError
+                raise ValueError
 
-            if not self.__check_bc_params(config['formulation']['bcs']['dirichlet']):
-                raise ValueError('The number of Dirichlet boundary regions and ' \
-                                 + 'values do not match!')
-        except AttributeError:
+            vel = 'velocity'
+            disp = 'displacement'
+            subconfig = config['formulation']['bcs']['dirichlet']
+
+            if vel in subconfig and disp in subconfig:
+                flag1 = self.check_subconfig(subconfig, vel, True)
+                flag2 = self.check_subconfig(subconfig, disp, True)
+
+                # Set dirichlet to None if both displacement and velocity
+                # are None.
+                if flag1 and flag2:
+                    config['formulation']['bcs']['dirichlet'] = None
+
+            elif vel in subconfig:
+                flag = self.check_subconfig(subconfig, vel, True)
+
+                # Set dirichlet to None if displacement is not provided
+                # and velocity is None.
+                if flag:
+                    config['formulation']['bcs']['dirichlet'] = None
+            elif disp in subconfig:
+                flag = self.check_subconfig(subconfig, disp, True)
+
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # MAYBE WE SHOULD FORCE THE USER TO PROVIDE VELOCITY
+                # DIRICHLET BCS IF DISPLACEMENT IS PROVIDED.
+                #
+                # THIS IS NECESSARY IF WE FORMULATE ELASTICITY
+                # PROBLEMS AS A SYSTEM OF FIRST ORDER ODES IN TIME.
+                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                # Set dirichlet to None if velocity is not provided
+                # and velocity is None.
+                if flag:
+                    config['formulation']['bcs']['dirichlet'] = None
+            else:
+                s1 = 'Dirichlet boundary conditions must be specified for ' \
+                     'the velocity and/or the displacement vectors.'
+                raise TypeError(s1)
+
+        except ValueError:
             print '*** No Dirichlet BCs were specified. ***'
         except KeyError:
             config['formulation']['bcs']['dirichlet'] = None
             print '*** No Dirichlet BCs were specified. ***'
 
         return None
+
+
+    def check_subconfig(self, subconfig, key, is_bc=False):
+        """
+
+
+        """
+
+        retval = False
+
+        try:
+            if subconfig[key] is None:
+                raise AttributeError
+
+            if is_bc:
+                if not self.__check_bc_params(subconfig[key]):
+                    raise ValueError('The number of Dirichlet boundary regions and ' \
+                                     + 'values for not match!')
+        except AttributeError:
+            retval = True
+            print '*** The value for %s was specified as None! ***' % key
+        except KeyError:
+            retval = True
+            subconfig[key] = None
+            print '*** No value for %s was specified! (set to None)' % key
+
+        return retval
 
 
     def check_neumann(self, config):
@@ -564,10 +648,23 @@ class MechanicsProblem:
 
         V = self.vectorSpace
 
-        self.dirichlet_bcs = list()
-        for region, value in zip(self.config['formulation']['bcs']['dirichlet']['regions'],
-                                 self.config['formulation']['bcs']['dirichlet']['values']):
-            self.dirichlet_bcs.append(dlf.DirichletBC(V, value, self.mesh_function, region))
+        self.dirichlet_bcs = {'displacement': None, 'velocity': None}
+        vel_bcs = self.config['formulation']['bcs']['dirichlet']['velocity']
+        disp_bcs = self.config['formulation']['bcs']['dirichlet']['displacement']
+
+        # Store the Dirichlet BCs for the velocity vector field
+        if vel_bcs is not None:
+            self.dirichlet_bcs['velocity'] = list()
+            for region, value in zip(vel_bcs['regions'], vel_bcs['values']):
+                bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+                self.dirichlet_bcs['velocity'].append(bc)
+
+        # Store the Dirichlet BCs for the displacement vector field
+        if disp_bcs is not None:
+            self.dirichlet_bcs['displacement'] = list()
+            for region, value in zip(disp_bcs['regions'], disp_bcs['values']):
+                bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+                self.dirichlet_bcs['displacement'].append(bc)
 
         return None
 
@@ -942,7 +1039,22 @@ class MechanicsProblem:
 
         """
 
-        for expr in self.config['formulation']['bcs']['dirichlet']['values']:
+        if self.config['formulation']['bcs']['dirichlet'] is None:
+            print 'No Dirichlet BCs to update!'
+            return None
+
+        expr_list = list()
+
+        disp_dict = self.config['formulation']['bcs']['dirichlet']['displacement']
+        vel_dict = self.config['formulation']['bcs']['dirichlet']['velocity']
+
+        if disp_dict is not None:
+            expr_list.extend(disp_dict['values'])
+
+        if vel_dict is not None:
+            expr_list.extend(vel_dict['values'])
+
+        for expr in expr_list:
             if hasattr(expr, 't'):
                 expr.t = t
 
@@ -986,6 +1098,26 @@ class MechanicsProblem:
             need_to_update = True
 
         return need_to_update
+
+
+    def bc_apply(self, name, A=None, b=None):
+        """
+
+
+        """
+
+        if A is None and b is None:
+            s1 = 'A value of None was given for both the matrix ' \
+                 + 'and the vector. Nothing to apply BCs to!'
+            raise ValueError(s1)
+
+        for bc in self.dirichlet_bcs[name]:
+            if A is not None:
+                bc.apply(A)
+            if b is not None:
+                bc.apply(b)
+
+        return None
 
 
     def assemble_all(self):

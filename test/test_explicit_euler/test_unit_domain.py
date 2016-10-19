@@ -90,7 +90,7 @@ mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 # Time interval
 t0 = 0.0
 tf = 1.0
-nsteps = 100
+nsteps = 100000
 dt = (tf - t0)/nsteps
 tspan = [t0, tf]
 
@@ -129,8 +129,14 @@ config = {'material' : {
               'body_force' : dlf.Constant((0.,)*args.dim),
               'bcs' : {
                   'dirichlet' : {
-                      'regions' : [CLIP],
-                      'values' : [dlf.Constant((0.,)*args.dim)],
+                      'displacement' : {
+                          'regions' : [CLIP],
+                          'values' : [dlf.Constant([0.]*args.dim)],
+                          },
+                      'velocity' : {
+                          'regions' : [CLIP],
+                          'values' : [dlf.Constant([0.]*args.dim)]
+                          }
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
@@ -142,6 +148,9 @@ config = {'material' : {
           }
 
 problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+# print config['formulation']['bcs']
+# print problem.config['formulation']['bcs']
+# import sys; sys.exit(0)
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)

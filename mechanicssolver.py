@@ -57,10 +57,8 @@ class MechanicsSolver:
         norm = 1.0
         count = 0
 
-        try:
-            rank = dlf.MPI.rank(dlf.mpi_comm_world())
-        except:
-            rank = 0
+        # Rank to avoid print multiple times.
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         while norm >= tol:
 
@@ -76,7 +74,7 @@ class MechanicsSolver:
             b = self.mechanics_problem._totalLoadVector
 
             # Apply Dirichlet BCs
-            for bc in self.mechanics_problem.dirichlet_bcs:
+            for bc in self.mechanics_problem.dirichlet_bcs['displacement']:
                 bc.apply(A)
                 bc.apply(b)
 
@@ -94,7 +92,7 @@ class MechanicsSolver:
         return None
 
 
-    def explicit_euler(self, fname=None):
+    def explicit_euler(self, fname=None, save_freq=1000):
         """
 
 
@@ -107,21 +105,31 @@ class MechanicsSolver:
         t, tf = mp.config['formulation']['time']['interval']
         dt = mp.config['formulation']['time']['dt']
 
+        count = 0
+
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
         while t <= tf:
             t += dt
-            print '****************************************'
-            print 't = %.3f' % t
             mp.update_all(t)
             un, vn = self.explicit_euler_step()
 
-            print 'un = \n', un.array()
-            print 'vn = \n', vn.array()
+            un_norm = un.norm('l2')
+            vn_norm = vn.norm('l2')
+
+            if rank == 0:
+                print '****************************************'
+                print 't = %.3f' % t
+                print 'un.norm(\'l2\') = ', un_norm
+                print 'vn.norm(\'l2\') = ', vn_norm
 
             mp.displacement.vector()[:] = un
             mp.velocity.vector()[:] = vn
 
-            if fname:
+            if fname and not count % save_freq:
                 result_file << mp.displacement
+
+            count += 1
 
         return None
 
@@ -137,6 +145,7 @@ class MechanicsSolver:
         u0 = mp.displacement.vector()
         v0 = mp.velocity.vector()
         M = mp._localAccelMatrix
+        # f0 = mp._totalLoadVector
 
         # This should always be non-zero for deformable bodies.
         f0 = -mp._stressWorkVector
@@ -154,8 +163,13 @@ class MechanicsSolver:
             f0 -= mp._convectiveAccelVector
 
         un = u0 + dt*v0
+        mp.bc_apply('displacement', b=un)
+
+        b = M*v0 + dt*f0
+        mp.bc_apply('velocity', A=M, b=b)
+
         vn = dlf.PETScVector()
-        dlf.solve(M, vn, M*v0 + dt*f0)
+        dlf.solve(M, vn, b)
 
         return un, vn
 

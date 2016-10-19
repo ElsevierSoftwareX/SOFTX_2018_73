@@ -119,8 +119,10 @@ config = {'material' : {
               'body_force' : dlf.Constant((0.,)*args.dim),
               'bcs' : {
                   'dirichlet' : {
-                      'regions' : [CLIP],
-                      'values' : [dlf.Constant((0.,)*args.dim)],
+                      'displacement': {
+                          'regions' : [CLIP],
+                          'values' : [dlf.Constant((0.,)*args.dim)],
+                          }
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
@@ -135,74 +137,8 @@ problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
-# print 'Solving linear algebra problem...'
 my_solver.solve(tol=1e-10)
-# print '...[DONE]'
 
 # Save solution before mesh is moved.
 if args.dim > 1:
     result_file << problem.displacement
-
-# soln = problem.displacement
-
-# ############################################################
-# # Save matrices to file
-# import numpy as np
-# import scipy.sparse as sp
-
-# # Function to save CSR matrix
-# def save_sparse_csr(filename, array):
-#     np.savez(filename, data=array.data, indices=array.indices,
-#              indptr=array.indptr, shape=array.shape)
-
-# np_stiff_name = 'stiffness-%s-%s.npz' % name_dims
-# np_load_name = 'load-%s-%s.npz' % name_dims
-# np_soln_name = 'soln-%s-%s.npz' % name_dims
-
-# print 'Writing stiffness matrix to file...'
-# A = sp.csr_matrix(problem._stressWorkMatrix.array())
-# save_sparse_csr(np_stiff_name, A)
-# print '...[DONE]'
-
-# print 'Writing total load vector to file...'
-# problem._totalLoadVector.array().tofile(np_load_name)
-# print '...[DONE]'
-
-# print 'Writing solution vector to file...'
-# problem.displacement.vector().array().tofile(np_soln_name)
-# print '...[DONE]'
-
-# ############################################################
-
-# #
-# mesh = problem.mesh
-# mesh_func = problem.mesh_function
-
-# # Extract the displacement
-# P1_vec = dlf.VectorElement("CG", mesh.ufl_cell(), 1)
-# W = dlf.FunctionSpace(mesh, P1_vec)
-# u_func = dlf.TrialFunction(W)
-# u_test = dlf.TestFunction(W)
-# a = dlf.dot(u_test, u_func) * dlf.dx
-# L = dlf.dot(u_test, soln) * dlf.dx
-# u_func = dlf.Function(W)
-# bcs = dlf.DirichletBC(W, dlf.Constant((0.,)*args.dim), mesh_func, CLIP)
-# dlf.solve(a == L, u_func, bcs)
-
-# # Move mesh according to solution and save.
-# dlf.ALE.move(mesh, u_func)
-
-# # if not args.inverse:
-# #     defm_mesh = '../meshfiles/unit_domain-defm_mesh-%s-%s' % name_dims
-# #     if args.hdf5:
-# #         defm_mesh += '.h5'
-# #         f = dlf.HDF5File(dlf.mpi_comm_world(), defm_mesh, 'w')
-# #         f.write(mesh, 'mesh')
-# #         f.close()
-# #     else:
-# #         defm_mesh += '.xml.gz'
-# #         dlf.File(defm_mesh) << mesh
-
-# # Compute the total volume
-# total_volume = dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=mesh))
-# print 'Total volume (after deformation): %.8f' % total_volume
