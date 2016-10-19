@@ -42,7 +42,7 @@ parser.add_argument("-mu", "--shear_modulus",
                     type=float)
 parser.add_argument("-ls", "--loading_steps",
                     help="number of loading steps",
-                    default=5,
+                    default=20,
                     type=int)
 parser.add_argument("--solver",
                     help="choose solving method",
@@ -119,7 +119,7 @@ if meshformat_xml:
     she1.array()[:] = fibers[3]
     she2.array()[:] = fibers[4]
     she3.array()[:] = fibers[5]
-    out_filename ="./meshes/beam/beam.h5"
+    out_filename ="./meshes/beam.h5"
     Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
     Hdf.write(mesh, "mesh")
     Hdf.write(boundaries, "boundaries")
@@ -131,7 +131,7 @@ if meshformat_xml:
     Hdf.write(she3, "she3")
     Hdf.close()
 else:
-    meshname = './meshes/beam/beam.h5'
+    meshname = './meshes/beam.h5'
     hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
     mesh = df.Mesh()
     hdf.read(mesh, 'mesh', False)

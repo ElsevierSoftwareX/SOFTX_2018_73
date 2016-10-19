@@ -52,12 +52,9 @@ args = parser.parse_args()
 
 # Optimization options for the form compiler
 df.parameters['form_compiler']['cpp_optimize'] = True
-df.parameters['form_compiler']['representation'] = "quadrature"
-df.parameters['form_compiler']['quadrature_degree'] = 3
-ffc_options = {'optimize' : True,
-               'eliminate_zeros' : True,
-               'precompute_basis_const' : True,
-               'precompute_ip_const' : True}
+df.parameters['form_compiler']['representation'] = "uflacs"
+df.parameters['form_compiler']['quadrature_degree'] = 4
+df.parameters['form_compiler']['optimize'] = True
 
 rank = df.MPI.rank(df.mpi_comm_world())
 if rank !=0:
@@ -210,7 +207,7 @@ class Pinpoint(df.SubDomain):
 
 # -----------------------------------------------------------------------------
 
-meshname = 'short_cylinder_mesh_parallel.hdf5'
+meshname = './meshes/short_cylinder_mesh_parallel.hdf5'
 hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
 mesh = df.Mesh()
 hdf.read(mesh, 'mesh', False)
@@ -324,8 +321,7 @@ else:
 
 # Overall weak form and its derivative
 dG = df.derivative(G, state, df.TrialFunction(M))
-problem = df.NonlinearVariationalProblem(G, state, bcs, J=dG,
-              form_compiler_parameters=ffc_options)
+problem = df.NonlinearVariationalProblem(G, state, bcs, J=dG)
 
 #solver
 solver = df.NonlinearVariationalSolver(problem)
