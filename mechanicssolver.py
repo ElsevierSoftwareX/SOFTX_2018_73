@@ -30,7 +30,8 @@ class MechanicsSolver:
         return None
 
 
-    def solve(self, maxIters=50, tol=1e-10, lin_solver='mumps', fname=None):
+    def solve(self, maxIters=50, tol=1e-10, lin_solver='mumps',
+              fname=None, save_freq=1):
         """
 
 
@@ -39,7 +40,7 @@ class MechanicsSolver:
         self.mechanics_problem.assemble_all()
 
         if self.mechanics_problem.config['formulation']['time']['unsteady']:
-            self.explicit_euler(fname=fname)
+            self.explicit_euler(fname=fname, save_freq=save_freq)
         else:
             self.nonlinear_solve(maxIters=maxIters, tol=tol, lin_solver=lin_solver)
 
@@ -92,7 +93,7 @@ class MechanicsSolver:
         return None
 
 
-    def explicit_euler(self, fname=None, save_freq=1000):
+    def explicit_euler(self, fname=None, save_freq=1):
         """
 
 
@@ -117,17 +118,16 @@ class MechanicsSolver:
             un_norm = un.norm('l2')
             vn_norm = vn.norm('l2')
 
-            if rank == 0:
-                print '****************************************'
-                print 't = %.3f' % t
-                print 'un.norm(\'l2\') = ', un_norm
-                print 'vn.norm(\'l2\') = ', vn_norm
-
             mp.displacement.vector()[:] = un
             mp.velocity.vector()[:] = vn
 
             if fname and not count % save_freq:
                 result_file << mp.displacement
+                if rank == 0:
+                    print '*'*40
+                    print 't = %.3f' % t
+                    print 'un.norm(\'l2\') = ', un_norm
+                    print 'vn.norm(\'l2\') = ', vn_norm
 
             count += 1
 

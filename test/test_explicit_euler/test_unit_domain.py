@@ -90,7 +90,7 @@ mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 # Time interval
 t0 = 0.0
 tf = 1.0
-nsteps = 100000
+nsteps = 1000000
 dt = (tf - t0)/nsteps
 tspan = [t0, tf]
 
@@ -147,12 +147,9 @@ config = {'material' : {
               }
           }
 
+# import pdb; pdb.set_trace()
 problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
-# print config['formulation']['bcs']
-# print problem.config['formulation']['bcs']
-# import sys; sys.exit(0)
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
-# import pdb; pdb.set_trace()
-my_solver.solve(tol=1e-10, fname='results/test.pvd')
+my_solver.solve(tol=1e-10, fname='results/test.pvd', save_freq=10000)

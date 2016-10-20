@@ -537,22 +537,34 @@ class MechanicsProblem:
         self.velocity = dlf.Function(self.vectorSpace)
         self.acceleration = dlf.Function(self.vectorSpace)
 
+        self.velocity.rename('v', 'velocity')
+        self.acceleration.rename('a', 'acceleration')
+
         unsteady = self.config['formulation']['time']['unsteady']
         lagrangian = self.config['formulation']['domain'] == 'lagrangian'
 
         if unsteady and lagrangian:
             self.displacement = dlf.Function(self.vectorSpace)
+            self.displacement.rename('u', 'displacement')
 
             # Functions for previous time step
             self.displacement0 = dlf.Function(self.vectorSpace)
             self.velocity0 = dlf.Function(self.vectorSpace)
             self.acceleration0 = dlf.Function(self.vectorSpace)
+
+            self.displacement0.rename('u0', 'displacement0')
+            self.velocity0.rename('v0', 'velocity0')
+            self.acceleration0.rename('a0','acceleration0')
         elif unsteady:
             # Functions for previous time step
             self.velocity0 = dlf.Function(self.vectorSpace)
             self.acceleration0 = dlf.Function(self.vectorSpace)
+
+            self.velocity0.rename('v0', 'velocity0')
+            self.acceleration0.rename('a0','acceleration0')
         elif lagrangian:
             self.displacement = dlf.Function(self.vectorSpace)
+            self.displacement.rename('u', 'displacement')
 
             self.displacement0 = None
             self.velocity0 = None
@@ -580,9 +592,11 @@ class MechanicsProblem:
 
         if self.config['material']['incompressible']:
             self.pressure = dlf.Function(self.scalarSpace)
+            self.pressure.rename('p', 'pressure')
 
             if self.config['formulation']['time']['unsteady']:
                 self.pressure0 = dlf.Function(self.scalarSpace)
+                self.pressure0.rename('p0', 'pressure0')
             else:
                 self.pressure0 = None
 
