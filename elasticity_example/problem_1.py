@@ -12,8 +12,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
-                    default='neo-hooke',
-                    choices=['linear','neo-hooke','aniso'])
+                    default='guccione',
+                    choices=['linear','neo-hooke','aniso','guccione'])
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -211,8 +211,7 @@ mu     = df.Constant(args.shear_modulus)            #shear modulus mu
 inv_la = df.Constant((1.-2.*nu)/(2.*mu*nu))         #reciprocal 2nd Lame
 E      = df.Constant(2.*mu*(1.+nu))                 #Young's modulus E
 kappa  = df.Constant(args.bulk_modulus)  #bulk modulus kappa
-if args.poissons_ratio < (0.5 - 1e-12) or args.bulk_modulus < 10e6:
-    la     = df.Constant(2.*mu*nu/(1.-2*nu))            #Lame's 1st param lambda
+if (args.bulk_modulus < 10e6 and args.bulk_modulus > df.DOLFIN_EPS):
     inv_kappa = df.Constant(1./args.bulk_modulus)
 else:
     la        = None
@@ -224,18 +223,21 @@ F     = I + df.grad(u)
 invF  = df.inv(F)
 J     = df.det(F)
 
-#mat = mat.NeoHookeMaterial(mu=args.shear_modulus, kappa=args.bulk_modulus,
-#                       incompressible=args.incompressible)
-matparam = mat.GuccioneMaterial.default_parameters()
-matparam['Tactive'] = None
-matparam['C'] = 2.0
-matparam['bf'] = 8.0
-matparam['bt'] = 2.0
-matparam['bfs'] = 4.0
-matparam['e1'] = e1
-matparam['e2'] = e2
-matparam['kappa'] = args.bulk_modulus
-mat = mat.GuccioneMaterial(**matparam)
+if (args.material == "neo-hooke"):
+    mat = mat.NeoHookeMaterial(mu=args.shear_modulus, kappa=args.bulk_modulus,
+                               incompressible=args.incompressible)
+elif (args.material == "guccione"):
+    matparam = mat.GuccioneMaterial.default_parameters()
+    matparam['Tactive'] = None
+    matparam['C'] = 2.0
+    matparam['bf'] = 8.0
+    matparam['bt'] = 2.0
+    matparam['bfs'] = 4.0
+    matparam['e1'] = e1
+    matparam['e2'] = e2
+    matparam['kappa'] = args.bulk_modulus
+    matparam['incompressible'] = args.incompressible
+    mat = mat.GuccioneMaterial(**matparam)
 
 strain_energy_formulation = False
 
