@@ -170,7 +170,6 @@ class MechanicsProblem:
         # Use a copy to avoid altering the original object
         config = user_config.copy()
 
-        ############################################################
         # Check if the finite element type is provided.
         if 'element' not in config['mesh']:
             raise ValueError('You need to specify the type of element(s) to use.')
@@ -218,7 +217,6 @@ class MechanicsProblem:
                  % fe_list[0][0]
             raise NotImplementedError(s1)
 
-        ############################################################
         # Check domain formulation.
         domain = config['formulation']['domain']
         if not domain in ['lagrangian', 'eulerian']:
@@ -226,22 +224,18 @@ class MechanicsProblem:
                  % config['formulation']['domain']
             raise ValueError(s1)
 
-        ############################################################
         # Make sure that the BC dictionaries have the same
         # number of regions, values, etc., if any were
         # specified. If they are not specified, set them to None.
         self.check_bcs(config)
 
-        ############################################################
         # Check if material type has been implemented.
         self.check_material_const_eqn(config)
 
-        ############################################################
         # Check if body force was provided. Assume zero if not.
         if 'body_force' not in config['formulation']:
             config['formulation']['body_force'] = None
 
-        ############################################################
         # Check the parameters given for time integration.
         if 'time' in config['formulation']:
             self.check_time_params(config)
@@ -361,6 +355,7 @@ class MechanicsProblem:
             disp = 'displacement'
             subconfig = config['formulation']['bcs']['dirichlet']
 
+            # User must specify BCs for velocity, or displacement AND velocity
             if vel in subconfig and disp in subconfig:
                 flag1 = self.check_subconfig(subconfig, vel, True)
                 flag2 = self.check_subconfig(subconfig, disp, True)
@@ -377,24 +372,9 @@ class MechanicsProblem:
                 # and velocity is None.
                 if flag:
                     config['formulation']['bcs']['dirichlet'] = None
-            elif disp in subconfig:
-                flag = self.check_subconfig(subconfig, disp, True)
-
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                # MAYBE WE SHOULD FORCE THE USER TO PROVIDE VELOCITY
-                # DIRICHLET BCS IF DISPLACEMENT IS PROVIDED.
-                #
-                # THIS IS NECESSARY IF WE FORMULATE ELASTICITY
-                # PROBLEMS AS A SYSTEM OF FIRST ORDER ODES IN TIME.
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-                # Set dirichlet to None if velocity is not provided
-                # and velocity is None.
-                if flag:
-                    config['formulation']['bcs']['dirichlet'] = None
             else:
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     'the velocity and/or the displacement vectors.'
+                     + 'velocity, or velocity AND displacement.'
                 raise TypeError(s1)
 
         except ValueError:
@@ -534,6 +514,9 @@ class MechanicsProblem:
         self.test_vector = dlf.TestFunction(self.vectorSpace)
         self.trial_vector = dlf.TrialFunction(self.vectorSpace)
 
+        # Function used to define nonlinear forms
+        self.vector_function = dlf.Function(self.vectorSpace)
+
         self.velocity = dlf.Function(self.vectorSpace)
         self.acceleration = dlf.Function(self.vectorSpace)
 
@@ -594,6 +577,9 @@ class MechanicsProblem:
             self.pressure = dlf.Function(self.scalarSpace)
             self.pressure.rename('p', 'pressure')
 
+            # Function used to define nonlinear forms
+            self.scalar_function = dlf.Function(self.scalarSpace)
+
             if self.config['formulation']['time']['unsteady']:
                 self.pressure0 = dlf.Function(self.scalarSpace)
                 self.pressure0.rename('p0', 'pressure0')
@@ -628,7 +614,7 @@ class MechanicsProblem:
         # are necessary.
         if self.config['material']['type'] == 'elastic':
             I = dlf.Identity(self.mesh.geometry().dim())
-            self.deformationGradient = I + dlf.grad(self.displacement)
+            self.deformationGradient = I + dlf.grad(self.vector_function)
             self.deformationRateGradient = None
             self.jacobian = dlf.det(self.deformationGradient)
         else:
@@ -722,7 +708,8 @@ class MechanicsProblem:
                 nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
         else:
             if 'pressure' in tt_list:
-                n = dlf.FacetNormal(self.mesh) # No need for Nanson's formula
+                # No need for Nanson's formula in Eulerian coordinates
+                n = dlf.FacetNormal(self.mesh)
 
         self.ufl_neumann_bcs = 0
         zipped_vals = zip(region_list, tt_list, value_list)
@@ -762,7 +749,7 @@ class MechanicsProblem:
         xi = self.test_vector
         rho = self.config['material']['density']
 
-        self.ufl_local_accel = dlf.dot(xi, rho*self.acceleration)*dlf.dx
+        self.ufl_local_accel = dlf.dot(xi, rho*self.vector_function)*dlf.dx
 
         return None
 
@@ -801,8 +788,8 @@ class MechanicsProblem:
 
         xi = self.test_vector
         rho = self.config['material']['density']
-        self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.velocity)\
-                                        * self.velocity)*dlf.dx
+        self.ufl_convec_accel = dlf.dot(xi, rho*dlf.grad(self.vector_function) \
+                                        *self.vector_function)*dlf.dx
 
         return None
 
@@ -822,7 +809,7 @@ class MechanicsProblem:
             self.define_ufl_convec_accel()
 
         self.ufl_convec_accel_diff = dlf.derivative(self.ufl_convec_accel,
-                                                    self.velocity,
+                                                    self.vector_function,
                                                     self.trial_vector)
 
         return None
@@ -864,16 +851,9 @@ class MechanicsProblem:
         if not hasattr(self, 'ufl_stress_work'):
             self.define_ufl_stress_work()
 
-        if self.config['material']['type'] == 'elastic':
-            self.ufl_stress_work_diff = dlf.derivative(self.ufl_stress_work,
-                                                       self.displacement,
-                                                       self.trial_vector)
-        else:
-            # # TAKE DERIVATIVE AT VELOCITY IF VISCOUS MATERIAL.
-            # self.ufl_stress_work_diff = dlf.derivative(self.ufl_stress_work,
-            #                                            self.velocity,
-            #                                            self.trial_vector)
-            raise NotImplementedError('Material type is not implemented.')
+        self.ufl_stress_work_diff = dlf.derivative(self.ufl_stress_work,
+                                                   self.vector_function,
+                                                   self.trial_vector)
 
         return None
 
@@ -947,7 +927,8 @@ class MechanicsProblem:
 
         """
 
-        # Exit if objects have already been initialized
+        # Exit if objects have already been initialized.
+        # Should only have to check if one of them exists.
         if hasattr(self, '_localAccelMatrix'):
             return None
 
@@ -957,74 +938,83 @@ class MechanicsProblem:
         else:
             self._localAccelMatrix = None
 
-        # Check if problem was formulated in Eulerian coordinates
-        # to include the convective acceleration term.
-        if self.ufl_convec_accel is not None:
-            self._convectiveAccelMatrix = dlf.PETScMatrix()
-            self._convectiveAccelVector = dlf.PETScVector()
-        else:
-            self._convectiveAccelMatrix = None
-            self._convectiveAccelVector = None
+        # RETURNING MATRIX OBJECTS INSTEAD OF HOLDING THEM AS MEMBER
+        # DATA.
+        #
+        # # Check if problem was formulated in Eulerian coordinates
+        # # to include the convective acceleration term.
+        # if self.ufl_convec_accel is not None:
+        #     self._convectiveAccelMatrix = dlf.PETScMatrix()
+        #     self._convectiveAccelVector = dlf.PETScVector()
+        # else:
+        #     self._convectiveAccelMatrix = None
+        #     self._convectiveAccelVector = None
 
-        # This should always be non-zero for deformable bodies.
-        self._stressWorkMatrix = dlf.PETScMatrix()
-        self._stressWorkVector = dlf.PETScVector()
+        # # This should always be non-zero for deformable bodies.
+        # self._stressWorkMatrix = dlf.PETScMatrix()
+        # self._stressWorkVector = dlf.PETScVector()
 
-        # Initialize the vector corresponding to the body force term.
-        if self.ufl_body_force is not None:
-            self._bodyForceWorkVector = dlf.PETScVector()
-        else:
-            self._bodyForceWorkVector = None
+        # # Initialize the vector corresponding to the body force term.
+        # if self.ufl_body_force is not None:
+        #     self._bodyForceWorkVector = dlf.PETScVector()
+        # else:
+        #     self._bodyForceWorkVector = None
 
-        # Initialize vector corresponding to the traction force terms. Assume
-        # it is zero if key was not provided.
-        if self.ufl_neumann_bcs is not None:
-            self._tractionWorkVector = dlf.PETScVector()
-        else:
-            self._tractionWorkVector = None
-
-        return None
-
-
-    def update_all(self, t=None):
-        """
-        Update all matrices and vectors that depend explicitly on time or
-        that depend on the state of the problem (velocity/displacement).
-        If no time value is provided, only the values that depend on the
-        state are updated.
-
-
-        Parameters
-        ----------
-
-        t : scalar (default None)
-
-
-        """
-
-        if t is not None:
-            self.update_time(t)
-
-        # Update the assembled PETSc matrices and vectors that
-        # depend on the current state.
-
-        # Update the matrices/vectors coming from local acceleration
-        if self._localAccelMatrix is not None:
-            self.assembleLocalAccelMatrix()
-
-        # Update the matrices/vectors coming from convective acceleration
-        if self._convectiveAccelMatrix is not None:
-            self.assembleConvectiveAccelMatrix()
-            self.assembleConvectiveAccelVector()
-
-        # Update the matrices/vectors coming from the stress work term
-        self.assembleStressWorkMatrix()
-        self.assembleStressWorkVector()
-
-        # Assemble the total load vector (i.e. residual vector)
-        self.assembleLoadVector()
+        # # Initialize vector corresponding to the traction force terms. Assume
+        # # it is zero if key was not provided.
+        # if self.ufl_neumann_bcs is not None:
+        #     self._tractionWorkVector = dlf.PETScVector()
+        # else:
+        #     self._tractionWorkVector = None
 
         return None
+
+
+    # def update_all(self, t=None):
+    #     """
+    #     Update all matrices and vectors that depend explicitly on time or
+    #     that depend on the state of the problem (velocity/displacement).
+    #     If no time value is provided, only the values that depend on the
+    #     state are updated.
+
+
+    #     Parameters
+    #     ----------
+
+    #     t : scalar (default None)
+
+
+    #     """
+
+    #     if t is not None:
+    #         self.update_time(t)
+
+    #     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #     s1 = 'Need to change this functino to assign the proper functions ' \
+    #          + 'to \'vector_function\' and \'scalar_function\'.'
+    #     raise NotImplementedError(s1)
+    #     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    #     # Update the assembled PETSc matrices and vectors that
+    #     # depend on the current state.
+
+    #     # Update the matrices/vectors coming from local acceleration
+    #     if self._localAccelMatrix is not None:
+    #         self.assembleLocalAccelMatrix()
+
+    #     # Update the matrices/vectors coming from convective acceleration
+    #     if self._convectiveAccelMatrix is not None:
+    #         self.assembleConvectiveAccelMatrix()
+    #         self.assembleConvectiveAccelVector()
+
+    #     # Update the matrices/vectors coming from the stress work term
+    #     self.assembleStressWorkMatrix()
+    #     self.assembleStressWorkVector()
+
+    #     # Assemble the total load vector (i.e. residual vector)
+    #     self.assembleLoadVector()
+
+    #     return None
 
 
     def update_time(self, t):
@@ -1164,6 +1154,20 @@ class MechanicsProblem:
         return None
 
 
+    def assemble_constants(self):
+        """
+        Assemble values that do not depend on the current state and/or
+        time.
+
+
+        """
+
+        if self._localAccelMatrix is not None:
+            self.assembleLocalAccelMatrix()
+
+        return None
+
+
     def assembleLocalAccelMatrix(self):
         """
         Return the matrix that comes from the differential of the local
@@ -1196,7 +1200,7 @@ class MechanicsProblem:
         return None
 
 
-    def assembleConvectiveAccelMatrix(self):
+    def assembleConvectiveAccelMatrix(self, v, tensor=None):
         """
         Return the matrix that comes from the differential of the convective
         acceleration term in the weak form. I.e., grad(v)*v.
@@ -1205,7 +1209,9 @@ class MechanicsProblem:
         Parameters
         ----------
 
-        self :
+        v : dolfin.Function
+            A dolfin.Function storing the values at which this matrix
+            is to be evaluated.
 
 
         Returns
@@ -1216,50 +1222,97 @@ class MechanicsProblem:
 
         """
 
+        if tensor is None:
+            tensor = dlf.PETScMatrix()
+
+        self.vector_function.assign(v)
         dlf.assemble(self.ufl_convec_accel_diff,
-                     tensor=self._convectiveAccelMatrix)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
-    def assembleConvectiveAccelVector(self):
+    def assembleConvectiveAccelVector(self, v, tensor=None):
+        """
+        Return the vector that comes from the convective acceleration
+        term in the weak form. I.e., dot(xi, grad(v)*v)*dx.
+
+
+        Parameters
+        ----------
+
+        v : dolfin.Function
+            A dolfin.Function storing the values at which this matrix
+            is to be evaluated.
+
+
         """
 
+        if tensor is None:
+            tensor = dlf.PETScVector()
 
-        """
-
+        self.vector_function.assign(v)
         dlf.assemble(self.ufl_convec_accel,
-                     tensor=self._convectiveAccelVector)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
-    def assembleStressWorkMatrix(self):
+    def assembleStressWorkMatrix(self, u, tensor=None):
+        """
+        Return the matrix that comes from the differential of the stress
+        work term in the weak form. I.e., inner(grad(xi), stress)*dx.
+
+
+        Parameters
+        ----------
+
+        u : dolfin.Function
+            A dolfin.Function storing the values at which this matrix
+            is to be evaluated.
+
+
         """
 
+        if tensor is None:
+            tensor = dlf.PETScMatrix()
 
-        """
-
+        self.vector_function.assign(u)
         dlf.assemble(self.ufl_stress_work_diff,
-                     tensor=self._stressWorkMatrix)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
-    def assembleStressWorkVector(self):
+    def assembleStressWorkVector(self, u, tensor=None):
+        """
+        Return the vector that comes from the stress work term in the
+        weak form. I.e., inner(grad(xi), stress)*dx.
+
+
+        Parameters
+        ----------
+
+        u : dolfin.Function
+            A dolfin.Function storing the values at which this matrix
+            is to be evaluated.
+
+
         """
 
+        if tensor is None:
+            tensor = dlf.PETScVector()
 
-        """
-
+        self.vector_function.assign(u)
         dlf.assemble(self.ufl_stress_work,
-                     tensor=self._stressWorkVector)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
     def assembleLoadVector(self):
         """
+
 
 
         """
@@ -1289,28 +1342,34 @@ class MechanicsProblem:
         return None
 
 
-    def assembleBodyForceVector(self):
+    def assembleBodyForceVector(self, tensor=None):
         """
 
 
         """
+
+        if tensor is None:
+            tensor = dlf.PETScVector()
 
         dlf.assemble(self.ufl_body_force,
-                     tensor=self._bodyForceWorkVector)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
-    def assembleTractionVector(self):
+    def assembleTractionVector(self, tensor=None):
         """
 
 
         """
+
+        if tensor is None:
+            tensor = dlf.PETScVector()
 
         dlf.assemble(self.ufl_neumann_bcs,
-                     tensor=self._tractionWorkVector)
+                     tensor=tensor)
 
-        return None
+        return tensor
 
 
     def get_dirichlet_bcs(self):
@@ -1352,16 +1411,6 @@ class MechanicsProblem:
         """
 
         return self.ufl_local_accel
-
-
-    def getConvectiveAccelMatrix(self):
-
-        return self._convectiveAccelMatrix
-
-
-    def getConvectiveAccelVector(self, tensor=None):
-
-        return self._convectiveAccelVector
 
 
     def getUFLConvectiveAccel(self):

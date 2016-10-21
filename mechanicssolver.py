@@ -134,18 +134,13 @@ class MechanicsSolver:
         return None
 
 
-    def explicit_euler_step(self):
+    def rhs(self):
         """
 
 
         """
 
-        mp = self.mechanics_problem
-        dt = mp.config['formulation']['time']['dt']
-        u0 = mp.displacement.vector()
-        v0 = mp.velocity.vector()
-        M = mp._localAccelMatrix
-        # f0 = mp._totalLoadVector
+        # Might need to update state before getting these vectors
 
         # This should always be non-zero for deformable bodies.
         f0 = -mp._stressWorkVector
@@ -161,6 +156,22 @@ class MechanicsSolver:
         # Check if convective acceleration is non-zero.
         if mp._convectiveAccelVector is not None:
             f0 -= mp._convectiveAccelVector
+
+        return f0
+
+
+    def explicit_euler_step(self):
+        """
+
+
+        """
+
+        mp = self.mechanics_problem
+        dt = mp.config['formulation']['time']['dt']
+        u0 = mp.displacement.vector()
+        v0 = mp.velocity.vector()
+        M = mp._localAccelMatrix
+        f0 = self.rhs()
 
         un = u0 + dt*v0
         mp.bc_apply('displacement', b=un)
@@ -181,5 +192,42 @@ class MechanicsSolver:
         """
 
         raise NotImplementedError('This function has not been implemented yet.')
+
+        return None
+
+
+    def generalized_alpha(self, alpha=0.5):
+        """
+
+
+        """
+
+        # Get time-stepping parameters.
+        #
+        # Loop through all the time steps
+        # calling generalized_alpha_step
+        # each time.
+        #
+        # Need to assemble the appropriate matrices and vectors
+        # for each time step. Both in the current and previous
+        # time step, depending on the value of alpha.
+        #
+        # Prepare for the next time step: Update the displacement,
+        # velocity, and acceleration function objects.
+
+        return None
+
+
+    def generalized_alpha_step(self, alpha=0.5):
+        """
+
+
+        """
+
+        # Get necessary time-stepping parameters.
+        #
+        # In general, a call to the nonlinear solver will be required.
+        # Might need to reformat the nonlinear_solve function so that
+        # it can also be used in this case.
 
         return None
