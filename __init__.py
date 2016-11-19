@@ -5,3 +5,6 @@
 
 from .mechanicsproblem import *
 from .materials.elastic import *
+
+import dolfin as dlf
+dlf.parameters['form_compiler']['representation'] = 'uflacs'

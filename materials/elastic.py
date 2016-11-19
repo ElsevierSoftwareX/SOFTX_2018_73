@@ -19,16 +19,24 @@ def lin_elastic(problem):
 
     """
 
-    if problem.config['formulation']['inverse']:
-        T = inverse_lin_elastic(problem.deformationGradient,
-                                problem.config['material']['lambda'],
-                                problem.config['material']['mu'])
-    else:
-        T = forward_lin_elastic(problem.deformationGradient,
-                                problem.config['material']['lambda'],
-                                problem.config['material']['mu'])
+    la = problem.config['material']['lambda']
+    mu = problem.config['material']['mu']
 
-    return T
+    if problem.config['formulation']['inverse']:
+        T = inverse_lin_elastic(problem.deformationGradient, la, mu)
+    else:
+        T = forward_lin_elastic(problem.deformationGradient, la, mu)
+
+    if problem.config['formulation']['time']['unsteady']:
+        if problem.config['formulation']['inverse']:
+            T0 = inverse_lin_elastic(problem.deformationGradient0, la, mu)
+        else:
+            T0 = forward_lin_elastic(problem.deformationGradient0, la, mu)
+
+    if problem.config['formulation']['time']['unsteady']:
+        return T, T0
+    else:
+        return T
 
 
 def forward_lin_elastic(F, la, mu):
@@ -80,6 +88,11 @@ def neo_hookean(problem):
         such as material parameters.
 
     """
+
+    if problem.config['formulation']['time']['unsteady']:
+        raise NotImplementedError('THIS NEEDS TO BE UPDATED TO RETURN THE ' \
+                                  + 'STRESS TENSOR AT CURRENT AND PREVIOUS ' \
+                                  + 'TIME STEPS.')
 
     F = problem.deformationGradient
     Finv = dlf.inv(F)
