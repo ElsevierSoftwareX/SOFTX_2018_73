@@ -47,10 +47,10 @@ else:
 mesh_dir = '../meshfiles/'
 if args.inverse:
     # mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s' % name_dims
-    result_file = dlf.File('results/inverse-disp-%s-%s.pvd' % name_dims)
+    result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
 else:
     # mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
-    result_file = dlf.File('results/forward-disp-%s-%s.pvd' % name_dims)
+    result_file = 'results/forward-disp-%s-%s.pvd' % name_dims
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
 mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
@@ -64,7 +64,7 @@ else:
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):
     raise Exception('The mesh file, \'%s\', does not exist. ' % mesh_file
-                    + 'Please run the script \'generate_mesh_files.py\''
+                    + 'Please run the script \'generate_mesh_files.py\' '
                     + 'with the same arguments first.')
 
 # Check if the mesh function file exists
@@ -89,11 +89,17 @@ mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
 trac = dlf.Constant((3.0,) + (0.0,)*(args.dim-1))
+pressure = dlf.Constant(-3.0)
 
 # Region IDs
 ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
+
+if args.material == 'lin_elastic':
+    domain = 'eulerian'
+else:
+    domain = 'lagrangian'
 
 # Problem configuration dictionary
 config = {'material' : {
@@ -114,31 +120,35 @@ config = {'material' : {
               'time' : {
                   'unsteady' : False
                   },
-              'domain' : 'lagrangian',
+              'domain' : domain,
               'inverse' : args.inverse,
               'body_force' : dlf.Constant((0.,)*args.dim),
               'bcs' : {
                   'dirichlet' : {
                       'displacement': {
                           'regions' : [CLIP],
-                          'values' : [dlf.Constant((0.,)*args.dim)],
+                          'values' : [dlf.Constant([0.]*args.dim)]
+                          },
+                      'velocity' : {
+                          'regions' : [CLIP],
+                          'values' : [dlf.Constant([0.]*args.dim)]
                           }
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
-                      'types' : ['cauchy'],
-                      'values' : [trac]
+                      # 'types' : ['cauchy'],
+                      # 'values' : [trac]
+                      'types' : ['pressure'],
+                      'values' : [pressure]
                       }
                   }
               }
           }
 
 problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+# import sys
+# sys.exit()
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
-my_solver.solve(tol=1e-10)
-
-# Save solution before mesh is moved.
-if args.dim > 1:
-    result_file << problem.displacement
+my_solver.solve(print_norm=True, fname_disp=result_file)
