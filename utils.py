@@ -23,6 +23,9 @@ def load_mesh(mesh_file):
 
     """
 
+    if isinstance(mesh_file, dlf.Mesh):
+        return mesh_file
+
     if mesh_file[-3:] == '.h5':
         mesh = __load_mesh_hdf5(mesh_file)
     else:
@@ -55,6 +58,12 @@ def load_mesh_function(mesh_function, mesh):
 
 
     """
+
+    mesh_func_classes = (dlf.MeshFunctionSizet, dlf.MeshFunctionDouble,
+                         dlf.MeshFunctionBool, dlf.MeshFunctionInt)
+
+    if isinstance(mesh_function, mesh_func_classes):
+        return mesh_function
 
     if mesh_function[-3:] == '.h5':
         mesh_func = __load_mesh_function_hdf5(mesh_function, mesh)

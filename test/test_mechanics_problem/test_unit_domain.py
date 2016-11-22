@@ -44,7 +44,7 @@ else:
     element_type = 'p2'
     kappa = None
 
-mesh_dir = '../meshfiles/'
+mesh_dir = '../meshfiles/unit_domain/'
 if args.inverse:
     # mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s' % name_dims
     result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims

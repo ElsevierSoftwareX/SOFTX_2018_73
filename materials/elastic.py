@@ -89,45 +89,55 @@ def neo_hookean(problem):
 
     """
 
-    if problem.config['formulation']['time']['unsteady']:
-        raise NotImplementedError('THIS NEEDS TO BE UPDATED TO RETURN THE ' \
-                                  + 'STRESS TENSOR AT CURRENT AND PREVIOUS ' \
-                                  + 'TIME STEPS.')
-
     F = problem.deformationGradient
-    Finv = dlf.inv(F)
     J = problem.jacobian
-    dim = find_dim(F)
-    I = dlf.Identity(dim)
-
     la = problem.config['material']['lambda']
     mu = problem.config['material']['mu']
 
-    if problem.config['formulation']['inverse']:
-        if problem.config['material']['incompressible']:
+    incomp = problem.config['material']['incompressible']
+    inv = problem.config['formulation']['inverse']
+
+    stress = neo_hookean_stress(F, J, la, mu, incomp=incomp, inv=inv)
+
+    if problem.config['formulation']['time']['unsteady']:
+        F0 = problem.deformationGradient0
+        J0 = problem.jacobian0
+        stress0 = neo_hookean_stress(F0, J0, la, mu, incomp=incomp, inv=inv)
+        return stress, stress0
+    else:
+        return stress
+
+
+def neo_hookean_stress(F, J, la, mu, incomp=False, inv=False):
+    """
+
+
+    """
+
+    dim = find_dim(F)
+    I = dlf.Identity(dim)
+
+    if inv:
+        if incomp:
             fbar = J**(-1.0/dim)*F
             jbar = dlf.det(fbar)
             stress = inverse_neo_hookean(fbar, jbar, la, mu)
-            # Turn this off to test isochoric component above
             stress += problem.pressure*I
         else:
-            # Note that F here is the deformation gradient from
-            # the current to the reference configuration.
             stress = inverse_neo_hookean(F, J, la, mu)
     else:
-        if problem.config['material']['incompressible']:
+        if incomp:
             Fbar = J**(-1.0/dim)*F
             Jbar = dlf.det(Fbar)
             stress = forward_neo_hookean(Fbar, Jbar, la, mu)
-            # Turn this off to test isochoric component above
             stress += problem.pressure*J*Finv.T
         else:
-            stress = forward_neo_hookean(F, J, la, mu, Finv=Finv)
+            stress = forward_neo_hookean(F, J, la, mu)
 
     return stress
 
 
-def forward_neo_hookean(F, J, la, mu, Finv=None):
+def forward_neo_hookean(F, J, la, mu):
     """
     Return the first Piola-Kirchhoff stress tensor based on the strain
     energy function
@@ -148,8 +158,7 @@ def forward_neo_hookean(F, J, la, mu, Finv=None):
 
     """
 
-    if Finv is None:
-        Finv = dlf.inv(F)
+    Finv = dlf.inv(F)
 
     return mu*F  + (la*dlf.ln(J) - mu)*Finv.T
 

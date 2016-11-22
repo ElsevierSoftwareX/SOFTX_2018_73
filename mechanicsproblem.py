@@ -336,7 +336,8 @@ class MechanicsProblem:
                 self.check_neumann(config)
             else:
                 raise ValueError
-        except (KeyError, ValueError):
+        # except (KeyError, ValueError):
+        except (KeyError):
             config['formulation']['bcs'] = dict()
             config['formulation']['bcs']['neumann'] = None
             config['formulation']['bcs']['dirichlet'] = None
@@ -420,9 +421,11 @@ class MechanicsProblem:
                     raise ValueError('The number of Dirichlet boundary regions and ' \
                                      + 'values for not match!')
         except AttributeError:
+            print 'check_subconfig...AttributeError'
             retval = True
             print '*** The value for %s was specified as None! ***' % key
         except KeyError:
+            print 'check_subconfig...KeyError'
             retval = True
             subconfig[key] = None
             print '*** No value for %s was specified! (set to None)' % key
