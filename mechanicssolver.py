@@ -106,8 +106,10 @@ class MechanicsSolver(object):
             if not count % save_freq:
                 if fname_disp:
                     file_disp << (self._mp.displacement, t)
+                    print '* Displacement saved *'
                 if fname_vel:
                     file_vel << (self._mp.velocity, t)
+                    print '* Velocity saved *'
 
             # Set to the next time step
             t += dt
@@ -118,7 +120,7 @@ class MechanicsSolver(object):
             # Print the current time
             if not rank:
                 print '*'*30
-                print 't = %2.3f' % t
+                print 't = %3.5f' % t
 
             # Solve the nonlinear equation(s) at current time step.
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
@@ -167,13 +169,7 @@ class MechanicsSolver(object):
 
             # Decide between a dolfin direct solver or a block iterative solver.
             if is_block:
-                if count > 0:
-                    initial_guess = du
-                else:
-                    initial_guess = None
-
                 Ainv = iterative.LGMRES(A, show=show, tolerance=iter_tol,
-                                        initial_guess=initial_guess,
                                         nonconvergence_is_fatal=True,
                                         maxiter=maxLinIters)
                 du = Ainv*b
@@ -195,7 +191,7 @@ class MechanicsSolver(object):
         return None
 
 
-    # def explicit_euler(self, fname=None, save_freq=1):
+    # def generalized_alpha(self, fname=None, save_freq=1):
     #     """
 
 
@@ -207,13 +203,14 @@ class MechanicsSolver(object):
     #     mp = self._mp
     #     t, tf = mp.config['formulation']['time']['interval']
     #     dt = mp.config['formulation']['time']['dt']
+    #     alpha = mp.config['formulation']['time']['alpha']
 
     #     rank = dlf.MPI.rank(dlf.mpi_comm_world())
     #     count = 0
 
     #     while t <= tf:
-    #         mp.update_time(t)
-    #         un, vn = self.explicit_euler_step()
+    #         # mp.update_time(t)
+    #         un, vn = self.generalized_alpha_step(t, 50, 1e-10, 'mumps')
 
     #         un_norm = un.norm('l2')
     #         vn_norm = vn.norm('l2')
@@ -229,121 +226,21 @@ class MechanicsSolver(object):
     #                 print 'un.norm(\'l2\') = ', un_norm
     #                 print 'vn.norm(\'l2\') = ', vn_norm
 
-    #         # Prepare for next step
     #         t += dt
     #         count += 1
 
     #     return None
 
 
-    # def explicit_euler_step(self):
+    # def generalized_alpha_step(self, t, maxIters=50, tol=1e-10, lin_solver='mumps'):
     #     """
 
 
     #     """
 
-    #     mp = self._mp
-    #     dt = mp.config['formulation']['time']['dt']
-    #     u0 = mp.displacement.vector()
-    #     v0 = mp.velocity.vector()
-    #     M = mp._localAccelMatrix
-    #     f0 = self.rhs()
+    #     self.nonlinear_solve(t, maxIters, tol, lin_solver)
 
-    #     un = u0 + dt*v0
-    #     mp.bc_apply('displacement', b=un)
-
-    #     b = M*v0 + dt*f0
-    #     mp.bc_apply('velocity', A=M, b=b)
-
-    #     vn = dlf.PETScVector()
-    #     dlf.solve(M, vn, b)
-
-    #     return un, vn
-
-
-    # def implicit_euler_step(self):
-    #     """
-
-
-    #     """
-
-    #     raise NotImplementedError('This function has not been implemented yet.')
-
-    #     return None
-
-
-    def generalized_alpha(self, fname=None, save_freq=1):
-        """
-
-
-        """
-
-        if fname:
-            result_file = dlf.File(fname)
-
-        mp = self._mp
-        t, tf = mp.config['formulation']['time']['interval']
-        dt = mp.config['formulation']['time']['dt']
-        alpha = mp.config['formulation']['time']['alpha']
-
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
-        count = 0
-
-        while t <= tf:
-            # mp.update_time(t)
-            un, vn = self.generalized_alpha_step(t, 50, 1e-10, 'mumps')
-
-            un_norm = un.norm('l2')
-            vn_norm = vn.norm('l2')
-
-            mp.displacement.vector()[:] = un
-            mp.velocity.vector()[:] = vn
-
-            if fname and not count % save_freq:
-                result_file << mp.displacement
-                if rank == 0:
-                    print '*'*40
-                    print 't = %.3f' % t
-                    print 'un.norm(\'l2\') = ', un_norm
-                    print 'vn.norm(\'l2\') = ', vn_norm
-
-            t += dt
-            count += 1
-
-        return None
-
-
-    def generalized_alpha_step(self, t, maxIters=50, tol=1e-10, lin_solver='mumps'):
-        """
-
-
-        """
-
-        # mp = self._mp
-        self.nonlinear_solve(t, maxIters, tol, lin_solver)
-
-        # ########################################
-        # # NEED TO CALL NONLINEAR_SOLVE
-
-        # A = self.coefficient_matrix(t, alpha, u=u, v=v, p=p)
-        # b = self.rhs(t, alpha, u, u0=u0, v=v, p=p, p0=p0)
-
-        # bcs = block.block_bc(mp.dirichlet_bcs.values(), False)
-        # rhs_bc = bcs.apply(A)
-        # rhs_bcs.apply(b)
-
-        # Ainv = iterative.LGMRES(A, tolerance=tol)
-        # x = Ainv*b
-
-        ########################################
-
-        # Get necessary time-stepping parameters.
-        #
-        # In general, a call to the nonlinear solver will be required.
-        # Might need to reformat the nonlinear_solve function so that
-        # it can also be used in this case.
-
-        return x
+    #     return x
 
 
     def ufl_lhs_rhs(self):

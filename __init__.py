@@ -1,11 +1,7 @@
-# # import dolfin as _dlf
-# import dolfin as dlf
-
-# from ufl.domain import find_geometric_dimension as _geo_dim
-
 from .mechanicsproblem import MechanicsProblem
 from .mechanicssolver import MechanicsSolver
-from .materials.elastic import *
+from .materials.elastic import lin_elastic, neo_hookean
 
-import dolfin as dlf
-dlf.parameters['form_compiler']['representation'] = 'uflacs'
+import dolfin as _dlf
+_dlf.parameters['form_compiler']['representation'] = 'uflacs'
+del _dlf

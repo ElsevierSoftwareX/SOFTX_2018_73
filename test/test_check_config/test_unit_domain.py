@@ -3,8 +3,9 @@ import sys
 import argparse
 import dolfin as dlf
 
-import fenicsmechanics.mechanicsproblem as mprob
-import fenicsmechanics.mechanicssolver as msolv
+# import fenicsmechanics.mechanicsproblem as mprob
+# import fenicsmechanics.mechanicssolver as msolv
+import fenicsmechanics as fm
 
 dim = 2
 mesh_file = '../meshfiles/unit_domain-mesh-12x12.xml.gz'
@@ -79,10 +80,10 @@ config = {'material' : {
               }
           }
 
-problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+problem = fm.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 
 ############################################################
-my_solver = msolv.MechanicsSolver(problem)
+my_solver = fm.MechanicsSolver(problem)
 print 'Solving linear algebra problem...'
 my_solver.solve()
 print '...[DONE]'
