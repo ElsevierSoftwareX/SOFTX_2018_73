@@ -3,7 +3,8 @@
 
 # from ufl.domain import find_geometric_dimension as _geo_dim
 
-from .mechanicsproblem import *
+from .mechanicsproblem import MechanicsProblem
+from .mechanicssolver import MechanicsSolver
 from .materials.elastic import *
 
 import dolfin as dlf

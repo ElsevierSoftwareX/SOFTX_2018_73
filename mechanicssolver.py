@@ -50,7 +50,7 @@ class MechanicsSolver(object):
         else:
             lhs, rhs = self.ufl_lhs_rhs()
             if self._mp.config['material']['type'] == 'elastic':
-                bcs = self._mp.dirichlet_bcs['displacement'][0]
+                bcs = self._mp.dirichlet_bcs['displacement']
                 if fname_disp:
                     fout = dlf.File(fname_disp)
                     func_out = self._mp.displacement
@@ -167,7 +167,13 @@ class MechanicsSolver(object):
 
             # Decide between a dolfin direct solver or a block iterative solver.
             if is_block:
+                if count > 0:
+                    initial_guess = du
+                else:
+                    initial_guess = None
+
                 Ainv = iterative.LGMRES(A, show=show, tolerance=iter_tol,
+                                        initial_guess=initial_guess,
                                         nonconvergence_is_fatal=True,
                                         maxiter=maxLinIters)
                 du = Ainv*b
