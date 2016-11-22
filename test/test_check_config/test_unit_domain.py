@@ -65,8 +65,10 @@ config = {'material' : {
               'body_force' : dlf.Constant((0.,)*dim),
               'bcs' : {
                   'dirichlet' : {
-                      'regions' : [CLIP],
-                      'values' : [dlf.Constant((0.,)*dim)],
+                      'displacement': {
+                          'regions' : [CLIP],
+                          'values' : [dlf.Constant((0.,)*dim)],
+                          }
                       },
                   'neumann' : {
                       'regions' : [TRACTION],

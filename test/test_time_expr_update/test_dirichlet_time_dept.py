@@ -40,9 +40,11 @@ config = {'material' : {
               'inverse' : False,
               'body_force' : dlf.Constant([0.0]*2),
               'bcs' : {
-                  'dirichlet' : {
-                      'regions' : [CLIP, TRACTION], # MORE REGIONS THAN ACTUALLY DEFINED
-                      'values' : [disp_clip, disp_trac],
+                  'displacement' : {
+                      'dirichlet' : {
+                          'regions' : [CLIP, TRACTION], # MORE REGIONS THAN ACTUALLY DEFINED
+                          'values' : [disp_clip, disp_trac]
+                          }
                       }
                   }
               }

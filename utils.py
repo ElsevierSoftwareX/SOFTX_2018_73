@@ -23,6 +23,9 @@ def load_mesh(mesh_file):
 
     """
 
+    if isinstance(mesh_file, dlf.Mesh):
+        return mesh_file
+
     if mesh_file[-3:] == '.h5':
         mesh = __load_mesh_hdf5(mesh_file)
     else:
@@ -55,6 +58,12 @@ def load_mesh_function(mesh_function, mesh):
 
 
     """
+
+    mesh_func_classes = (dlf.MeshFunctionSizet, dlf.MeshFunctionDouble,
+                         dlf.MeshFunctionBool, dlf.MeshFunctionInt)
+
+    if isinstance(mesh_function, mesh_func_classes):
+        return mesh_function
 
     if mesh_function[-3:] == '.h5':
         mesh_func = __load_mesh_function_hdf5(mesh_function, mesh)
@@ -136,3 +145,38 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
         raise ValueError(s1)
 
     return mesh_func
+
+
+def petsc_identity(N, dofs=None):
+
+    from petsc4py import PETSc
+
+    v = PETSc.Vec()
+    v.create()
+    v.setSizes(N)
+    v.setType('standard')
+    v.setValues(range(N), [1.0]*N)
+
+    A = PETSc.Mat()
+    A.createAIJ([N,N], nnz=N)
+    if dofs is not None:
+        lgmap = PETSc.LGMap().create(dofs)
+        A.setLGMap(lgmap, lgmap)
+    A.setDiagonal(v)
+    A.assemble()
+
+    return dlf.PETScMatrix(A)
+
+
+def duplicate_expressions(*args):
+
+    retval = list()
+
+    for arg in args:
+        if hasattr(arg, 't'):
+            expr = dlf.Expression(arg.cppcode, t=0.0, element=arg.ufl_element())
+        else:
+            expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
+        retval.append(expr)
+
+    return retval

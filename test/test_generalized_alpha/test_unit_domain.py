@@ -46,11 +46,11 @@ else:
 
 mesh_dir = '../meshfiles/unit_domain/'
 if args.inverse:
-    # mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s' % name_dims
-    result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
+    disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
+    vel_file = 'results/inverse-vel-%s-%s.pvd' % name_dims
 else:
-    # mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
-    result_file = 'results/forward-disp-%s-%s.pvd' % name_dims
+    disp_file = 'results/forward-disp-%s-%s.pvd' % name_dims
+    vel_file = 'results/forward-vel-%s-%s.pvd' % name_dims
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
 mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
@@ -64,7 +64,7 @@ else:
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):
     raise Exception('The mesh file, \'%s\', does not exist. ' % mesh_file
-                    + 'Please run the script \'generate_mesh_files.py\' '
+                    + 'Please run the script \'generate_mesh_files.py\''
                     + 'with the same arguments first.')
 
 # Check if the mesh function file exists
@@ -82,24 +82,28 @@ ffc_options = {'optimize' : True,
                'precompute_ip_const' : True}
 
 # Elasticity parameters
-E = 20.0 # Young's modulus
-nu = 0.49 # Poisson's ratio
+# E = 500.0 # Young's modulus (TRY A SMALLER VALUE)
+E = 20.0 # Young's modulus (TRY A SMALLER VALUE)
+nu = 0.3 # Poisson's ratio
 la = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 1st Lame parameter
 mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 
+# Time interval
+t0 = 0.0
+tf = 1.0
+nsteps = 1000
+dt = (tf - t0)/nsteps
+tspan = [t0, tf]
+alpha = 1.0
+
 # Traction on the Neumann boundary region
-trac = dlf.Constant((3.0,) + (0.0,)*(args.dim-1))
-pressure = dlf.Constant(-3.0)
+# traction = dlf.Expression(['3.0*t'] + ['0.0']*(args.dim-1), t=t0, degree=2)
+pressure = dlf.Expression('3.0*t', t=t0, degree=2)
 
 # Region IDs
 ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
-
-if args.material == 'lin_elastic':
-    domain = 'eulerian'
-else:
-    domain = 'lagrangian'
 
 # Problem configuration dictionary
 config = {'material' : {
@@ -118,16 +122,20 @@ config = {'material' : {
               },
           'formulation' : {
               'time' : {
-                  'unsteady' : False
+                  'unsteady' : True,
+                  'integrator' : 'generalized_alpha',
+                  'alpha' : alpha,
+                  'dt' : dt,
+                  'interval' : tspan
                   },
-              'domain' : domain,
+              'domain' : 'lagrangian',
               'inverse' : args.inverse,
               'body_force' : dlf.Constant((0.,)*args.dim),
               'bcs' : {
                   'dirichlet' : {
-                      'displacement': {
+                      'displacement' : {
                           'regions' : [CLIP],
-                          'values' : [dlf.Constant([0.]*args.dim)]
+                          'values' : [dlf.Constant([0.]*args.dim)],
                           },
                       'velocity' : {
                           'regions' : [CLIP],
@@ -137,7 +145,7 @@ config = {'material' : {
                   'neumann' : {
                       'regions' : [TRACTION],
                       # 'types' : ['cauchy'],
-                      # 'values' : [trac]
+                      # 'values' : [traction]
                       'types' : ['pressure'],
                       'values' : [pressure]
                       }
@@ -146,9 +154,11 @@ config = {'material' : {
           }
 
 problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
-# import sys
-# sys.exit()
 
 ############################################################
 my_solver = msolv.MechanicsSolver(problem)
-my_solver.solve(print_norm=True, fname_disp=result_file)
+my_solver.solve(iter_tol=1e-6,
+                maxLinIters=250,
+                fname_disp=disp_file,
+                fname_vel=vel_file,
+                save_freq=10, show=0)
