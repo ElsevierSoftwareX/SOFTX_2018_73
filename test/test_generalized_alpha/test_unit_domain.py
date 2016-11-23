@@ -3,8 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 
-import fenicsmechanics.mechanicsproblem as mprob
-import fenicsmechanics.mechanicssolver as msolv
+import fenicsmechanics as fm
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()
@@ -153,10 +152,10 @@ config = {'material' : {
               }
           }
 
-problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+problem = fm.MechanicsProblem(config, form_compiler_parameters=ffc_options)
 
 ############################################################
-my_solver = msolv.MechanicsSolver(problem)
+my_solver = fm.MechanicsSolver(problem)
 my_solver.solve(iter_tol=1e-6,
                 maxLinIters=250,
                 fname_disp=disp_file,
