@@ -7,6 +7,8 @@ from .utils import load_mesh, load_mesh_function, duplicate_expressions
 from ufl import Form
 from inspect import isfunction
 
+__all__ = ['MechanicsProblem']
+
 class MechanicsProblem:
     """
     This class represents the variational form of a continuum
@@ -266,7 +268,7 @@ class MechanicsProblem:
                  % config['formulation']['time']['integrator']
             raise NotImplementedError(s1)
 
-        if not isinstance(config['formulation']['time']['dt'], float):
+        if not isinstance(config['formulation']['time']['dt'], (float,dlf.Constant)):
             s1 = 'The \'dt\' parameter must be a scalar value of type: ' \
                  + 'dolfin.Constant, float'
             raise TypeError(s1)
@@ -1540,21 +1542,6 @@ class MechanicsProblem:
 
 
         """
-
-        # # Exit function if already defined.
-        # if hasattr(self, 'ufl_neumann_bcs'):
-        #     return None
-
-        # # Exit function if no Neumann BCs were provided.
-        # if self.config['formulation']['bcs']['neumann'] is None:
-        #     self.ufl_neumann_bcs = None
-        #     return None
-
-        # region_list = self.config['formulation']['bcs']['neumann']['regions']
-        # tt_list = self.config['formulation']['bcs']['neumann']['types']
-        # value_list = self.config['formulation']['bcs']['neumann']['values']
-
-        # domain = self.config['formulation']['domain']
 
         # Check if Nanson's formula is necessary
         if domain == 'lagrangian':

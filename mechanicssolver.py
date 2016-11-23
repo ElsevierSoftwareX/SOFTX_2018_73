@@ -7,6 +7,8 @@ from block import iterative
 import dolfin as dlf
 import numpy as np
 
+__all__ = ['MechanicsSolver']
+
 class MechanicsSolver(object):
     """
 
