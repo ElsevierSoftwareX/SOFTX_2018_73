@@ -126,8 +126,8 @@ class GuccioneMaterial(object) :
               'bfs' : 4.0,
               'e1' : None,
               'e2' : None,
-              'e3' : None,
               'kappa' : None,
+              'incompressible' : False,
               'Tactive' : None }
         return p
 
@@ -144,15 +144,17 @@ class GuccioneMaterial(object) :
         """
         return self._parameters['kappa'] is None
 
-    def strain_energy(self, F, p=None) :
+    def strain_energy(self, u, p=None) :
         """
         UFL form of the strain energy.
         """
         params = self._parameters
+        dim = ufl.domain.find_geometric_dimension(u)
 
-        I = df.Identity(3)
+        I     = df.Identity(dim)
+        F     = I + df.grad(u)
         J = df.det(F)
-        C = pow(J, -float(2)/3) * F.T*F
+        C = pow(J, -float(2)/dim) * F.T*F
         E = 0.5*(C - I)
 
         CC  = df.Constant(params['C'], name='C')
@@ -167,7 +169,7 @@ class GuccioneMaterial(object) :
 
             e1 = params['e1']
             e2 = params['e2']
-            e3 = params['e3']
+            e3 = df.cross(e1,e2) #params['e3'] #
 
             E11, E12, E13 = df.inner(E*e1, e1), df.inner(E*e1, e2), df.inner(E*e1, e3)
             E21, E22, E23 = df.inner(E*e2, e1), df.inner(E*e2, e2), df.inner(E*e2, e3)
@@ -177,13 +179,60 @@ class GuccioneMaterial(object) :
               + bfs*(E12**2 + E21**2 + E13**2 + E31**2)
 
         # passive strain energy
-        Wpassive = CC/2.0 * (exp(Q) - 1)
+        Wpassive = CC/2.0 * (df.exp(Q) - 1)
 
         # incompressibility
-        if params['kappa'] is not None :
+        if params['incompressible'] is True:
+            Winc = - p * (J - 1)
+        else :
             kappa = df.Constant(params['kappa'], name='kappa')
             Winc = kappa * (J**2 - 1 - 2*df.ln(J))
-        else :
-            Winc = - p * (J - 1)
 
         return Wpassive + Winc
+
+    def stress_tensor(self, u, p=None):
+        """
+        UFL form of the stress tensor.
+        """
+        params = self._parameters
+        dim    = ufl.domain.find_geometric_dimension(u)
+        I      = df.Identity(3)
+        F      = I + df.grad(u)
+        J      = df.det(F)
+        Jm23   = pow(J, -float(2)/3)
+        C      = F.T*F
+        Ebar   = 0.5*(Jm23*C - I)
+        Finv   = df.inv(F)
+
+        CC  = df.Constant(params['C'], name='C')
+        # fully anisotropic
+        bt  = df.Constant(params['bt'], name='bt')
+        bf  = df.Constant(params['bf'], name='bf')
+        bfs = df.Constant(params['bfs'], name='bfs')
+
+        e1 = params['e1']
+        e2 = params['e2']
+        e3 = df.cross(e1,e2)#params['e3']
+
+        E11, E12, E13 = df.inner(Ebar*e1, e1), df.inner(Ebar*e1, e2), df.inner(Ebar*e1, e3)
+        E21, E22, E23 = df.inner(Ebar*e2, e1), df.inner(Ebar*e2, e2), df.inner(Ebar*e2, e3)
+        E31, E32, E33 = df.inner(Ebar*e3, e1), df.inner(Ebar*e3, e2), df.inner(Ebar*e3, e3)
+
+        Q = bf*E11**2 + bt*(E22**2 + E33**2 + E23**2 + E32**2) \
+          + bfs*(E12**2 + E21**2 + E13**2 + E31**2)
+        Sbar = CC * df.exp(Q)*\
+           ( bf*E11*df.outer(e1,e1)   + bt*( E22*df.outer(e2,e2) + \
+                E33*df.outer(e3,e3)   +      E23*df.outer(e2,e3) + \
+                E32*df.outer(e3,e2) ) + bfs*(E12*df.outer(e1,e2) + \
+                E21*df.outer(e2,e1)   +      E13*df.outer(e1,e3) + \
+                E31*df.outer(e3,e1) ))
+        FS_isc = Jm23*F*Sbar - 1./3.*Jm23*df.tr(C*Sbar)*Finv.T
+
+        # incompressibility
+        if params['incompressible'] is True:
+            FS_vol = J*p*Finv.T
+        else:
+            kappa  = df.Constant(params['kappa'], name='kappa')
+            FS_vol = J*2.*kappa*(J-1./J)*Finv.T
+
+        return FS_vol + FS_isc

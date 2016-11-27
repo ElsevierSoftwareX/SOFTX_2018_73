@@ -46,11 +46,9 @@ args = parser.parse_args()
 
 # Optimization options for the form compiler
 df.parameters['form_compiler']['cpp_optimize'] = True
-df.parameters['form_compiler']['quadrature_degree'] = 3
-ffc_options = {'optimize' : True,
-               'eliminate_zeros' : True,
-               'precompute_basis_const' : True,
-               'precompute_ip_const' : True}
+df.parameters['form_compiler']['representation'] = "uflacs"
+df.parameters['form_compiler']['quadrature_degree'] = 4
+df.parameters['form_compiler']['optimize'] = True
 
 rank = df.MPI.rank(df.mpi_comm_world())
 if rank !=0:
@@ -172,13 +170,11 @@ else:
 if args.incompressible:
     dG = df.derivative(G, sys_u, sys_du)
 
-    df.solve(G == 0, sys_u, bcs, J=dG,
-          form_compiler_parameters=ffc_options)
+    df.solve(G == 0, sys_u, bcs, J=dG)
 else:
     dG = df.derivative(G, u, du)
 
-    df.solve(G == 0, u, bcs, J=dG,
-          form_compiler_parameters=ffc_options)
+    df.solve(G == 0, u, bcs, J=dG)
 
 
 # Extract the displacement
@@ -225,6 +221,8 @@ if not args.inverse:
   Hdf.write(mesh, "mesh")
   Hdf.write(sub_domains, "subdomains")
   Hdf.close()
+  ff = df.File("boundary.xml")
+  ff << sub_domains
 df.end()
 
 # Compute the volume of each cell
