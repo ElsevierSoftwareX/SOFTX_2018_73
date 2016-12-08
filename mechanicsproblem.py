@@ -503,7 +503,7 @@ class MechanicsProblem:
         if self.config['material']['incompressible']:
             scalar_element = dlf.FiniteElement('CG', self.mesh.ufl_cell(),
                                                int(self.config['mesh']['element'][1][-1]))
-            self.scalarSpace = dlf.functionSpace(self.mesh, scalar_element)
+            self.scalarSpace = dlf.FunctionSpace(self.mesh, scalar_element)
         else:
             self.scalarSpace = None
 

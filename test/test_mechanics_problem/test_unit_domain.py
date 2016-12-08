@@ -84,8 +84,8 @@ ffc_options = {'optimize' : True,
 # Elasticity parameters
 E = 20.0 # Young's modulus
 nu = 0.49 # Poisson's ratio
-la = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 1st Lame parameter
-mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
+la = (E*nu/((1. + nu)*(1. - 2.*nu))) # 1st Lame parameter
+mu = (E/(2.*(1. + nu))) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
 trac = dlf.Constant((3.0,) + (0.0,)*(args.dim-1))
