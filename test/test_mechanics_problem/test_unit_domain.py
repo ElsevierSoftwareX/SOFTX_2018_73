@@ -3,8 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 
-import fenicsmechanics.mechanicsproblem as mprob
-import fenicsmechanics.mechanicssolver as msolv
+import fenicsmechanics as fm
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()
@@ -46,10 +45,8 @@ else:
 
 mesh_dir = '../meshfiles/unit_domain/'
 if args.inverse:
-    # mesh_file = mesh_dir + 'unit_domain-defm_mesh-%s-%s' % name_dims
     result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
 else:
-    # mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
     result_file = 'results/forward-disp-%s-%s.pvd' % name_dims
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
@@ -83,13 +80,12 @@ ffc_options = {'optimize' : True,
 
 # Elasticity parameters
 E = 20.0 # Young's modulus
-nu = 0.49 # Poisson's ratio
+nu = 0.3 # Poisson's ratio
 la = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 1st Lame parameter
 mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
-trac = dlf.Constant((3.0,) + (0.0,)*(args.dim-1))
-pressure = dlf.Constant(-3.0)
+trac = dlf.Constant([10.0] + [0.0]*(args.dim-1))
 
 # Region IDs
 ALL_ELSE = 0
@@ -136,19 +132,13 @@ config = {'material' : {
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
-                      # 'types' : ['cauchy'],
-                      # 'values' : [trac]
-                      'types' : ['pressure'],
-                      'values' : [pressure]
+                      'types' : ['cauchy'],
+                      'values' : [trac]
                       }
                   }
               }
           }
 
-problem = mprob.MechanicsProblem(config, form_compiler_parameters=ffc_options)
-# import sys
-# sys.exit()
-
-############################################################
-my_solver = msolv.MechanicsSolver(problem)
+problem = fm.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+my_solver = fm.MechanicsSolver(problem)
 my_solver.solve(print_norm=True, fname_disp=result_file)
