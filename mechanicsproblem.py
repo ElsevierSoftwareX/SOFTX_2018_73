@@ -366,42 +366,69 @@ class MechanicsProblem:
 
         """
 
-        try:
-            # Recognize if the user already specified None.
-            if config['formulation']['bcs']['dirichlet'] is None:
-                raise ValueError
+        if config['formulation']['bcs']['dirichlet'] is None:
+            print '*** No Dirichlet BCs were specified. ***'
+            return None
 
-            vel = 'velocity'
-            disp = 'displacement'
-            subconfig = config['formulation']['bcs']['dirichlet']
+        vel = 'velocity'
+        disp = 'displacement'
+        subconfig = config['formulation']['bcs']['dirichlet']
 
-            # User must specify BCs for velocity, or displacement AND velocity
-            if vel in subconfig and disp in subconfig:
-                flag1 = self.check_subconfig(subconfig, vel, True)
-                flag2 = self.check_subconfig(subconfig, disp, True)
+        # Check that both velocity and displacement Dirichlet BCs were specified
+        # if problem is unsteady and elastic.
+        if config['formulation']['time']['unsteady'] \
+           and config['material']['type'] == 'elastic':
 
-                # Set dirichlet to None if both displacement and velocity
-                # are None.
-                if flag1 and flag2:
-                    config['formulation']['bcs']['dirichlet'] = None
-
-            elif vel in subconfig:
-                flag = self.check_subconfig(subconfig, vel, True)
-
-                # Set dirichlet to None if displacement is not provided
-                # and velocity is None.
-                if flag:
-                    config['formulation']['bcs']['dirichlet'] = None
-            else:
+            if (vel not in subconfig) or (disp not in subconfig):
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + 'velocity, or velocity AND displacement.'
-                raise TypeError(s1)
+                     + 'both velocity and displacement when the problem is ' \
+                     + 'unsteady. Only %s BCs were provided.'
+                if vel not in subconfig:
+                    s1 = s1 % disp
+                else:
+                    s1 = s1 % vel
+                raise ValueError(s1)
 
-        except ValueError:
-            print '*** No Dirichlet BCs were specified. ***'
-        except KeyError:
-            config['formulation']['bcs']['dirichlet'] = None
-            print '*** No Dirichlet BCs were specified. ***'
+        if not self.__check_bc_params(subconfig):
+            raise ValueError('The number of Dirichlet boundary regions and ' \
+                             + 'values for not match!')
+
+        # try:
+            # # Recognize if the user already specified None.
+            # if config['formulation']['bcs']['dirichlet'] is None:
+            #     raise ValueError
+
+            # vel = 'velocity'
+            # disp = 'displacement'
+            # subconfig = config['formulation']['bcs']['dirichlet']
+
+            # # User must specify BCs for velocity, or displacement AND velocity
+            # if vel in subconfig and disp in subconfig:
+            #     flag1 = self.check_subconfig(subconfig, vel, True)
+            #     flag2 = self.check_subconfig(subconfig, disp, True)
+
+            #     # Set dirichlet to None if both displacement and velocity
+            #     # are None.
+            #     if flag1 and flag2:
+            #         config['formulation']['bcs']['dirichlet'] = None
+
+            # elif vel in subconfig:
+            #     flag = self.check_subconfig(subconfig, vel, True)
+
+            #     # Set dirichlet to None if displacement is not provided
+            #     # and velocity is None.
+            #     if flag:
+            #         config['formulation']['bcs']['dirichlet'] = None
+            # else:
+            #     s1 = 'Dirichlet boundary conditions must be specified for ' \
+            #          + 'velocity, or velocity AND displacement.'
+            #     raise TypeError(s1)
+
+        # except ValueError:
+        #     print '*** No Dirichlet BCs were specified. ***'
+        # except KeyError:
+        #     config['formulation']['bcs']['dirichlet'] = None
+        #     print '*** No Dirichlet BCs were specified. ***'
 
         return None
 
@@ -655,20 +682,38 @@ class MechanicsProblem:
         V = self.vectorSpace
 
         self.dirichlet_bcs = {'displacement': None, 'velocity': None}
-        vel_bcs = self.config['formulation']['bcs']['dirichlet']['velocity']
-        disp_bcs = self.config['formulation']['bcs']['dirichlet']['displacement']
+        # vel_bcs = self.config['formulation']['bcs']['dirichlet']['velocity']
+        # disp_bcs = self.config['formulation']['bcs']['dirichlet']['displacement']
+
+        # # Store the Dirichlet BCs for the velocity vector field
+        # if vel_bcs is not None:
+        #     self.dirichlet_bcs['velocity'] = list()
+        #     for region, value in zip(vel_bcs['regions'], vel_bcs['values']):
+        #         bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+        #         self.dirichlet_bcs['velocity'].append(bc)
+
+        # # Store the Dirichlet BCs for the displacement vector field
+        # if disp_bcs is not None:
+        #     self.dirichlet_bcs['displacement'] = list()
+        #     for region, value in zip(disp_bcs['regions'], disp_bcs['values']):
+        #         bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+        #         self.dirichlet_bcs['displacement'].append(bc)
+
+        vel_vals = self.config['formulation']['bcs']['dirichlet']['velocity']
+        disp_vals = self.config['formulation']['bcs']['dirichlet']['displacement']
+        regions = self.config['formulation']['bcs']['dirichlet']['regions']
 
         # Store the Dirichlet BCs for the velocity vector field
-        if vel_bcs is not None:
+        if vel_vals is not None:
             self.dirichlet_bcs['velocity'] = list()
-            for region, value in zip(vel_bcs['regions'], vel_bcs['values']):
+            for region, value in zip(regions, vel_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['velocity'].append(bc)
 
         # Store the Dirichlet BCs for the displacement vector field
-        if disp_bcs is not None:
+        if disp_vals is not None:
             self.dirichlet_bcs['displacement'] = list()
-            for region, value in zip(disp_bcs['regions'], disp_bcs['values']):
+            for region, value in zip(regions, disp_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['displacement'].append(bc)
 

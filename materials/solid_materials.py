@@ -1,4 +1,4 @@
-import dolfin    as dlf
+import dolfin as dlf
 import ufl
 
 __all__ = [ 'NeoHookeMaterial', 'GuccioneMaterial' ]
@@ -467,7 +467,3 @@ def convert_elastic_moduli (param):
         param['kappa']  = kappa    # bulk modulus [kPa]
         param['mu']     = mu       # shear modulus (Lame's second parameter) [kPa]
         param['lmbda'] = lam      # Lame's first parameter [kPa]
-
-
-
-
