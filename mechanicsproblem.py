@@ -296,20 +296,24 @@ class MechanicsProblem:
 
         """
 
+        if isfunction(config['material']['const_eqn']):
+            print '*** User provided constitutive equation. ***'
+            self._stress_function = config['material']['const_eqn']
+            return None
+
         try:
             submodule = getattr(materials, config['material']['type'])
-
-            # Check if specific constitutive equation is available.
-            try:
-                const_eqn = getattr(submodule, config['material']['const_eqn'])
-            except AttributeError:
-                s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
-                     % config['material']['const_eqn'] \
-                     + 'within the material type, \'%s\'.' % config['material']['type']
-                raise NotImplementedError(s1)
         except AttributeError:
             s1 = 'The class of materials, \'%s\', has not been implemented.' \
                  % config['material']['type']
+            raise NotImplementedError(s1)
+
+        try:
+            self._stress_function = getattr(submodule, config['material']['const_eqn'])
+        except AttributeError:
+            s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
+                 % config['material']['const_eqn'] \
+                 + 'within the material type, \'%s\'.' % config['material']['type']
             raise NotImplementedError(s1)
 
         return None
@@ -622,7 +626,7 @@ class MechanicsProblem:
         V = self.vectorSpace
 
         if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
-            vel_vals = self.config['formulation']['bcs']['dirichlet']
+            vel_vals = self.config['formulation']['bcs']['dirichlet']['velocity']
         else:
             vel_vals = None
 
@@ -878,17 +882,10 @@ class MechanicsProblem:
         if hasattr(self, 'ufl_stress_work'):
             return None
 
-        # Get access to the function defining the stress tensor
-        if isfunction(self.config['material']['const_eqn']):
-            stress_function = self.config['material']['const_eqn']
-        else:
-            material_submodule = getattr(materials, self.config['material']['type'])
-            stress_function = getattr(material_submodule, self.config['material']['const_eqn'])
-
         if self.config['formulation']['time']['unsteady']:
-            stress_tensor, stress_tensor0 = stress_function(self)
+            stress_tensor, stress_tensor0 = self._stress_function(self)
         else:
-            stress_tensor = stress_function(self)
+            stress_tensor = self._stress_function(self)
 
         xi = self.test_vector
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
