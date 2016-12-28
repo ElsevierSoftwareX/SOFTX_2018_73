@@ -79,30 +79,20 @@ class MechanicsProblem:
             Value of the body force throughout the body.
         * 'bcs'
             * 'dirichlet'
-                * 'velocity'
-                    * 'regions' : list, tuple
-                        List of the region IDs (int) on which Dirichlet
-                        boundary conditions are to be imposed. These IDs
-                        must match those used by the mesh function provided.
-                        The order must match the order used in the list of
-                        values.
-                    * 'values' : list, tuple
-                        List of values (dolfin.Constant or dolfin.Expression)
-                        for each region Dirichlet boundary region specified.
-                        The order must match the order used in the list of
-                        region IDs.
-                * 'displacement'
-                    * 'regions' : list, tuple
-                        List of the region IDs (int) on which Dirichlet
-                        boundary conditions are to be imposed. These IDs
-                        must match those used by the mesh function provided.
-                        The order must match the order used in the list of
-                        values.
-                    * 'values' : list, tuple
-                        List of values (dolfin.Constant or dolfin.Expression)
-                        for each region Dirichlet boundary region specified.
-                        The order must match the order used in the list of
-                        region IDs.
+                * 'velocity' : list, tuple
+                    List of velocity values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order must
+                    match the order used in the list of region IDs.
+                * 'displacement' : list, tuple
+                    List of displacement values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order must match
+                    the order used in the list of region IDs.
+                * 'regions' : list, tuple
+                    List of the region IDs (int) on which Dirichlet
+                    boundary conditions are to be imposed. These IDs
+                    must match those used by the mesh function provided.
+                    The order must match the order used in the list of
+                    values.
             * 'neumann'
                 * 'regions' : list, tuple
                     List of the region IDs (int) on which Neumann
@@ -123,7 +113,7 @@ class MechanicsProblem:
 
     """
 
-    def __init__(self, user_config, **kwargs):
+    def __init__(self, user_config):
 
         # Check configuration dictionary
         self.config = self.check_config(user_config)
@@ -306,20 +296,24 @@ class MechanicsProblem:
 
         """
 
+        if isfunction(config['material']['const_eqn']):
+            print '*** User provided constitutive equation. ***'
+            self._stress_function = config['material']['const_eqn']
+            return None
+
         try:
             submodule = getattr(materials, config['material']['type'])
-
-            # Check if specific constitutive equation is available.
-            try:
-                const_eqn = getattr(submodule, config['material']['const_eqn'])
-            except AttributeError:
-                s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
-                     % config['material']['const_eqn'] \
-                     + 'within the material type, \'%s\'.' % config['material']['type']
-                raise NotImplementedError(s1)
         except AttributeError:
             s1 = 'The class of materials, \'%s\', has not been implemented.' \
                  % config['material']['type']
+            raise NotImplementedError(s1)
+
+        try:
+            self._stress_function = getattr(submodule, config['material']['const_eqn'])
+        except AttributeError:
+            s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
+                 % config['material']['const_eqn'] \
+                 + 'within the material type, \'%s\'.' % config['material']['type']
             raise NotImplementedError(s1)
 
         return None
@@ -331,19 +325,19 @@ class MechanicsProblem:
 
         """
 
-        try:
-            if config['formulation']['bcs'] is not None:
-                # Check Dirichlet and Neumann BCs
-                self.check_dirichlet(config)
-                self.check_neumann(config)
-            else:
-                raise ValueError
-        # except (KeyError, ValueError):
-        except (KeyError):
-            config['formulation']['bcs'] = dict()
-            config['formulation']['bcs']['neumann'] = None
+        # Check if 'bcs' key is in config dictionary.
+        if 'bcs' not in config['formulation']:
+            config['formulation']['bcs'] = None
+
+        # Set 'dirichlet' and 'neumann' to None if values were not provided and exit.
+        if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
+            config['formulation']['bcs']['neumann'] = None
             print '*** No BCs (Neumann and Dirichlet) were specified. ***'
+            return None
+
+        self.check_dirichlet(config)
+        self.check_neumann(config)
 
         return None
 
@@ -366,73 +360,47 @@ class MechanicsProblem:
 
         """
 
-        try:
-            # Recognize if the user already specified None.
-            if config['formulation']['bcs']['dirichlet'] is None:
-                raise ValueError
+        if config['formulation']['bcs']['dirichlet'] is None:
+            print '*** No Dirichlet BCs were specified. ***'
+            return None
 
-            vel = 'velocity'
-            disp = 'displacement'
-            subconfig = config['formulation']['bcs']['dirichlet']
+        vel = 'velocity'
+        disp = 'displacement'
+        subconfig = config['formulation']['bcs']['dirichlet']
 
-            # User must specify BCs for velocity, or displacement AND velocity
-            if vel in subconfig and disp in subconfig:
-                flag1 = self.check_subconfig(subconfig, vel, True)
-                flag2 = self.check_subconfig(subconfig, disp, True)
-
-                # Set dirichlet to None if both displacement and velocity
-                # are None.
-                if flag1 and flag2:
-                    config['formulation']['bcs']['dirichlet'] = None
-
-            elif vel in subconfig:
-                flag = self.check_subconfig(subconfig, vel, True)
-
-                # Set dirichlet to None if displacement is not provided
-                # and velocity is None.
-                if flag:
-                    config['formulation']['bcs']['dirichlet'] = None
-            else:
+        # Make sure the appropriate Dirichlet BCs were specified for the type
+        # of problem:
+        # - Velocity & displacement for unsteady elastic
+        # - Velocity for steady viscous
+        # - Displacement for steady elastic
+        if config['formulation']['time']['unsteady'] \
+           and config['material']['type'] == 'elastic':
+            if (vel not in subconfig) or (disp not in subconfig):
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + 'velocity, or velocity AND displacement.'
-                raise TypeError(s1)
+                     + 'both velocity and displacement when the problem is ' \
+                     + 'unsteady. Only %s BCs were provided.'
+                if vel not in subconfig:
+                    s1 = s1 % disp
+                else:
+                    s1 = s1 % vel
+                raise ValueError(s1)
+        elif config['material']['type'] == 'elastic':
+            if disp not in subconfig:
+                s1 = 'Dirichlet boundary conditions must be specified for ' \
+                     + ' displacement when solving a quasi-static elastic problem.'
+                raise ValueError(s1)
+        elif config['material']['type'] == 'viscous':
+            if vel not in subconfig:
+                s1 = 'Dirichlet boundary conditions must be specified for ' \
+                     + ' velocity when solving a quasi-static viscous problem.'
+                raise ValueError(s1)
 
-        except ValueError:
-            print '*** No Dirichlet BCs were specified. ***'
-        except KeyError:
-            config['formulation']['bcs']['dirichlet'] = None
-            print '*** No Dirichlet BCs were specified. ***'
+        # Make sure the length of all the lists match.
+        if not self.__check_bc_params(subconfig):
+            raise ValueError('The number of Dirichlet boundary regions and ' \
+                             + 'values for not match!')
 
         return None
-
-
-    def check_subconfig(self, subconfig, key, is_bc=False):
-        """
-
-
-        """
-
-        retval = False
-
-        try:
-            if subconfig[key] is None:
-                raise AttributeError
-
-            if is_bc:
-                if not self.__check_bc_params(subconfig[key]):
-                    raise ValueError('The number of Dirichlet boundary regions and ' \
-                                     + 'values for not match!')
-        except AttributeError:
-            print 'check_subconfig...AttributeError'
-            retval = True
-            print '*** The value for %s was specified as None! ***' % key
-        except KeyError:
-            print 'check_subconfig...KeyError'
-            retval = True
-            subconfig[key] = None
-            print '*** No value for %s was specified! (set to None)' % key
-
-        return retval
 
 
     def check_neumann(self, config):
@@ -453,39 +421,42 @@ class MechanicsProblem:
 
         """
 
-        try:
-            # Recognize if the user already specified None.
-            if config['formulation']['bcs']['neumann'] is None:
-                raise AttributeError
-
-            if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
-                raise ValueError('The number of Neumann boundary regions and ' \
-                                 + 'values do not match!')
-
-            # Make sure all Neumann BC types are supported with domain specified.
-            try:
-                neumann_types = config['formulation']['bcs']['neumann']['types']
-            except KeyError:
-                raise KeyError('The Neumann BC type must be specified for each region.')
-
-            # Check that types are valid
-            valid_types = {'pressure', 'cauchy', 'piola'}
-            union = valid_types.union(neumann_types)
-            if len(union) > 3:
-                s1 = 'At least one Neumann BC type is unrecognized. The type string must'
-                s2 = ' be one of the three: ' + ', '.join(list(valid_types))
-                raise NotImplementedError(s1 + s2)
-
-            domain = config['formulation']['domain']
-            if domain == 'eulerian' and 'piola' in neumann_types:
-                s1 = 'Piola traction in an Eulerian formulation is not supported.'
-                raise NotImplementedError(s1)
-
-        except AttributeError:
-            print '*** No Neumann BCs were specified. ***'
-        except KeyError:
+        # Set value to None if it was not provided.
+        if 'neumann' not in config['formulation']['bcs']:
             config['formulation']['bcs']['neumann'] = None
+
+        # Exit if Neumann BCs were not specified.
+        if config['formulation']['bcs']['neumann'] is None:
             print '*** No Neumann BCs were specified. ***'
+            return None
+
+        # Make sure that a list for all keys was provided (types, regions, values).
+        for t in ['types','regions','values']:
+            if t not in config['formulation']['bcs']['neumann']:
+                s1 = 'A list of values for %s must be provided.' % t
+                raise ValueError(s1)
+
+        # Make sure the length of all the lists match.
+        if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
+            raise ValueError('The number of Neumann boundary regions, types ' \
+                             + 'and values do not match!')
+
+        # Make sure all Neumann BC types are supported with domain specified.
+        neumann_types = map(str.lower, config['formulation']['bcs']['neumann']['types'])
+        config['formulation']['bcs']['neumann']['types'] = neumann_types # Make sure they're all lower case.
+
+        # Check that types are valid
+        valid_types = {'pressure', 'cauchy', 'piola'}
+        union = valid_types.union(neumann_types)
+        if len(union) > 3:
+            s1 = 'At least one Neumann BC type is unrecognized. The type string must'
+            s2 = ' be one of the three: ' + ', '.join(list(valid_types))
+            raise NotImplementedError(s1 + s2)
+
+        domain = config['formulation']['domain']
+        if domain == 'eulerian' and 'piola' in neumann_types:
+            s1 = 'Piola traction in an Eulerian formulation is not supported.'
+            raise NotImplementedError(s1)
 
         return None
 
@@ -654,21 +625,31 @@ class MechanicsProblem:
 
         V = self.vectorSpace
 
+        if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
+            vel_vals = self.config['formulation']['bcs']['dirichlet']['velocity']
+        else:
+            vel_vals = None
+
+        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
+            disp_vals = self.config['formulation']['bcs']['dirichlet']['displacement']
+        else:
+            disp_vals = None
+
+        regions = self.config['formulation']['bcs']['dirichlet']['regions']
+
         self.dirichlet_bcs = {'displacement': None, 'velocity': None}
-        vel_bcs = self.config['formulation']['bcs']['dirichlet']['velocity']
-        disp_bcs = self.config['formulation']['bcs']['dirichlet']['displacement']
 
         # Store the Dirichlet BCs for the velocity vector field
-        if vel_bcs is not None:
+        if vel_vals is not None:
             self.dirichlet_bcs['velocity'] = list()
-            for region, value in zip(vel_bcs['regions'], vel_bcs['values']):
+            for region, value in zip(regions, vel_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['velocity'].append(bc)
 
         # Store the Dirichlet BCs for the displacement vector field
-        if disp_bcs is not None:
+        if disp_vals is not None:
             self.dirichlet_bcs['displacement'] = list()
-            for region, value in zip(disp_bcs['regions'], disp_bcs['values']):
+            for region, value in zip(regions, disp_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['displacement'].append(bc)
 
@@ -901,17 +882,10 @@ class MechanicsProblem:
         if hasattr(self, 'ufl_stress_work'):
             return None
 
-        # Get access to the function defining the stress tensor
-        if isfunction(self.config['material']['const_eqn']):
-            stress_function = self.config['material']['const_eqn']
-        else:
-            material_submodule = getattr(materials, self.config['material']['type'])
-            stress_function = getattr(material_submodule, self.config['material']['const_eqn'])
-
         if self.config['formulation']['time']['unsteady']:
-            stress_tensor, stress_tensor0 = stress_function(self)
+            stress_tensor, stress_tensor0 = self._stress_function(self)
         else:
-            stress_tensor = stress_function(self)
+            stress_tensor = self._stress_function(self)
 
         xi = self.test_vector
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
@@ -1130,405 +1104,6 @@ class MechanicsProblem:
             self.update_form_time(self.ufl_body_force0, t0)
 
         return None
-
-
-    def assemble_all(self):
-        """
-        Assemble the PETSc matrices and vectors that correspond to the
-        necessary terms based on the problem configuration provided by
-        the user.
-
-        """
-
-        raise DeprecationWarning
-
-        # Assemble local acceleration matrix is problem is unsteady.
-        if self._localAccelMatrix is not None:
-            self.assembleLocalAccelMatrix()
-
-        # Assemble convective acceleration matrix and vector.
-        if self._convectiveAccelMatrix is not None:
-            self.assembleConvectiveAccelMatrix()
-
-        if self._convectiveAccelVector is not None:
-            self.assembleConvectiveAccelVector()
-
-        # Assemble the matrix from stress work
-        self.assembleStressWorkMatrix()
-        self.assembleStressWorkVector()
-
-        # Assemble the vectors corresponding to body force, traction,
-        # and the residual (load vector).
-        self.assembleLoadVector()
-
-        return None
-
-
-    def assemble_constants(self):
-        """
-        Assemble values that do not depend on the current state and/or
-        time.
-
-
-        """
-
-        raise DeprecationWarning
-
-        if self._localAccelMatrix is not None:
-            self.assembleLocalAccelMatrix()
-
-        return None
-
-
-    def assembleLocalAccelMatrix(self):
-        """
-        Return the matrix that comes from the differential of the local
-        acceleration term in the weak form. I.e., the partial derivative
-        of velocity with respect to time. Note that this is idential to
-        the 'total acceleration' if the problem is formulated using
-        Lagrangian coordinates.
-
-
-        Parameters
-        ----------
-
-        bc_apply : bool (default, True)
-            Specify whether the boundary conditions should be applied
-            to the rows and columns of the matrix. Note that this method
-            does not preserve symmetry.
-
-
-        Returns
-        -------
-
-        M : dolfin.cpp.la.Matrix
-
-
-        """
-
-        raise DeprecationWarning
-
-        dlf.assemble(self.ufl_local_accel_diff,
-                     tensor=self._localAccelMatrix)
-
-        return None
-
-
-    def assembleConvectiveAccelMatrix(self, v, tensor=None):
-        """
-        Return the matrix that comes from the differential of the convective
-        acceleration term in the weak form. I.e., grad(v)*v.
-
-
-        Parameters
-        ----------
-
-        v : dolfin.Function
-            A dolfin.Function storing the values at which this matrix
-            is to be evaluated.
-
-
-        Returns
-        -------
-
-        convec_accel_matrix : dolfin.cpp.la.Matrix
-
-
-        """
-
-        raise DeprecationWarning
-
-        if tensor is None:
-            tensor = dlf.PETScMatrix()
-
-        self.vector_function.assign(v)
-        dlf.assemble(self.ufl_convec_accel_diff,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleConvectiveAccelVector(self, v, tensor=None):
-        """
-        Return the vector that comes from the convective acceleration
-        term in the weak form. I.e., dot(xi, grad(v)*v)*dx.
-
-
-        Parameters
-        ----------
-
-        v : dolfin.Function
-            A dolfin.Function storing the values at which this matrix
-            is to be evaluated.
-
-
-        """
-
-        raise DeprecationWarning
-
-        if tensor is None:
-            tensor = dlf.PETScVector()
-
-        self.vector_function.assign(v)
-        dlf.assemble(self.ufl_convec_accel,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleStressWorkMatrix(self, u, p=None, tensor=None):
-        """
-        Return the matrix that comes from the differential of the stress
-        work term in the weak form. I.e., inner(grad(xi), stress)*dx.
-
-
-        Parameters
-        ----------
-
-        u : dolfin.Function
-            A dolfin.Function storing the values at which this matrix
-            is to be evaluated.
-
-
-        """
-
-        raise DeprecationWarning
-
-        if tensor is None:
-            tensor = dlf.PETScMatrix()
-
-        self.vector_function.assign(u)
-        if p is not None:
-            self.scalar_function.assign(p)
-
-        dlf.assemble(self.ufl_stress_work_diff,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleStressWorkVector(self, u, p=None, tensor=None):
-        """
-        Return the vector that comes from the stress work term in the
-        weak form. I.e., inner(grad(xi), stress)*dx.
-
-
-        Parameters
-        ----------
-
-        u : dolfin.Function
-            A dolfin.Function storing the values at which this matrix
-            is to be evaluated.
-
-
-        """
-
-        raise DeprecationWarning
-
-        if tensor is None:
-            tensor = dlf.PETScVector()
-
-        self.vector_function.assign(u)
-        if p is not None:
-            self.scalar_function.assign(p)
-
-        dlf.assemble(self.ufl_stress_work,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleLoadVector(self):
-        """
-
-
-
-        """
-
-        raise DeprecationWarning
-
-        body_not_none = self._bodyForceWorkVector is not None
-        trac_not_none = self._tractionWorkVector is not None
-
-        if body_not_none and trac_not_none:
-            self.assembleBodyForceVector()
-            self.assembleTractionVector()
-            b = self._bodyForceWorkVector \
-                + self._tractionWorkVector
-        elif body_not_none:
-            self.assembleBodyForceVector()
-            b = dlf.PETScVector(self._bodyForceWorkVector)
-        elif trac_not_none:
-            self.assembleTractionVector()
-            b = dlf.PETScVector(self._tractionWorkVector)
-        else:
-            pass
-
-        b -= self._stressWorkVector
-
-        if self.config['formulation']['domain'] == 'eulerian':
-            b -= self._convectiveAccelVector
-
-        return b
-
-
-    def assembleBodyForceVector(self, t, tensor=None):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        self.update_bodyforce_time(t)
-
-        if tensor is None:
-            tensor = dlf.PETScVector()
-
-        dlf.assemble(self.ufl_body_force,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleTractionVector(self, u, t, tensor=None):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        self.update_neumann_time(t)
-
-        if tensor is None:
-            tensor = dlf.PETScVector()
-
-        self.vector_function.assign(u)
-        dlf.assemble(self.ufl_neumann_bcs,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def assembleTractionMatrix(self, u, t, tensor=None):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        self.update_neumann_time(t)
-
-        if tensor is None:
-            tensor = dlf.PETScMatrix()
-
-        self.vector_function.assign(u)
-        dlf.assemble(self.ufl_neumann_bcs_diff,
-                     tensor=tensor)
-
-        return tensor
-
-
-    def get_dirichlet_bcs(self):
-
-        return self.dirichlet_bcs
-
-
-    def get_ufl_neumann_bcs(self):
-
-        return self.ufl_neumann_bcs
-
-
-    def getLocalAccelMatrix(self):
-
-        raise DeprecationWarning
-
-        return self._localAccelMatrix
-
-
-    def getUFLLocalAccel(self):
-        """
-        Return the matrix that comes from the differential of the local
-        acceleration term in the weak form. I.e., the partial derivative
-        of velocity with respect to time. Note that this is idential to
-        the 'total acceleration' if the problem is formulated using
-        Lagrangian coordinates.
-
-
-        Parameters
-        ----------
-
-        self :
-
-
-        Returns
-        -------
-
-        local_accel_matrix : dolfin.cpp.la.Matrix
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_local_accel
-
-
-    def getUFLConvectiveAccel(self):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_convec_accel
-
-
-    def getUFLConvectiveAccelDifferential(self):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_convec_accel_diff
-
-
-    def getUFLStressWork(self):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_stress_work
-
-
-    def getUFLStressWorkDifferential(self):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_stress_work_diff
-
-
-    def getUFLBodyWork(self):
-        """
-
-
-        """
-
-        raise DeprecationWarning
-
-        return self.ufl_body_force
 
 
     @staticmethod

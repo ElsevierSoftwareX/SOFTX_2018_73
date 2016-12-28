@@ -129,22 +129,15 @@ config = {'material' : {
                   },
               'domain' : 'lagrangian',
               'inverse' : args.inverse,
-              'body_force' : dlf.Constant((0.,)*args.dim),
+              'body_force' : dlf.Constant([0.]*args.dim),
               'bcs' : {
                   'dirichlet' : {
-                      'displacement' : {
-                          'regions' : [CLIP],
-                          'values' : [dlf.Constant([0.]*args.dim)],
-                          },
-                      'velocity' : {
-                          'regions' : [CLIP],
-                          'values' : [dlf.Constant([0.]*args.dim)]
-                          }
+                      'displacement' : [dlf.Constant([0.]*args.dim)],
+                      'regions' : [CLIP],
+                      'velocity' : [dlf.Constant([0.]*args.dim)]
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
-                      # 'types' : ['cauchy'],
-                      # 'values' : [traction]
                       'types' : ['pressure'],
                       'values' : [pressure]
                       }
@@ -152,7 +145,7 @@ config = {'material' : {
               }
           }
 
-problem = fm.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+problem = fm.MechanicsProblem(config)
 
 ############################################################
 my_solver = fm.MechanicsSolver(problem)

@@ -44,10 +44,10 @@ else:
     kappa = None
 
 mesh_dir = '../meshfiles/unit_domain/'
-if args.inverse:
-    result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
-else:
-    result_file = 'results/forward-disp-%s-%s.pvd' % name_dims
+# if args.inverse:
+#     result_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
+# else:
+#     result_file = 'results/forward-disp-%s-%s.pvd' % name_dims
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
 mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
@@ -121,14 +121,8 @@ config = {'material' : {
               'body_force' : dlf.Constant((0.,)*args.dim),
               'bcs' : {
                   'dirichlet' : {
-                      'displacement': {
-                          'regions' : [CLIP],
-                          'values' : [dlf.Constant([0.]*args.dim)]
-                          },
-                      'velocity' : {
-                          'regions' : [CLIP],
-                          'values' : [dlf.Constant([0.]*args.dim)]
-                          }
+                      'displacement' : [dlf.Constant([0.]*args.dim)],
+                      'regions' : [CLIP],
                       },
                   'neumann' : {
                       'regions' : [TRACTION],
@@ -139,6 +133,7 @@ config = {'material' : {
               }
           }
 
-problem = fm.MechanicsProblem(config, form_compiler_parameters=ffc_options)
+problem = fm.MechanicsProblem(config)
 my_solver = fm.MechanicsSolver(problem)
-my_solver.solve(print_norm=True, fname_disp=result_file)
+my_solver.solve(print_norm=True)
+dlf.plot(problem.displacement, interactive=True, mode='displacement')
