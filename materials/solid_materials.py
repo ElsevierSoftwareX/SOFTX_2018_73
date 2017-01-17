@@ -112,7 +112,7 @@ class LinearMaterial(ElasticMaterial) :
     def default_parameters() :
         params = { 'mu'             : None,
                    'kappa'          : None,
-                   'lmbda'         : None,
+                   'lambda'         : None,
                    'E'              : None,
                    'nu'             : None }
         return params
@@ -122,7 +122,7 @@ class LinearMaterial(ElasticMaterial) :
         params = self._parameters
         dim   = ufl.domain.find_geometric_dimension(u)
         mu    = dlf.Constant(params['mu'], name='mu')
-        la    = dlf.Constant(params['lmbda'], name='lmbda')
+        la    = dlf.Constant(params['lambda'], name='lambda')
 
         I       = dlf.Identity(dim)
         F       = I + dlf.grad(u)
@@ -176,7 +176,7 @@ class NeoHookeMaterial(ElasticMaterial) :
     def default_parameters() :
         params = { 'mu'             : None,
                    'kappa'          : None,
-                   'lmbda'         : None,
+                   'lambda'         : None,
                    'E'              : None,
                    'nu'             : None }
         return params
@@ -189,7 +189,7 @@ class NeoHookeMaterial(ElasticMaterial) :
         dim = ufl.domain.find_geometric_dimension(u)
         mu    = dlf.Constant(params['mu'], name='mu')
         kappa = dlf.Constant(params['kappa'], name='kappa')
-        la    = dlf.Constant(params['lmbda'], name='lmbda')
+        la    = dlf.Constant(params['lambda'], name='lambda')
 
         I     = dlf.Identity(dim)
         F     = I + dlf.grad(u)
@@ -222,7 +222,7 @@ class NeoHookeMaterial(ElasticMaterial) :
         params = self._parameters
         mu     = dlf.Constant(params['mu'], name='mu')
         kappa  = dlf.Constant(params['kappa'], name='kappa')
-        la     = dlf.Constant(params['lmbda'], name='lmbda')
+        la     = dlf.Constant(params['lambda'], name='lambda')
 
         I      = dlf.Identity(dim)
         F      = I + dlf.grad(u)
@@ -253,7 +253,7 @@ class NeoHookeMaterial(ElasticMaterial) :
         dim    = ufl.domain.find_geometric_dimension(u)
         mu     = dlf.Constant(params['mu'], name='mu')
         kappa  = dlf.Constant(params['kappa'], name='kappa')
-        la     = dlf.Constant(params['lmbda'], name='lmbda')
+        la     = dlf.Constant(params['lambda'], name='lambda')
 
         I      = dlf.Identity(dim)
         F      = I + dlf.grad(u)
@@ -436,7 +436,7 @@ def convert_elastic_moduli (param):
         E     = param['E']        # Young's modulus [kPa]
         kappa = param['kappa']    # bulk modulus [kPa]
         mu    = param['mu']       # shear modulus (Lame's second parameter) [kPa]
-        lam   = param['lmbda']   # Lame's first parameter [kPa]
+        lam   = param['lambda']   # Lame's first parameter [kPa]
 
         if kappa != None and mu != None and kappa > 0 and mu > 0:
             E      = 9.*kappa*mu / (3.*kappa + mu)
@@ -455,7 +455,7 @@ def convert_elastic_moduli (param):
             print ('Parameter E got changed due to contradictory settings')
         if (param['kappa'] != None and param['kappa'] != kappa):
             print ('Parameter kappa got changed due to contradictory settings')
-        if (param['lmbda'] != None and param['lmbda'] != lam):
+        if (param['lambda'] != None and param['lambda'] != lam):
             print ('Parameter lambda got changed due to contradictory settings')
         if (param['mu'] != None and param['mu'] != mu):
             print ('Parameter mu got changed due to contradictory settings')
@@ -466,4 +466,4 @@ def convert_elastic_moduli (param):
         param['E']      = E        # Young's modulus [kPa]
         param['kappa']  = kappa    # bulk modulus [kPa]
         param['mu']     = mu       # shear modulus (Lame's second parameter) [kPa]
-        param['lmbda'] = lam      # Lame's first parameter [kPa]
+        param['lambda'] = lam      # Lame's first parameter [kPa]

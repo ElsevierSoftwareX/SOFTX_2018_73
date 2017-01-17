@@ -27,19 +27,60 @@ def lin_elastic(problem):
     mat.set_inverse(problem.config['formulation']['inverse'])
     mat.set_incompressible(problem.config['material']['incompressible'])
     mat.print_info()
-    u  = problem.displacement
-    p  = problem.pressure
+    # u  = problem.displacement
+    # p  = problem.pressure
 
-    stress = mat.stress_tensor(u, p)
+    # stress = mat.stress_tensor(u, p)
 
-    if problem.config['formulation']['time']['unsteady']:
-        u0  = problem.displacement0
-        stress0 = mat.stress_tensor(u0, p)
+    # if problem.config['formulation']['time']['unsteady']:
+    #     u0  = problem.displacement0
+    #     stress0 = mat.stress_tensor(u0, p)
 
-    if problem.config['formulation']['time']['unsteady']:
-        return stress, stress0
-    else:
-        return stress
+    # if problem.config['formulation']['time']['unsteady']:
+    #     return stress, stress0
+    # else:
+    #     return stress
+
+    return mat
+
+
+# def lin_elastic(problem):
+#     """
+#     Return the Cauchy stress tensor of a linear elastic material. The
+#     stress tensor is formulated based on the parameters set in the config
+#     dictionary of the 'problem' object.
+
+#     Parameters
+#     ----------
+
+#     problem : MechanicsProblem
+#         This object must be an instance of the MechanicsProblem class,
+#         which contains necessary data to formulate the variational form,
+#         such as material parameters.
+
+#     """
+
+#     la = problem.config['material']['lambda']
+#     mu = problem.config['material']['mu']
+#     mat = mts.LinearMaterial(mu=mu, lmbda=la)
+#     mat.set_active(False)
+#     mat.set_inverse(problem.config['formulation']['inverse'])
+#     mat.set_incompressible(problem.config['material']['incompressible'])
+#     mat.print_info()
+#     u  = problem.displacement
+#     p  = problem.pressure
+
+#     stress = mat.stress_tensor(u, p)
+
+#     if problem.config['formulation']['time']['unsteady']:
+#         u0  = problem.displacement0
+#         stress0 = mat.stress_tensor(u0, p)
+
+#     if problem.config['formulation']['time']['unsteady']:
+#         return stress, stress0
+#     else:
+#         return stress
+
 
 def neo_hookean(problem):
     """

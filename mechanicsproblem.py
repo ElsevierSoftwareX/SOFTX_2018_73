@@ -3,9 +3,10 @@ import dolfin as dlf
 
 from . import materials
 from .utils import load_mesh, load_mesh_function, duplicate_expressions
+from .__CONSTANTS__ import dict_implemented as _implemented
 
 from ufl import Form
-from inspect import isfunction
+from inspect import isfunction, isclass
 
 __all__ = ['MechanicsProblem']
 
@@ -126,6 +127,7 @@ class MechanicsProblem:
         self.define_function_spaces()
         self.define_functions()
         self.define_deformation_tensors()
+        self.define_material()
         self.define_dirichlet_bcs()
         self.define_forms()
         self.define_ufl_equations()
@@ -296,23 +298,30 @@ class MechanicsProblem:
 
         """
 
-        if isfunction(config['material']['const_eqn']):
-            print '*** User provided constitutive equation. ***'
-            self._stress_function = config['material']['const_eqn']
+        # Exit if user provided a material class.
+        if isclass(config['material']['const_eqn']):
             return None
 
-        try:
-            submodule = getattr(materials, config['material']['type'])
-        except AttributeError:
+        # Exit if value is neither a class or string.
+        if not isinstance(config['material']['const_eqn'], str):
+            s = 'The value of \'const_eqn\' must be a class ' \
+                + 'or string.'
+            raise TypeError(s)
+
+        # Check if the material type is implemented.
+        if config['material']['type'] not in _implemented['materials']:
             s1 = 'The class of materials, \'%s\', has not been implemented.' \
                  % config['material']['type']
             raise NotImplementedError(s1)
 
-        try:
-            self._stress_function = getattr(submodule, config['material']['const_eqn'])
-        except AttributeError:
+        mat_subdict = _implemented['materials'][config['material']['type']]
+        const_eqn = config['material']['const_eqn']
+
+        # Check if the constitutive equation is implemented under the
+        # type specified.
+        if const_eqn not in mat_subdict:
             s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
-                 % config['material']['const_eqn'] \
+                 % const_eqn \
                  + 'within the material type, \'%s\'.' % config['material']['type']
             raise NotImplementedError(s1)
 
@@ -329,7 +338,8 @@ class MechanicsProblem:
         if 'bcs' not in config['formulation']:
             config['formulation']['bcs'] = None
 
-        # Set 'dirichlet' and 'neumann' to None if values were not provided and exit.
+        # Set 'dirichlet' and 'neumann' to None if values were not provided
+        # and exit.
         if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
@@ -598,6 +608,31 @@ class MechanicsProblem:
                 self.velocityGradient0 = dlf.grad(self.velocity0)
             else:
                 self.velocityGradient0 = 0
+
+        return None
+
+
+    def define_material(self):
+        """
+
+
+        """
+
+        # Check which class should be called.
+        if isclass(self.config['material']['const_eqn']):
+            mat_class = self.config['material']['const_eqn']
+        elif self.config['material']['const_eqn'] == 'lin_elastic':
+            mat_class = materials.solid_materials.LinearMaterial
+        elif self.config['material']['const_eqn'] == 'neo_hookean':
+            mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'guccione':
+            mat_class = materials.solid_materials.GuccioneMaterial
+        else:
+            raise NotImplementedError("Shouldn't be in here...")
+
+        # Create an instance of the material class and store
+        # as member data.
+        self._material = mat_class(**self.config['material'])
 
         return None
 
@@ -882,14 +917,19 @@ class MechanicsProblem:
         if hasattr(self, 'ufl_stress_work'):
             return None
 
-        if self.config['formulation']['time']['unsteady']:
-            stress_tensor, stress_tensor0 = self._stress_function(self)
+        # THIS NEEDS TO BE GENERALIZED.
+        if self.config['material']['type'] == 'elastic':
+            stress_tensor = self._material.stress_tensor(self.displacement, self.pressure)
         else:
-            stress_tensor = self._stress_function(self)
+            raise NotImplementedError("Shouldn't be in here...")
 
         xi = self.test_vector
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
         if self.config['formulation']['time']['unsteady']:
+            if self.config['material']['type'] == 'elastic':
+                stress_tensor0 = self._stress_function(self.displacement0, self.pressure0)
+            else:
+                raise NotImplementedError("Shouldn't be in here...")
             self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx
         else:
             self.ufl_stress_work0 = 0
