@@ -284,17 +284,17 @@ class GuccioneMaterial(ElasticMaterial):
 
     def __init__(self, parameters={}, fibers={}, **kwargs):
         ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class (self, 'transversely isotropic')
-        ElasticMaterial.set_material_name (self, 'Guccione material')
+        ElasticMaterial.set_material_class(self, 'transversely isotropic')
+        ElasticMaterial.set_material_name(self, 'Guccione material')
         self._parameters = self.default_parameters()
         if parameters == {}:
             prms = kwargs or {}
             self._parameters.update(prms)
         else:
             self._parameters.update(parameters)
-        if self._parameters['bt'] == 1.0 and self._parameters['bf'] == 1.0\
-        and self._parameters['bfs'] == 1.0:
-            ElasticMaterial.set_material_class (self, 'isotropic')
+        if self._parameters['bt'] == 1.0 and self._parameters['bf'] == 1.0 \
+           and self._parameters['bfs'] == 1.0:
+            ElasticMaterial.set_material_class(self, 'isotropic')
         fbrs = kwargs or {}
         self._fiber_directions = self.default_fiber_directions()
         self._fiber_directions.update(fibers)
@@ -302,11 +302,11 @@ class GuccioneMaterial(ElasticMaterial):
 
     @staticmethod
     def default_parameters():
-        param = { 'C'     : 2.0,
-                  'bf'    : 8.0,
-                  'bt'    : 2.0,
-                  'bfs'   : 4.0,
-                  'kappa' : 1000.0}
+        param = {'C' : 2.0,
+                 'bf' : 8.0,
+                 'bt' : 2.0,
+                 'bfs' : 4.0,
+                 'kappa' : 1000.0}
         return param
 
     @staticmethod
@@ -316,20 +316,20 @@ class GuccioneMaterial(ElasticMaterial):
                   'e3' : None}
         return fibers
 
-    def strain_energy(self, u, p=None) :
+    def strain_energy(self, u, p=None):
         """
         UFL form of the strain energy.
         """
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(u)
 
-        I     = dlf.Identity(dim)
-        F     = I + dlf.grad(u)
+        I = dlf.Identity(dim)
+        F = I + dlf.grad(u)
         J = dlf.det(F)
         C = pow(J, -float(2)/dim) * F.T*F
         E = 0.5*(C - I)
 
-        CC  = dlf.Constant(params['C'], name='C')
+        CC = dlf.Constant(params['C'], name='C')
         if self.get_material_class(self) == 'isotropic':
             # isotropic case
             Q = dlf.inner(E, E)
@@ -342,7 +342,7 @@ class GuccioneMaterial(ElasticMaterial):
 
             e1 = fibers['e1']
             e2 = fibers['e2']
-            if e1 == None or e2 == None:
+            if e1 is None or e2 is None:
                 if dim == 2:
                     e1 = dlf.Constant((1.0,0.0))
                     e2 = dlf.Constant((0.0,1.0))
@@ -362,14 +362,14 @@ class GuccioneMaterial(ElasticMaterial):
               + bfs*(E12**2 + E21**2 + E13**2 + E31**2)
 
         # passive strain energy
-        Wpassive = CC/2.0 * (dlf.exp(Q) - 1)
+        Wpassive = CC/2.0*(dlf.exp(Q) - 1)
 
         # incompressibility
         if self._incompressible:
-            Winc = - p * (J - 1)
+            Winc = - p*(J - 1)
         else :
             kappa = dlf.Constant(params['kappa'], name='kappa')
-            Winc = kappa * (J**2 - 1 - 2*dlf.ln(J))
+            Winc = kappa*(J**2 - 1 - 2*dlf.ln(J))
 
         return Wpassive + Winc
 
@@ -377,21 +377,21 @@ class GuccioneMaterial(ElasticMaterial):
         """
         UFL form of the stress tensor.
         """
-        dim    = ufl.domain.find_geometric_dimension(u)
+        dim = ufl.domain.find_geometric_dimension(u)
         params = self._parameters
-        kappa  = dlf.Constant(params['kappa'], name='kappa')
-        CC     = dlf.Constant(params['C'], name='C')
-        I      = dlf.Identity(dim)
-        F      = I + dlf.grad(u)
-        J      = dlf.det(F)
-        Jm2d   = pow(J, -float(2)/dim)
-        C      = F.T*F
-        E_     = 0.5*(Jm2d*C - I)
-        Finv   = dlf.inv(F)
+        kappa = dlf.Constant(params['kappa'], name='kappa')
+        CC = dlf.Constant(params['C'], name='C')
+        I = dlf.Identity(dim)
+        F = I + dlf.grad(u)
+        J = dlf.det(F)
+        Jm2d = pow(J, -float(2)/dim)
+        C = F.T*F
+        E_ = 0.5*(Jm2d*C - I)
+        Finv = dlf.inv(F)
 
         # fully anisotropic
-        bt  = dlf.Constant(params['bt'], name='bt')
-        bf  = dlf.Constant(params['bf'], name='bf')
+        bt = dlf.Constant(params['bt'], name='bt')
+        bf = dlf.Constant(params['bf'], name='bf')
         bfs = dlf.Constant(params['bfs'], name='bfs')
 
         e1 = self._fiber_directions['e1']
@@ -414,12 +414,12 @@ class GuccioneMaterial(ElasticMaterial):
 
         Q = bf*E11**2 + bt*(E22**2 + E33**2 + E23**2 + E32**2) \
           + bfs*(E12**2 + E21**2 + E13**2 + E31**2)
-        S_ = CC * dlf.exp(Q)*\
-           ( bf*E11*dlf.outer(e1,e1)   + bt*( E22*dlf.outer(e2,e2) + \
-                E33*dlf.outer(e3,e3)   +      E23*dlf.outer(e2,e3) + \
-                E32*dlf.outer(e3,e2) ) + bfs*(E12*dlf.outer(e1,e2) + \
-                E21*dlf.outer(e2,e1)   +      E13*dlf.outer(e1,e3) + \
-                E31*dlf.outer(e3,e1) ))
+        S_ = CC*dlf.exp(Q) \
+            *(bf*E11*dlf.outer(e1,e1) + bt*( E22*dlf.outer(e2,e2) \
+            + E33*dlf.outer(e3,e3) + E23*dlf.outer(e2,e3) \
+            + E32*dlf.outer(e3,e2)) + bfs*(E12*dlf.outer(e1,e2) \
+            + E21*dlf.outer(e2,e1) + E13*dlf.outer(e1,e3) \
+            + E31*dlf.outer(e3,e1)))
         FS_isc = Jm2d*F*S_ - 1./dim*Jm2d*dlf.tr(C*S_)*Finv.T
 
         # incompressibility
@@ -430,40 +430,43 @@ class GuccioneMaterial(ElasticMaterial):
 
         return FS_vol + FS_isc
 
-def convert_elastic_moduli (param):
+def convert_elastic_moduli(param):
         # original parameters
-        nu    = param['nu']       # Poisson's ratio [-]
-        E     = param['E']        # Young's modulus [kPa]
-        kappa = param['kappa']    # bulk modulus [kPa]
-        mu    = param['mu']       # shear modulus (Lame's second parameter) [kPa]
-        lam   = param['lambda']   # Lame's first parameter [kPa]
+        nu = param['nu']       # Poisson's ratio [-]
+        E = param['E']         # Young's modulus [kPa]
+        kappa = param['kappa'] # bulk modulus [kPa]
+        mu = param['mu']       # shear modulus (Lame's second parameter) [kPa]
+        lam = param['lambda']  # Lame's first parameter [kPa]
 
-        if kappa != None and mu != None and kappa > 0 and mu > 0:
-            E      = 9.*kappa*mu / (3.*kappa + mu)
-            lam    = kappa - 2.*mu/3.
-            nu     = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
-        if lam != None and mu != None and lam > 0 and mu > 0:
-            E      = mu*(3.*lam+2.*mu) / (lam+mu)
-            kappa  = lam+2.*mu / 3.
-            nu     = lam / (2.*(lam+mu))
+        if (kappa is not None) and (mu is not None) \
+           and (kappa > 0) and (mu > 0):
+            E = 9.*kappa*mu / (3.*kappa + mu)
+            lam = kappa - 2.*mu/3.
+            nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
+        if (lam is not None) and (mu is not None) \
+           and (lam > 0) and (mu > 0):
+            E = mu*(3.*lam + 2.*mu) / (lam + mu)
+            kappa = lam + 2.*mu / 3.
+            nu = lam / (2.*(lam + mu))
         if nu > 0 and nu <= 0.5 and E > 0:
-            kappa  = E / (3.*(1-2.*nu))
-            lam    = E*nu / ((1.+nu)*(1.-2.*nu))
-            mu     = E / (2.*(1.+nu))
+            kappa = E / (3.*(1 - 2.*nu))
+            lam = E*nu / ((1. + nu)*(1. - 2.*nu))
+            mu = E / (2.*(1. + nu))
 
-        if (param['E'] != None and param['E'] != E):
-            print ('Parameter E got changed due to contradictory settings')
-        if (param['kappa'] != None and param['kappa'] != kappa):
-            print ('Parameter kappa got changed due to contradictory settings')
-        if (param['lambda'] != None and param['lambda'] != lam):
-            print ('Parameter lambda got changed due to contradictory settings')
-        if (param['mu'] != None and param['mu'] != mu):
-            print ('Parameter mu got changed due to contradictory settings')
-        if (param['nu'] != None and param['nu'] != nu):
-            print ('Parameter nu got changed due to contradictory settings')
+        s = 'Parameter %s was changed due to contradictory settings.'
+        if (param['E'] is not None) and (param['E'] != E):
+            print s % 'E'
+        if (param['kappa'] is not None) and (param['kappa'] != kappa):
+            print s % 'kappa'
+        if (param['lambda'] is not None) and (param['lambda'] != lam):
+            print s % 'lambda'
+        if (param['mu'] is not None) and (param['mu'] != mu):
+            print s % 'mu'
+        if (param['nu'] is not None) and (param['nu'] != nu):
+            print s % 'nu'
 
-        param['nu'] = nu           # Poisson's ratio [-]
-        param['E']      = E        # Young's modulus [kPa]
-        param['kappa']  = kappa    # bulk modulus [kPa]
-        param['mu']     = mu       # shear modulus (Lame's second parameter) [kPa]
-        param['lambda'] = lam      # Lame's first parameter [kPa]
+        param['nu'] = dlf.Constant(nu)       # Poisson's ratio [-]
+        param['E'] = dlf.Constant(E)         # Young's modulus [kPa]
+        param['kappa'] = dlf.Constant(kappa) # bulk modulus [kPa]
+        param['mu'] = dlf.Constant(mu)       # shear modulus (Lame's second parameter) [kPa]
+        param['lambda'] = dlf.Constant(lam)  # Lame's first parameter [kPa]

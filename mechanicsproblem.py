@@ -927,7 +927,7 @@ class MechanicsProblem:
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
         if self.config['formulation']['time']['unsteady']:
             if self.config['material']['type'] == 'elastic':
-                stress_tensor0 = self._stress_function(self.displacement0, self.pressure0)
+                stress_tensor0 = self._material.stress_tensor(self.displacement0, self.pressure0)
             else:
                 raise NotImplementedError("Shouldn't be in here...")
             self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx
@@ -1096,14 +1096,20 @@ class MechanicsProblem:
 
         expr_list = list()
 
-        disp_dict = self.config['formulation']['bcs']['dirichlet']['displacement']
-        vel_dict = self.config['formulation']['bcs']['dirichlet']['velocity']
+        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['displacement'])
 
-        if disp_dict is not None:
-            expr_list.extend(disp_dict['values'])
+        if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
 
-        if vel_dict is not None:
-            expr_list.extend(vel_dict['values'])
+        # disp_dict = self.config['formulation']['bcs']['dirichlet']['displacement']
+        # vel_dict = self.config['formulation']['bcs']['dirichlet']['velocity']
+
+        # if disp_dict is not None:
+        #     expr_list.extend(disp_dict['values'])
+
+        # if vel_dict is not None:
+        #     expr_list.extend(vel_dict['values'])
 
         for expr in expr_list:
             if hasattr(expr, 't'):
