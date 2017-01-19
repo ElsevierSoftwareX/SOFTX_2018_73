@@ -37,7 +37,7 @@ dim_str = 'x'.join(['%i' % i for i in mesh_dims])
 if args.incompressible:
     name_dims = ('incomp_' + args.material, dim_str)
     element_type = 'p2-p1'
-    kappa = dlf.Constant(1e8)
+    kappa = 1e8
 else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
