@@ -186,7 +186,7 @@ def list_implemented_materials():
 
     from .__CONSTANTS__ import dict_implemented
 
-    string_template = "{:<8} | {:<30}"
+    string_template = "{:^8} | {:^24}"
     header = string_template.format("Type", "Constitutive Equation")
     string_length = len(header)
 
