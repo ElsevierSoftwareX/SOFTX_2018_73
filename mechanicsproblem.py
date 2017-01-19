@@ -1102,15 +1102,6 @@ class MechanicsProblem:
         if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
             expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
 
-        # disp_dict = self.config['formulation']['bcs']['dirichlet']['displacement']
-        # vel_dict = self.config['formulation']['bcs']['dirichlet']['velocity']
-
-        # if disp_dict is not None:
-        #     expr_list.extend(disp_dict['values'])
-
-        # if vel_dict is not None:
-        #     expr_list.extend(vel_dict['values'])
-
         for expr in expr_list:
             if hasattr(expr, 't'):
                 expr.t = t

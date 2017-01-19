@@ -1,7 +1,7 @@
 import dolfin as dlf
 import ufl
 
-__all__ = [ 'NeoHookeMaterial', 'GuccioneMaterial' ]
+__all__ = ['LinearMaterial', 'NeoHookeMaterial', 'GuccioneMaterial']
 
 class ElasticMaterial(object):
 
