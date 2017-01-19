@@ -1002,6 +1002,7 @@ class MechanicsProblem:
 
         self.define_ufl_velocity_equation()
         self.define_ufl_momentum_equation()
+        self.define_ufl_incompressibility_equation()
 
         return None
 
@@ -1011,6 +1012,9 @@ class MechanicsProblem:
 
 
         """
+
+        if hasattr(self, 'f1'):
+            return None
 
         if not self.config['formulation']['time']['unsteady']:
             self.f1 = 0
@@ -1032,6 +1036,9 @@ class MechanicsProblem:
 
         """
 
+        if hasattr(self, 'f2'):
+            return None
+
         # alpha AND dt CAN'T BE SET TO 0 IF STEADY
         alpha = self.config['formulation']['time']['alpha']
         dt = self.config['formulation']['time']['dt']
@@ -1045,21 +1052,58 @@ class MechanicsProblem:
         return None
 
 
+    def define_ufl_incompressibility_equation(self):
+        """
+
+
+        """
+
+        if hasattr(self, 'f3'):
+            return None
+
+        if not self.config['material']['incompressible']:
+            self.f3 = 0
+            return None
+
+        if self.config['material']['type'] == 'elastic':
+            b_vol = self._material.incompressibilityCondition(self.displacement)
+        else:
+            b_vol = self._material.incompressibilityCondition(self.velocity)
+
+        inv_la = dlf.Constant(1.0/self._material._parameters['lambda'])
+        self.f3 = self.test_scalar*(b_vol - inv_la*self.pressure)*dlf.dx
+
+        return None
+
+
     def define_ufl_equations_diff(self):
         """
 
 
         """
 
-        if self.f1 is not 0:
+        if self.f1 != 0:
             self.df1_du = dlf.derivative(self.f1, self.displacement, self.trial_vector)
             self.df1_dv = dlf.derivative(self.f1, self.velocity, self.trial_vector)
         else:
             self.df1_du = 0
             self.df1_dv = 0
+        self.df1_dp = 0 # This is always zero.
 
         self.df2_du = dlf.derivative(self.f2, self.displacement, self.trial_vector)
         self.df2_dv = dlf.derivative(self.f2, self.velocity, self.trial_vector)
+
+        if self.f3 != 0:
+            self.df2_dp = dlf.derivative(self.f2, self.pressure, self.trial_scalar)
+
+            self.df3_du = dlf.derivative(self.f3, self.displacement, self.trial_vector)
+            self.df3_dv = dlf.derivative(self.f3, self.velocity, self.trial_vector)
+            self.df3_dp = dlf.derivative(self.f3, self.pressure, self.trial_scalar)
+        else:
+            self.df2_dp = 0
+            self.df3_du = 0
+            self.df3_dv = 0
+            self.df3_dp = 0
 
         return None
 

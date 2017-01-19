@@ -191,18 +191,56 @@ class MechanicsSolver(object):
 
         mp = self._mp
 
-        # Check if system should be a block system or not.
-        if self._mp.config['formulation']['time']['unsteady']:
+        unsteady = mp.config['formulation']['time']['unsteady']
+        incompressible = mp.config['material']['incompressible']
+        elastic = mp.config['material']['type'] == 'elastic'
+
+        if unsteady and elastic and incompressible:
+            lhs = [[mp.df1_du, mp.df1_dv, mp.df1_dp],
+                   [mp.df2_du, mp.df2_dv, mp.df2_dp],
+                   [mp.df3_du, mp.df3_dv, mp.df3_dp]]
+            rhs = [-mp.f1, -mp.f2, -mp.f3]
+        elif unsteady and elastic: # Compressible unsteady elastic
             lhs = [[mp.df1_du, mp.df1_dv],
                    [mp.df2_du, mp.df2_dv]]
             rhs = [-mp.f1, -mp.f2]
-        else:
+        elif unsteady and incompressible: # Incompressible unsteady viscous
+            lhs = [[mp.df2_dv, mp.df2_dp],
+                   [mp.df3_dv, mp.df3_dp]]
+            rhs = [-mp.f2, -mp.f3]
+        elif elastic and incompressible: # Steady compressible elastic
+            lhs = [[mp.df2_du, mp.df2_dp],
+                   [mp.df3_du, mp.df3_dp]]
+            rhs = [-mp.f1, -mp.f3]
+        elif elastic:
+            lhs = mp.df2_du
             rhs = -mp.f2
-            if mp.config['material']['type'] == 'elastic':
-                lhs = mp.df2_du
-            elif mp.config['material']['type'] == 'viscous':
-                lhs = mp.df2_dv
-            else:
-                raise NotImplementedError
+        else:
+            raise NotImplementedError('*** Model is not recognized/supported. ***')
+
+        # # Check if system should be a block system or not.
+        # if mp.config['formulation']['time']['unsteady']:
+        #     if mp.config['material']['incompressible'] \
+        #        and mp.config['material']['type'] == 'elastic':
+        #         lhs = [[mp.df1_du, mp.df1_dv, mp.df1_dp],
+        #                [mp.df2_du, mp.df2_dv, mp.df2_dp],
+        #                [mp.df3_du, mp.df3_dv, mp.df3_dp]]
+        #         rhs = [-mp.f1, -mp.f2, -mp.f3]
+        #     elif mp.config['material']['incompressible']:
+        #         lhs = [[mp.df2_dv, mp.df2_dp],[mp.df3_dv, mp.df3_dp]]
+        #         rhs = [-mp.f2, -mp.f3]
+        #     else:
+        #         lhs = [[mp.df1_du, mp.df1_dv],
+        #                [mp.df2_du, mp.df2_dv]]
+        #         rhs = [-mp.f1, -mp.f2]
+        # else:
+        #     rhs = -mp.f2
+        #     # ADD INCOMPRESSIBILITY CASE
+        #     if mp.config['material']['type'] == 'elastic':
+        #         lhs = mp.df2_du
+        #     elif mp.config['material']['type'] == 'viscous':
+        #         lhs = mp.df2_dv
+        #     else:
+        #         raise NotImplementedError
 
         return lhs, rhs
