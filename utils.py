@@ -180,3 +180,11 @@ def duplicate_expressions(*args):
         retval.append(expr)
 
     return retval
+
+
+def list_implemented_materials():
+
+    from .__CONSTANTS__ import dict_implemented
+    print dict_implemented['materials']
+
+    return None

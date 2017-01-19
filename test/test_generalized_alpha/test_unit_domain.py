@@ -28,6 +28,9 @@ parser.add_argument('-inc', '--incompressible',
 parser.add_argument('-hdf5',
                     help="use HDF5 files",
                     action='store_true')
+parser.add_argument('-s','--save',
+                    help='save solution',
+                    action='store_true')
 args = parser.parse_args()
 
 # Mesh file names based on arguments given
@@ -44,12 +47,16 @@ else:
     kappa = None
 
 mesh_dir = '../meshfiles/unit_domain/'
-if args.inverse:
-    disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
-    vel_file = 'results/inverse-vel-%s-%s.pvd' % name_dims
+if args.save:
+    if args.inverse:
+        disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
+        vel_file = 'results/inverse-vel-%s-%s.pvd' % name_dims
+    else:
+        disp_file = 'results/forward-disp-%s-%s.pvd' % name_dims
+        vel_file = 'results/forward-vel-%s-%s.pvd' % name_dims
 else:
-    disp_file = 'results/forward-disp-%s-%s.pvd' % name_dims
-    vel_file = 'results/forward-vel-%s-%s.pvd' % name_dims
+    disp_file = None
+    vel_file = None
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
 mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
@@ -84,8 +91,8 @@ ffc_options = {'optimize' : True,
 # E = 500.0 # Young's modulus (TRY A SMALLER VALUE)
 E = 20.0 # Young's modulus (TRY A SMALLER VALUE)
 nu = 0.3 # Poisson's ratio
-la = dlf.Constant(E*nu/((1. + nu)*(1. - 2.*nu))) # 1st Lame parameter
-mu = dlf.Constant(E/(2.*(1. + nu))) # 2nd Lame parameter
+la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Time interval
 t0 = 0.0
