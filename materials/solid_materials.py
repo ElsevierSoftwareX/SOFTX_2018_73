@@ -85,7 +85,7 @@ class ElasticMaterial(object):
                 % (self._incompressible, self._inverse, self._active))
         print('-'*80)
 
-    def incompressibilityCondition(u):
+    def incompressibilityCondition(self, u):
         I    = dlf.Identity(ufl.domain.find_geometric_dimension(u))
         F    = I + dlf.grad(u)
         Finv = dlf.inv(F)
@@ -138,7 +138,7 @@ class LinearMaterial(ElasticMaterial) :
 
         return T
 
-    def incompressibilityCondition(u):
+    def incompressibilityCondition(self, u):
         return dlf.div(u)
 
 class NeoHookeMaterial(ElasticMaterial) :
