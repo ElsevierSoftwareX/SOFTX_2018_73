@@ -517,26 +517,31 @@ class MechanicsProblem:
         unsteady = self.config['formulation']['time']['unsteady']
         lagrangian = self.config['formulation']['domain'] == 'lagrangian'
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
+        elastic = self.config['material']['type'] == 'elastic'
 
         # Trial and test functions
         self.test_vector = dlf.TestFunction(self.vectorSpace)
         self.trial_vector = dlf.TrialFunction(self.vectorSpace)
 
-        if lagrangian or lin_elastic:
-            self.displacement = dlf.Function(self.vectorSpace, name='u')
-        else:
+        if elastic and unsteady:
+            self.displacement = dlf.Function(self.vectorSpace, name="u")
+            self.displacement0 = dlf.Function(self.vectorSpace, name="u0")
+            self.velocity = dlf.Function(self.vectorSpace, name="v")
+            self.velocity0 = dlf.Function(self.vectorSpace, name="v0")
+        elif unsteady: # Unsteady viscous material.
             self.displacement = 0
-        self.velocity = dlf.Function(self.vectorSpace, name='v')
-
-        if unsteady:
-            # functions for previous time step
-            if lagrangian or lin_elastic:
-                self.displacement0 = dlf.Function(self.vectorSpace, name='u0')
-            else:
-                self.displacement0 = 0
-            self.velocity0 = dlf.Function(self.vectorSpace, name='v0')
-        else:
             self.displacement0 = 0
+            self.velocity = dlf.Function(self.vectorSpace)
+            self.velocity0 = dlf.Function(self.vectorSpace)
+        elif elastic: # Steady elastic material.
+            self.displacement = dlf.Function(self.vectorSpace, name="u")
+            self.displacement0 = 0
+            self.velocity = 0
+            self.velocity0 = 0
+        else: # Steady viscous material
+            self.displacement = 0
+            self.displacement0 = 0
+            self.velocity = dlf.Function(self.vectorSpace)
             self.velocity0 = 0
 
         return None
@@ -589,13 +594,14 @@ class MechanicsProblem:
             I = dlf.Identity(self.mesh.geometry().dim())
             self.deformationGradient = I + dlf.grad(self.displacement)
             self.jacobian = dlf.det(self.deformationGradient)
-            self.velocityGradient = dlf.grad(self.velocity)
 
             if self.config['formulation']['time']['unsteady']:
+                self.velocityGradient = dlf.grad(self.velocity)
                 self.deformationGradient0 = I + dlf.grad(self.displacement0)
                 self.velocityGradient0 = dlf.grad(self.velocity0)
                 self.jacobian0 = dlf.det(self.deformationGradient0)
             else:
+                self.velocityGradient = 0
                 self.deformationGradient0 = 0
                 self.velocityGradient0 = 0
                 self.jacobian0 = 0
@@ -632,7 +638,8 @@ class MechanicsProblem:
 
         # Create an instance of the material class and store
         # as member data.
-        self._material = mat_class(**self.config['material'])
+        self._material = mat_class(inverse=self.config['formulation']['inverse'],
+                                   **self.config['material'])
 
         return None
 
@@ -653,12 +660,17 @@ class MechanicsProblem:
 
         """
 
+        # Don't redefine if object already exists.
+        if hasattr(self, 'dirichlet_bcs'):
+            return None
+
         # Exit function if no Dirichlet BCs were provided.
         if self.config['formulation']['bcs']['dirichlet'] is None:
             self.dirichlet_bcs = None
             return None
 
         V = self.vectorSpace
+        S = self.scalarSpace
 
         if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
             vel_vals = self.config['formulation']['bcs']['dirichlet']['velocity']
@@ -670,23 +682,63 @@ class MechanicsProblem:
         else:
             disp_vals = None
 
+        if 'pressure' in self.config['formulation']['bcs']['dirichlet'] \
+           and 'p_regions' in self.config['formulation']['bcs']['dirichlet']:
+            pressure_vals = self.config['formulation']['bcs']['dirichlet']['pressure']
+            p_regions = self.config['formulation']['bcs']['dirichlet']['p_regions']
+        elif 'pressure' in self.config['formulation']['bcs']['dirichlet']:
+            s = "Values for pressure were specified, but the regions were not."
+            raise ValueError(s)
+        elif 'p_regions' in self.config['formulation']['bcs']['dirichlet']:
+            s = "The regions for pressure were specified, but the values were not."
+            raise ValueError(s)
+        else:
+            pressure_vals = None
+            p_regions = None
+
+        # Regions for displacement and velocity
         regions = self.config['formulation']['bcs']['dirichlet']['regions']
 
-        self.dirichlet_bcs = {'displacement': None, 'velocity': None}
+        self.dirichlet_bcs = {'displacement': None, 'velocity': None, 'pressure': None}
+        # self.dirichlet_bcs = dict()
 
-        # Store the Dirichlet BCs for the velocity vector field
+        # Store the Dirichlet BCs for the velocity vector field.
         if vel_vals is not None:
             self.dirichlet_bcs['velocity'] = list()
             for region, value in zip(regions, vel_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['velocity'].append(bc)
 
-        # Store the Dirichlet BCs for the displacement vector field
+        # Store the Dirichlet BCs for the displacement vector field.
         if disp_vals is not None:
             self.dirichlet_bcs['displacement'] = list()
             for region, value in zip(regions, disp_vals):
                 bc = dlf.DirichletBC(V, value, self.mesh_function, region)
                 self.dirichlet_bcs['displacement'].append(bc)
+
+        # Store the Dirichlet BCs for the pressure scalar field.
+        if pressure_vals is not None:
+            self.dirichlet_bcs['pressure'] = list()
+            for region, value in zip(p_regions, pressure_vals):
+                bc = dlf.DirichletBC(S, value, self.mesh_function, region)
+                self.dirichlet_bcs['pressure'].append(bc)
+
+        # Remove pressure item if material is not incompressible.
+        if not self.config['material']['incompressible']:
+            _ = self.dirichlet_bcs.pop('pressure')
+
+        # Remove displacement item if material is not elastic.
+        if self.config['material']['type'] != 'elastic':
+            _ = self.dirichlet_bcs.pop('displacement')
+
+        # Remove velocity item if material is steady elastic.
+        if not self.config['formulation']['time']['unsteady'] \
+           and self.config['material']['type'] == 'elastic':
+            _ = self.dirichlet_bcs.pop('velocity')
+
+        # If dictionary is empty, replace with None.
+        if self.dirichlet_bcs == {}:
+            self.dirichlet_bcs = None
 
         return None
 
@@ -862,7 +914,8 @@ class MechanicsProblem:
         # coordinates and is not an elastic material.
         eulerian = self.config['formulation']['domain'] == 'eulerian'
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
-        if (not eulerian) or (not lin_elastic):
+
+        if (not eulerian) or lin_elastic:
             self.ufl_convec_accel = 0
             self.ufl_convec_accel0 = 0
             return None
@@ -895,7 +948,7 @@ class MechanicsProblem:
         # coordinates and is not an elastic material.
         eulerian = self.config['formulation']['domain'] == 'eulerian'
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
-        if (not eulerian) or (not lin_elastic):
+        if (not eulerian) or lin_elastic:
             self.ufl_convec_accel_dv = 0
             return None
 
@@ -954,9 +1007,10 @@ class MechanicsProblem:
                                                  self.trial_vector)
 
         # Derivative of stress term w.r.t. to velocity.
-        self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
-                                                 self.velocity,
-                                                 self.trial_vector)
+        if self.velocity != 0:
+            self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
+                                                     self.velocity,
+                                                     self.trial_vector)
 
         return None
 
@@ -1039,7 +1093,6 @@ class MechanicsProblem:
         if hasattr(self, 'f2'):
             return None
 
-        # alpha AND dt CAN'T BE SET TO 0 IF STEADY
         alpha = self.config['formulation']['time']['alpha']
         dt = self.config['formulation']['time']['dt']
 
@@ -1082,6 +1135,7 @@ class MechanicsProblem:
 
         """
 
+        # Derivatives of velocity integration equation.
         if self.f1 != 0:
             self.df1_du = dlf.derivative(self.f1, self.displacement, self.trial_vector)
             self.df1_dv = dlf.derivative(self.f1, self.velocity, self.trial_vector)
@@ -1090,17 +1144,36 @@ class MechanicsProblem:
             self.df1_dv = 0
         self.df1_dp = 0 # This is always zero.
 
-        self.df2_du = dlf.derivative(self.f2, self.displacement, self.trial_vector)
-        self.df2_dv = dlf.derivative(self.f2, self.velocity, self.trial_vector)
+        # Derivatives of momentum equation.
+        if self.displacement != 0:
+            self.df2_du = dlf.derivative(self.f2, self.displacement, self.trial_vector)
+        else:
+            self.df2_du = 0
 
-        if self.f3 != 0:
+        if self.velocity != 0:
+            self.df2_dv = dlf.derivative(self.f2, self.velocity, self.trial_vector)
+        else:
+            self.df2_dv = 0
+
+        if self.pressure != 0:
             self.df2_dp = dlf.derivative(self.f2, self.pressure, self.trial_scalar)
-
-            self.df3_du = dlf.derivative(self.f3, self.displacement, self.trial_vector)
-            self.df3_dv = dlf.derivative(self.f3, self.velocity, self.trial_vector)
-            self.df3_dp = dlf.derivative(self.f3, self.pressure, self.trial_scalar)
         else:
             self.df2_dp = 0
+
+        # Derivatives of incompressibility equation.
+        if self.f3 != 0:
+            if self.displacement != 0:
+                self.df3_du = dlf.derivative(self.f3, self.displacement, self.trial_vector)
+            else:
+                self.df3_du = 0
+
+            if self.velocity != 0:
+                self.df3_dv = dlf.derivative(self.f3, self.velocity, self.trial_vector)
+            else:
+                self.df3_dv = 0
+
+            self.df3_dp = dlf.derivative(self.f3, self.pressure, self.trial_scalar)
+        else:
             self.df3_du = 0
             self.df3_dv = 0
             self.df3_dp = 0
