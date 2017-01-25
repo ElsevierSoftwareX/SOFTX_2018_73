@@ -5,23 +5,27 @@ __all__ = ['LinearMaterial', 'NeoHookeMaterial', 'GuccioneMaterial']
 
 class ElasticMaterial(object):
 
+
     def __init__(self):
         self._material_name  = ''
-        self._parameters     = {}
+        self._parameters = {}
         self._incompressible = False
-        self._inverse        = False
-        self._active         = False
+        self._inverse = False
+        self._active = False
         self._material_class = 'isotropic'
+
 
     @staticmethod
     def default_parameters() :
         return {}
+
 
     def set_material_name(self, material_name):
         """
         Set material name
         """
         self._material_name = material_name
+
 
     def get_material_class(self):
         """
@@ -30,6 +34,7 @@ class ElasticMaterial(object):
         """
         return self._material_class
 
+
     def set_material_class(self, material_class):
         """
         Set material class, i.e. isotropic, transversely isotropic,
@@ -37,11 +42,13 @@ class ElasticMaterial(object):
         """
         self._material_class = material_class
 
+
     def is_incompressible(self) :
         """
         Return True if the material is incompressible.
         """
         return self._incompressible
+
 
     def set_incompressible(self, boolIncompressible):
         """
@@ -49,11 +56,13 @@ class ElasticMaterial(object):
         """
         self._incompressible = boolIncompressible
 
+
     def set_inverse(self, boolInverse):
         """
         Set material to inverse formulation
         """
         self._inverse = boolInverse
+
 
     def is_inverse(self):
         """
@@ -61,17 +70,20 @@ class ElasticMaterial(object):
         """
         return self._inverse
 
+
     def set_active(self, boolActive):
         """
         Set material to inverse formulation
         """
         self._inverse = boolActive
 
+
     def is_active(self) :
         """
         Return True if the material supports active contraction
         """
         return self._active
+
 
     def print_info(self) :
         """
@@ -85,6 +97,7 @@ class ElasticMaterial(object):
                 % (self._incompressible, self._inverse, self._active))
         print('-'*80)
 
+
     def incompressibilityCondition(self, u):
         I    = dlf.Identity(ufl.domain.find_geometric_dimension(u))
         F    = I + dlf.grad(u)
@@ -94,52 +107,60 @@ class ElasticMaterial(object):
         Bvol = dlf.ln(J)*dlf.inv(J)
         return Bvol
 
-class LinearMaterial(ElasticMaterial) :
+
+class LinearMaterial(ElasticMaterial):
     """
     Return the stress tensor based on the linear elasticity
     """
 
-    def __init__(self, **params) :
+
+    def __init__(self, inverse=False, **params):
         ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class (self, 'isotropic')
-        ElasticMaterial.set_material_name (self, 'Linear material')
+        ElasticMaterial.set_material_class(self, 'isotropic')
+        ElasticMaterial.set_material_name(self, 'Linear material')
+        ElasticMaterial.set_inverse(self, inverse)
+        ElasticMaterial.set_incompressible(self, params['incompressible'])
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
         convert_elastic_moduli (self._parameters)
 
+
     @staticmethod
-    def default_parameters() :
-        params = { 'mu'             : None,
-                   'kappa'          : None,
-                   'lambda'         : None,
-                   'E'              : None,
-                   'nu'             : None }
+    def default_parameters():
+        params = { 'mu' : None,
+                   'kappa' : None,
+                   'lambda' : None,
+                   'E' : None,
+                   'nu' : None }
         return params
+
 
     def stress_tensor(self, u, p=None):
 
         params = self._parameters
-        dim   = ufl.domain.find_geometric_dimension(u)
-        mu    = dlf.Constant(params['mu'], name='mu')
-        la    = dlf.Constant(params['lambda'], name='lambda')
+        dim = ufl.domain.find_geometric_dimension(u)
+        mu = dlf.Constant(params['mu'], name='mu')
+        la = dlf.Constant(params['lambda'], name='lambda')
 
-        I       = dlf.Identity(dim)
-        F       = I + dlf.grad(u)
+        I = dlf.Identity(dim)
+        F = I + dlf.grad(u)
         if self._inverse:
             epsilon = dlf.sym(dlf.inv(F)) - I
         else:
             epsilon = dlf.sym(F) - I
 
         if self._incompressible:
-            T = 2.0*mu*epsilon
+            T = -p*I + 2.0*mu*epsilon
         else:
             T = la*dlf.tr(epsilon)*I + 2.0*mu*epsilon
 
         return T
 
+
     def incompressibilityCondition(self, u):
         return dlf.div(u)
+
 
 class NeoHookeMaterial(ElasticMaterial) :
     """
@@ -163,41 +184,46 @@ class NeoHookeMaterial(ElasticMaterial) :
 
     """
 
-    def __init__(self, **params) :
+
+    def __init__(self, inverse=False, **params) :
         ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class (self, 'isotropic')
-        ElasticMaterial.set_material_name (self, 'Neo-Hooke material')
+        ElasticMaterial.set_material_class(self, 'isotropic')
+        ElasticMaterial.set_material_name(self, 'Neo-Hooke material')
+        ElasticMaterial.set_inverse(self, inverse)
+        ElasticMaterial.set_incompressible(self, params['incompressible'])
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
-        convert_elastic_moduli (self._parameters)
+        convert_elastic_moduli(self._parameters)
+
 
     @staticmethod
-    def default_parameters() :
-        params = { 'mu'             : None,
-                   'kappa'          : None,
-                   'lambda'         : None,
-                   'E'              : None,
-                   'nu'             : None }
+    def default_parameters():
+        params = {'mu' : None,
+                  'kappa' : None,
+                  'lambda' : None,
+                  'E' : None,
+                  'nu' : None}
         return params
 
-    def strain_energy(self, u, p=None) :
+
+    def strain_energy(self, u, p=None):
         """
         UFL form of the strain energy.
         """
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(u)
-        mu    = dlf.Constant(params['mu'], name='mu')
+        mu = dlf.Constant(params['mu'], name='mu')
         kappa = dlf.Constant(params['kappa'], name='kappa')
-        la    = dlf.Constant(params['lambda'], name='lambda')
+        la = dlf.Constant(params['lambda'], name='lambda')
 
-        I     = dlf.Identity(dim)
-        F     = I + dlf.grad(u)
+        I = dlf.Identity(dim)
+        F = I + dlf.grad(u)
         if params['inverse'] is True:
-            F=dlf.inv(F)
-        J     = dlf.det(F)
-        C     = F.T*F
-        Jm2d  = pow(J, -float(2)/dim)
+            F = dlf.inv(F)
+        J = dlf.det(F)
+        C = F.T*F
+        Jm2d = pow(J, -float(2)/dim)
 
         # incompressibility
         if self._incompressible:
@@ -212,6 +238,7 @@ class NeoHookeMaterial(ElasticMaterial) :
             W_vol = (la*dlf.ln(J) - mu)
 
         return W_vol + W_isc
+
 
     def stress_tensor(self, u, p=None):
         """
@@ -448,7 +475,7 @@ def convert_elastic_moduli(param):
             E = mu*(3.*lam + 2.*mu) / (lam + mu)
             kappa = lam + 2.*mu / 3.
             nu = lam / (2.*(lam + mu))
-        if nu > 0 and nu <= 0.5 and E > 0:
+        if (0 < nu <= 0.5) and (E > 0):
             kappa = E / (3.*(1 - 2.*nu))
             lam = E*nu / ((1. + nu)*(1. - 2.*nu))
             mu = E / (2.*(1. + nu))
