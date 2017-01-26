@@ -65,8 +65,8 @@ dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
 # Save files
 print('Writing files.....', end='')
 
-mesh_name = './meshfiles/unit_domain-mesh-%s' % dim_str
-mesh_func_name = './meshfiles/unit_domain-mesh_function-%s' % dim_str
+mesh_name = './meshfiles/unit_domain/unit_domain-mesh-%s' % dim_str
+mesh_func_name = './meshfiles/unit_domain/unit_domain-mesh_function-%s' % dim_str
 
 if args.hdf5:
     mesh_name += '.h5'
