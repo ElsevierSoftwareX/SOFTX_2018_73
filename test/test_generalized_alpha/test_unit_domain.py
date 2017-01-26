@@ -31,6 +31,9 @@ parser.add_argument('-hdf5',
 parser.add_argument('-s','--save',
                     help='save solution',
                     action='store_true')
+parser.add_argument('-v', '--compute-volume',
+                    help='compute deformed volume',
+                    action='store_true')
 args = parser.parse_args()
 
 # Mesh file names based on arguments given
@@ -40,7 +43,7 @@ dim_str = 'x'.join(['%i' % i for i in mesh_dims])
 if args.incompressible:
     name_dims = ('incomp_' + args.material, dim_str)
     element_type = 'p2-p1'
-    kappa = dlf.Constant(1e8)
+    kappa = 1e8
 else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
@@ -153,11 +156,26 @@ config = {'material' : {
           }
 
 problem = fm.MechanicsProblem(config)
-
-############################################################
 my_solver = fm.MechanicsSolver(problem)
 my_solver.solve(iter_tol=1e-6,
                 maxLinIters=250,
                 fname_disp=disp_file,
                 fname_vel=vel_file,
                 save_freq=10, show=0)
+
+# Compute the final volume
+if args.compute_volume:
+    W1 = dlf.VectorFunctionSpace(problem.mesh, 'CG', 1)
+    xi1 = dlf.TestFunction(W1)
+    du1 = dlf.TrialFunction(W1)
+    u_move = dlf.Function(W1)
+    move_bcs = dlf.DirichletBC(W1, dlf.Constant([0.0]*args.dim),
+                               problem.mesh_function, CLIP)
+    a = dlf.dot(xi1, du1)*dlf.dx
+    L = dlf.dot(xi1, problem.displacement)*dlf.dx
+    dlf.solve(a == L, u_move, move_bcs)
+
+    ale = dlf.ALE()
+    ale.move(problem.mesh, u_move)
+    print "Total volume after: ", \
+        dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh))
