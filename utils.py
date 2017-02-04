@@ -185,6 +185,20 @@ def duplicate_expressions(*args):
 def list_implemented_materials():
 
     from .__CONSTANTS__ import dict_implemented
-    print dict_implemented['materials']
+
+    string_template = "{:^8} | {:^24}"
+    header = string_template.format("Type", "Constitutive Equation")
+    string_length = len(header)
+
+    print "\n", header
+    print "-"*string_length
+
+    for mat_type in dict_implemented['materials']:
+        n = len(dict_implemented['materials'][mat_type])
+        for i in range(n):
+            if i == 0:
+                print string_template.format(mat_type, dict_implemented['materials'][mat_type][i])
+            else:
+                print string_template.format("", dict_implemented['materials'][mat_type][i])
 
     return None

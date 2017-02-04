@@ -39,20 +39,15 @@ class MechanicsSolver(object):
                             fname_vel=fname_vel, save_freq=save_freq)
         else:
             lhs, rhs = self.ufl_lhs_rhs()
-            if self._mp.config['material']['type'] == 'elastic':
-                bcs = self._mp.dirichlet_bcs['displacement']
-                if fname_disp:
-                    fout = dlf.File(fname_disp)
-                    func_out = self._mp.displacement
-                else:
-                    fout = None
-                    func_out = self._mp.velocity
+            bcs = self._mp.dirichlet_bcs.values()
+            if len(bcs) == 1:
+                bcs = bcs[0]
+
+            if fname_disp:
+                fout = dlf.File(fname_disp)
+                func_out = self._mp.displacement
             else:
-                bcs = self.dirichlet_bcs['velocity']
-                if fname_vel:
-                    fout = dlf.File(fname_vel)
-                else:
-                    fout = None
+                fout = None
 
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
                                  iter_tol=iter_tol, maxNonlinIters=maxNonlinIters,
@@ -69,8 +64,7 @@ class MechanicsSolver(object):
                    print_norm=True, fname_disp=None, fname_vel=None,
                    save_freq=1):
         """
-        THIS FUNCTION ASSUMES THAT THE PROBLEM IS AN UNSTEADY ELASTIC
-        PROBLEM. UNSTEADY VISCOUS MATERIALS HAVE NOT BEEN IMPLEMENTED!
+
 
         """
 
@@ -85,6 +79,8 @@ class MechanicsSolver(object):
             file_vel = dlf.File(fname_vel, 'compressed')
 
         lhs, rhs = self.ufl_lhs_rhs()
+
+        # Need to be more specific here.
         bcs = block.block_bc(self._mp.dirichlet_bcs.values(), False)
 
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
@@ -162,23 +158,53 @@ class MechanicsSolver(object):
             # Decide between a dolfin direct solver or a block iterative solver.
             if is_block:
                 Ainv = iterative.LGMRES(A, show=show, tolerance=iter_tol,
-                                        nonconvergence_is_fatal=True,
+                                        # nonconvergence_is_fatal=True,
                                         maxiter=maxLinIters)
                 du = Ainv*b
-                self._mp.displacement.vector()[:] += du.blocks[0]
-                self._mp.velocity.vector()[:] += du.blocks[1]
             else:
                 dlf.solve(A, du, b, 'mumps')
-                if self._mp.config['material']['type'] == 'elastic':
-                    self._mp.displacement.vector()[:] += du
-                else:
-                    self._mp.velocity.vector()[:] += du
+
+            self.update_soln(du)
 
             norm = du.norm('l2')
             if not rank and print_norm:
                 print '(iter %2i) norm %.3e' % (count, norm)
 
             count += 1
+
+        return None
+
+
+    def update_soln(self, du):
+        """
+
+
+        """
+
+        incompressible = self._mp.config['material']['incompressible']
+        unsteady = self._mp.config['formulation']['time']['unsteady']
+        elastic = self._mp.config['material']['type'] == 'elastic'
+
+        if unsteady and elastic and incompressible:
+            self._mp.displacement.vector()[:] += du[0]
+            self._mp.velocity.vector()[:] += du[1]
+            self._mp.pressure.vector()[:] += du[2]
+        elif unsteady and elastic: # Compressible unsteady elastic
+            self._mp.displacement.vector()[:] += du[0]
+            self._mp.velocity.vector()[:] += du[1]
+        elif unsteady and incompressible: # Incompressible unsteady viscous
+            self._mp.velocity.vector()[:] += du[0]
+            self._mp.pressure.vector()[:] += du[1]
+        elif elastic and incompressible: # Incompressible steady elastic
+            self._mp.displacement.vector()[:] += du[0]
+            self._mp.pressure.vector()[:] += du[1]
+        elif elastic: # Compressible steady elastic
+            self._mp.displacement.vector()[:] += du
+        elif incompressible: # Incompressible steady viscous
+            self._mp.velocity.vector()[:] += du[0]
+            self._mp.pressure.vector()[:] += du[1]
+        else:
+            raise NotImplementedError('*** Model is not recognized/supported. ***')
 
         return None
 
@@ -191,18 +217,35 @@ class MechanicsSolver(object):
 
         mp = self._mp
 
-        # Check if system should be a block system or not.
-        if self._mp.config['formulation']['time']['unsteady']:
+        unsteady = mp.config['formulation']['time']['unsteady']
+        incompressible = mp.config['material']['incompressible']
+        elastic = mp.config['material']['type'] == 'elastic'
+
+        if unsteady and elastic and incompressible:
+            lhs = [[mp.df1_du, mp.df1_dv, mp.df1_dp],
+                   [mp.df2_du, mp.df2_dv, mp.df2_dp],
+                   [mp.df3_du, mp.df3_dv, mp.df3_dp]]
+            rhs = [-mp.f1, -mp.f2, -mp.f3]
+        elif unsteady and elastic: # Compressible unsteady elastic
             lhs = [[mp.df1_du, mp.df1_dv],
                    [mp.df2_du, mp.df2_dv]]
             rhs = [-mp.f1, -mp.f2]
-        else:
+        elif unsteady and incompressible: # Incompressible unsteady viscous
+            lhs = [[mp.df2_dv, mp.df2_dp],
+                   [mp.df3_dv, mp.df3_dp]]
+            rhs = [-mp.f2, -mp.f3]
+        elif elastic and incompressible: # Steady incompressible elastic
+            lhs = [[mp.df2_du, mp.df2_dp],
+                   [mp.df3_du, mp.df3_dp]]
+            rhs = [-mp.f2, -mp.f3]
+        elif elastic: # Compressible steady elastic
+            lhs = mp.df2_du
             rhs = -mp.f2
-            if mp.config['material']['type'] == 'elastic':
-                lhs = mp.df2_du
-            elif mp.config['material']['type'] == 'viscous':
-                lhs = mp.df2_dv
-            else:
-                raise NotImplementedError
+        elif incompressible: # Incompressible steady viscous
+            lhs = [[mp.df2_dv, mp.df2_dp],
+                   [mp.df3_dv, mp.df3_dp]]
+            rhs = [-mp.f2, -mp.f3]
+        else:
+            raise NotImplementedError('*** Model is not recognized/supported. ***')
 
         return lhs, rhs
