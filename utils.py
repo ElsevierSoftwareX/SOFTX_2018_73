@@ -171,12 +171,18 @@ def petsc_identity(N, dofs=None):
 def duplicate_expressions(*args):
 
     retval = list()
+    import copy
 
     for arg in args:
-        if hasattr(arg, 't'):
-            expr = dlf.Expression(arg.cppcode, t=0.0, element=arg.ufl_element())
+        if hasattr(arg, 'cppcode'):
+            if hasattr(arg, 't'):
+                expr = dlf.Expression(arg.cppcode, t=0.0, element=arg.ufl_element())
+            else:
+                expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
         else:
-            expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
+            print "Expression subclass was used..."
+            expr = copy.copy(arg)
+
         retval.append(expr)
 
     return retval
