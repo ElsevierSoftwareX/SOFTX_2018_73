@@ -106,8 +106,18 @@ tspan = [t0, tf]
 alpha = 1.0
 
 # Traction on the Neumann boundary region
-# traction = dlf.Expression(['3.0*t'] + ['0.0']*(args.dim-1), t=t0, degree=2)
-pressure = dlf.Expression('3.0*t', t=t0, degree=2)
+expr_subclass = True
+if expr_subclass:
+    class Pressure(dlf.Expression):
+        def __init__(self, t=0.0, **kwargs):
+            self.t = t
+        def eval(self, vals, x):
+            vals[0] = 3.0*self.t
+        def value_shape(self):
+            return tuple()
+    pressure = Pressure(t=t0, degree=2)
+else:
+    pressure = dlf.Expression('3.0*t', t=t0, degree=2)
 
 # Region IDs
 ALL_ELSE = 0
