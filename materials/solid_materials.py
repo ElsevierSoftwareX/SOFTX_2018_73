@@ -275,36 +275,219 @@ class NeoHookeMaterial(ElasticMaterial) :
 
         return FS_vol + FS_isc
 
-    def elasticity_tensor(self, u, p=None):
-        #parameters
-        dim    = ufl.domain.find_geometric_dimension(u)
-        mu     = dlf.Constant(params['mu'], name='mu')
-        kappa  = dlf.Constant(params['kappa'], name='kappa')
-        la     = dlf.Constant(params['lambda'], name='lambda')
 
-        I      = dlf.Identity(dim)
-        F      = I + dlf.grad(u)
-        C      = F.T*F
-        Finv   = dlf.inv(F)
-        Cinv   = dlf.inv(F.T*F)
-        J      = dlf.det(F)
-        Jm2d   = pow(J, -float(2)/dim)
-        I1     = dlf.tr(F.T*F)
-        S_isc  = mu*Jm2d*I - 1./dim*Jm2d*mu*I1*Cinv
-        ET_isc = - 2./dim*(dlf.outer(Siso,Cinv)+dlf.outer(Cinv,Siso))\
-                 + 2./dim*J2d*mu*dlf.tr(C)*(ut.sym_product(Cinv, Cinv)\
-                                      -1./dim*dlf.outer(Cinv,Cinv))
-        # incompressibility
-        if self._incompressible:
-            if p == 0 or p == None:
-                dhyd_p  = p
-            else:
-                hyd_p   = 2.*kappa*(J-1./J)
-                dhyd_p  = hyd_p + 2.*kappa*(J+1./J)
-        ETM_vol = J*dhyd_p*dlf.outer(Cinv,Cinv) \
-                      - 2.*J*hyd_p*ut.sym_product(Cinv, Cinv)
+    @staticmethod
+    def _basic_strain_energy(I1, mu):
+        """
+        Define the strain energy function for the neo-Hookean model:
+
+        psi(C) = 0.5*mu*(tr(C) - 3)
 
 
+        Parameters
+        ----------
+
+        I1 :
+            Trace of the right/left Cauchy-Green strain tensor.
+        mu :
+            Material constant.
+
+
+        Returns
+        -------
+
+        UFL object defining the strain energy given above.
+
+        """
+
+        return dlf.Constant(0.5)*mu*(I1 - dlf.Constant(3.0))
+
+
+    @staticmethod
+    def _compressible_strain_energy(J, la, mu):
+        """
+        Define additional terms for the strain energy of a compressible
+        neo-Hookean model:
+
+        psi_hat(C) = 0.5*la*(ln(J))**2 - mu*ln(J)
+
+
+        Parameters
+        ----------
+
+        J :
+            Determinant of the deformation gradient.
+        la :
+            Material constant.
+        mu :
+            Material constant.
+
+
+        Returns
+        -------
+
+        UFL object defining the component of the strain energy function given
+        above.
+
+        """
+
+        return dlf.Constant(0.5)*la*(dlf.ln(J))**2 \
+            - mu*dlf.ln(J)
+
+
+    @staticmethod
+    def _penalty_strain_energy(J, kappa, formulation='square'):
+        """
+        Define the additional penalty component for the strain energy function
+        a nearly incompressible material:
+
+        square: phi(C) = 0.5*kappa*(J - 1)**2
+        log:    phi(C) = 0.5*kappa*(ln(J))**2
+
+
+        Parameters
+        ----------
+
+        J :
+            Determinant of the deformation gradient.
+        kappa :
+            Penalty constant.
+        formulation : "square", "log"
+            String specifying which of the two above formulations to use.
+
+
+        Returns
+        -------
+
+        UFL object defining the penalty component of the strain energy function
+        given above.
+
+        """
+
+        if formulation == 'square':
+            f =  (J - dlf.Constant(1.0))**2
+        elif formulation == 'log':
+            f = (dlf.ln(J))**2
+        else:
+            s = "Formulation, \"%s\" of the penalty function is not recognized." \
+                % formulation
+            raise ValueError(s)
+
+        return dlf.Constant(0.5)*kappa*f
+
+
+    @staticmethod
+    def _basic_stress_tensor(F, mu):
+        """
+        Define the first Piola-Kirchhoff stress tensor that corresponds to a
+        basic neo-Hookean strain energy function,
+
+        psi(C) = 0.5*mu*(tr(C) - 3),
+
+        namely, P = mu*F.
+
+
+        Parameters
+        ----------
+
+        F :
+            Deformation gradient.
+        mu :
+            Material constant.
+
+
+        Returns
+        -------
+
+        UFL object defining the above tensor, P.
+
+        """
+
+        return mu*F
+
+
+    @staticmethod
+    def _compressible_stress_tensor(F, J, la, mu):
+        """
+        Define the additional terms of the first Piola-Kirchhoff stress tensor
+        resulting from the strain energy component,
+
+        psi_hat(C) = 0.5*la*(ln(J))**2 - mu*ln(J),
+
+        namely, P = (la*ln(J) - mu)*Finv.T.
+
+
+        Parameters
+        ----------
+
+        F :
+            Deformation gradient.
+        J :
+            Determinant of the deformation gradient.
+        la :
+            Material constant.
+        mu :
+            Material constant.
+
+
+        Returns
+        -------
+
+        UFL object defining the above tensor, P.
+
+        """
+
+        Finv = dlf.inv(F)
+
+        return (la*dlf.ln(J) - mu)*Finv.T
+
+
+    @staticmethod
+    def _penalty_stress_tensor(F, J, kappa, formulation='square'):
+        """
+        Define the additional terms of the first Piola-Kirchhoff stress tensor
+        from the strain energy component given by one of the two formulations,
+
+        square: phi(C) = 0.5*kappa*(J - 1)**2
+        log:    phi(C) = 0.5*kappa*(ln(J))**2
+
+        namely,
+
+        square: P = kappa*J*(J - 1)*Finv.T
+        log:    P = kappa*ln(J)*Finv.T
+
+
+        Parameters
+        ----------
+
+        F :
+            Deformation gradient.
+        J :
+            Determinant of the deformation gradient.
+        kappa :
+            Penalty constant.
+        formulation : "square" (default), "log"
+            String specifying which of the two above formulations to use.
+
+
+        Returns
+        -------
+
+        UFL object defining the above tensor, P.
+
+        """
+
+        Finv = dlf.inv(F)
+        if formulation == 'square':
+            g = J*(J - dlf.Constant(1.0))
+        elif formulation == 'log':
+            g = dlf.ln(J)
+        else:
+            s = "Formulation, \"%s\" of the penalty function is not recognized." \
+                % formulation
+            raise ValueError(s)
+
+        return kappa*g*Finv.T
 
 
 class GuccioneMaterial(ElasticMaterial):
