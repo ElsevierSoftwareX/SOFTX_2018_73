@@ -207,73 +207,234 @@ class NeoHookeMaterial(ElasticMaterial) :
         return params
 
 
-    def strain_energy(self, u, p=None):
-        """
-        UFL form of the strain energy.
-        """
-        params = self._parameters
-        dim = ufl.domain.find_geometric_dimension(u)
-        mu = dlf.Constant(params['mu'], name='mu')
-        kappa = dlf.Constant(params['kappa'], name='kappa')
-        la = dlf.Constant(params['lambda'], name='lambda')
+    # def strain_energy(self, u, p=None):
+    #     """
+    #     UFL form of the strain energy.
+    #     """
+    #     params = self._parameters
+    #     dim = ufl.domain.find_geometric_dimension(u)
+    #     mu = dlf.Constant(params['mu'], name='mu')
+    #     kappa = dlf.Constant(params['kappa'], name='kappa')
+    #     la = dlf.Constant(params['lambda'], name='lambda')
 
-        I = dlf.Identity(dim)
-        F = I + dlf.grad(u)
-        if params['inverse'] is True:
-            F = dlf.inv(F)
-        J = dlf.det(F)
-        C = F.T*F
-        Jm2d = pow(J, -float(2)/dim)
+    #     I = dlf.Identity(dim)
+    #     F = I + dlf.grad(u)
+    #     if params['inverse'] is True:
+    #         F = dlf.inv(F)
+    #     J = dlf.det(F)
+    #     C = F.T*F
+    #     Jm2d = pow(J, -float(2)/dim)
 
-        # incompressibility
-        if self._incompressible:
-            I1bar = dlf.tr(Jm2d*C)
-            W_isc = 0.5*mu * (I1bar - dim)
-            if p == 0 or p == None:
-                W_vol = kappa * (J**2 - 1 - 2*dlf.ln(J))
-            else:
-                W_vol = - p * (J - 1)
+    #     # incompressibility
+    #     if self._incompressible:
+    #         I1bar = dlf.tr(Jm2d*C)
+    #         W_isc = 0.5*mu * (I1bar - dim)
+    #         if p == 0 or p == None:
+    #             W_vol = kappa * (J**2 - 1 - 2*dlf.ln(J))
+    #         else:
+    #             W_vol = - p * (J - 1)
+    #     else:
+    #         W_isc = 0.5*mu * (dlf.tr(C) - dim)
+    #         W_vol = (la*dlf.ln(J) - mu)
+
+    #     return W_vol + W_isc
+
+
+    def strain_energy(self, F, J, formulation=None):
+        """
+
+
+        """
+
+        if self._parameters['inverse']:
+            W = self._inverse_strain_energy(F, J, formulation)
         else:
-            W_isc = 0.5*mu * (dlf.tr(C) - dim)
-            W_vol = (la*dlf.ln(J) - mu)
+            W = self._forward_strain_energy(F, J, formulation)
 
-        return W_vol + W_isc
+        return
 
 
-    def stress_tensor(self, u, p=None):
+    def _forward_strain_energy(self, F, J, formulation=None):
         """
-        UFL form of the stress tensor.
+
         """
-        #parameters
-        dim    = ufl.domain.find_geometric_dimension(u)
-        params = self._parameters
-        mu     = dlf.Constant(params['mu'], name='mu')
-        kappa  = dlf.Constant(params['kappa'], name='kappa')
-        la     = dlf.Constant(params['lambda'], name='lambda')
 
-        I      = dlf.Identity(dim)
-        F      = I + dlf.grad(u)
-        Finv   = dlf.inv(F)
-        Cinv   = dlf.inv(F.T*F)
-        J      = dlf.det(F)
-        Jm2d   = pow(J, -float(2)/dim)
-        I1     = dlf.tr(F.T*F)
+        mu = dlf.Constant(self._parameters['mu'], name='mu')
 
-        # incompressibility
-        if self._incompressible:
-            FS_isc = mu*Jm2d*F - 1./dim*Jm2d*mu*I1*Finv.T
-            # nearly incompressible penalty formulation
-            if p == 0 or p == None:
-                FS_vol = J*2.*kappa*(J-1./J)*Finv.T
-            # (nearly) incompressible block system formulation
+        if self._parameters['incompressible']:
+            dim = ufl.domain.find_geometric_dimension(F)
+            Fbar = J**(-1.0/dim)*F
+            Cbar = Fbar.T*Fbar
+            I1 = dlf.tr(Cbar)
+            W = self._basic_strain_energy(I1, mu)
+            if formulation is not None:
+                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
+                W += self._penalty_strain_energy(J, kappa, formulation=formulation)
             else:
-                FS_vol = J*p*Finv.T
-        # standard compressible formulation
+                # Need to figure out what to do here.
+                pass
         else:
-            FS_isc = mu*F
-            FS_vol = (la*dlf.ln(J) - mu)*Finv.T
+            la = dlf.Constant(self._parameters['lambda'], name='lambda')
+            C = F.T*F
+            I1 = dlf.tr(C)
+            W = self._basic_strain_energy(I1, mu)
+            W += self._compressible_strain_energy(J, la, mu)
 
-        return FS_vol + FS_isc
+        return W
+
+
+    def _inverse_strain_energy(self, f, j, formulation=None):
+        """
+
+
+        """
+
+        mu = dlf.Constant(self._parameters['mu'], name='mu')
+
+        if self._parameters['incompressible']:
+
+            dim = ufl.domain.find_geometric_dimension(f)
+            fbar = j**(-1.0/dim)*f
+            cbar = fbar.T*fbar
+            i1 = dlf.tr(cbar)
+            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(cbar**2))
+            w = self._basic_strain_energy(i2, mu)
+
+            if formulation is not None:
+                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
+                w += self._penalty_strain_energy(1.0/j, kappa,
+                                                 formulation=formulation)
+            else:
+                # Need to figure out what to do here.
+                pass
+
+        else:
+            la = dlf.Constant(self._parameters['lambda'], name='lambda')
+            c = f.T*f
+            i1 = dlf.tr(c)
+            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(c**2))
+            i3 = dlf.det(c)
+            w = self._basic_strain_energy(i2/i3, mu)
+            w += self._compressible_strain_energy(1.0/j, kappa,
+                                                 formulation=formulation)
+
+        return w
+
+
+    # def stress_tensor(self, u, p=None):
+    #     """
+    #     UFL form of the stress tensor.
+    #     """
+    #     #parameters
+    #     dim    = ufl.domain.find_geometric_dimension(u)
+    #     params = self._parameters
+    #     mu     = dlf.Constant(params['mu'], name='mu')
+    #     kappa  = dlf.Constant(params['kappa'], name='kappa')
+    #     la     = dlf.Constant(params['lambda'], name='lambda')
+
+    #     I      = dlf.Identity(dim)
+    #     F      = I + dlf.grad(u)
+    #     Finv   = dlf.inv(F)
+    #     Cinv   = dlf.inv(F.T*F)
+    #     J      = dlf.det(F)
+    #     Jm2d   = pow(J, -float(2)/dim)
+    #     I1     = dlf.tr(F.T*F)
+
+    #     # incompressibility
+    #     if self._incompressible:
+    #         FS_isc = mu*Jm2d*F - 1./dim*Jm2d*mu*I1*Finv.T
+    #         # nearly incompressible penalty formulation
+    #         if p == 0 or p == None:
+    #             FS_vol = J*2.*kappa*(J-1./J)*Finv.T
+    #         # (nearly) incompressible block system formulation
+    #         else:
+    #             FS_vol = J*p*Finv.T
+    #     # standard compressible formulation
+    #     else:
+    #         FS_isc = mu*F
+    #         FS_vol = (la*dlf.ln(J) - mu)*Finv.T
+
+    #     return FS_vol + FS_isc
+
+
+    def stress_tensor(self, F, J, p=None, formulation=None):
+        """
+
+
+        """
+
+        if self._parameters['inverse']:
+            P = self._inverse_stress_tensor(F, J, p, formulation)
+        else:
+            P = self._forward_stress_tensor(F, J, p, formulation)
+
+        return P
+
+
+    def _forward_stress_tensor(self, F, J, p=None, formulation=None):
+        """
+
+
+        """
+
+        mu = dlf.Constant(self._parameters['mu'], name='mu')
+
+        if self._parameters['incompressible']:
+            dim = ufl.domain.find_geometric_dimension(F)
+            Fbar = J**(-1.0/dim)*F
+            Cbar = Fbar.T*Fbar
+            I1 = dlf.tr(Cbar)
+            P = self._basic_stress_tensor(Fbar, mu)
+            if formulation is not None:
+                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
+                P += self._penalty_stress_tensor(F, J, kappa, formulation)
+            else:
+                # Need to figure out what to do here.
+                pass
+        else:
+            la = dlf.Constant(self._parameters['lambda'], name='lambda')
+            C = F.T*F
+            I1 = dlf.tr(C)
+            P = self._basic_stress_tensor(F, mu)
+            P += self._compressible_stress_tensor(F, J, la, mu)
+
+        return P
+
+
+    def _inverse_stress_tensor(self, f, j, p=None, formulation=None):
+        """
+
+
+        """
+
+        mu = dlf.Constant(self._parameters['mu'], name='name')
+        finv = dlf.inv(f)
+
+        if self._parameters['incompressible']:
+            dim = ufl.domain.find_geometric_dimension(f)
+            fbar = j**(-1.0/dim)*f
+            cbar = fbar.T*fbar
+            i1 = dlf.tr(cbar)
+            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(cbar**2))
+
+            P = self._basic_stress_tensor(dlf.inv(fbar), mu)
+
+            if formulation is not None:
+                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
+                P += self._penalty_stress_tensor(finv, 1.0/j, kappa, formulation)
+            else:
+                # Need to figure out what to do here.
+                pass
+        else:
+            la = dlf.Constant(self._parameters['lambda'], name='lambda')
+            c = f.T*f
+            i1 = dlf.tr(c)
+            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(c**2))
+            i3 = dlf.det(c)
+            P = self._basic_stress_tensor(finv, mu)
+            P += self._compressible_stress_tensor(finv, 1.0/j, la, mu)
+
+        return j*P*finv.T
 
 
     @staticmethod
