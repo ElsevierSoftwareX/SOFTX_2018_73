@@ -136,15 +136,16 @@ class LinearMaterial(ElasticMaterial):
         return params
 
 
-    def stress_tensor(self, u, p=None):
+    # def stress_tensor(self, u, p=None):
+    def stress_tensor(self, F, J, p=None, formulation=None):
 
         params = self._parameters
-        dim = ufl.domain.find_geometric_dimension(u)
+        dim = ufl.domain.find_geometric_dimension(F)
         mu = dlf.Constant(params['mu'], name='mu')
         la = dlf.Constant(params['lambda'], name='lambda')
 
         I = dlf.Identity(dim)
-        F = I + dlf.grad(u)
+        # F = I + dlf.grad(u)
         if self._inverse:
             epsilon = dlf.sym(dlf.inv(F)) - I
         else:

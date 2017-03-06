@@ -100,10 +100,11 @@ mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 # Time interval
 t0 = 0.0
 tf = 1.0
-nsteps = 1000
+nsteps = 200
 dt = (tf - t0)/nsteps
 tspan = [t0, tf]
 alpha = 1.0
+save_freq = int(0.01/dt)
 
 # Traction on the Neumann boundary region
 expr_subclass = True
@@ -171,7 +172,7 @@ my_solver.solve(iter_tol=1e-6,
                 maxLinIters=250,
                 fname_disp=disp_file,
                 fname_vel=vel_file,
-                save_freq=10, show=0)
+                save_freq=save_freq, show=0)
 
 # Compute the final volume
 if args.compute_volume:
