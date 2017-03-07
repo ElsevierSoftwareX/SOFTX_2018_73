@@ -4,7 +4,10 @@ import ufl
 __all__ = ['LinearMaterial', 'NeoHookeMaterial', 'GuccioneMaterial']
 
 class ElasticMaterial(object):
+    """
+    Base class defining constitutive equations for elastic materials.
 
+    """
 
     def __init__(self):
         self._material_name  = ''
@@ -22,24 +25,30 @@ class ElasticMaterial(object):
 
     def set_material_name(self, material_name):
         """
-        Set material name
+        Set material name.
+
         """
+
         self._material_name = material_name
 
 
     def get_material_class(self):
         """
         Return material class, i.e. isotropic, transversely isotropic,
-        orthotropic or fully anisotropic
+        orthotropic or fully anisotropic.
+
         """
+
         return self._material_class
 
 
     def set_material_class(self, material_class):
         """
         Set material class, i.e. isotropic, transversely isotropic,
-        orthotropic or fully anisotropic
+        orthotropic or fully anisotropic.
+
         """
+
         self._material_class = material_class
 
 
@@ -47,34 +56,43 @@ class ElasticMaterial(object):
         """
         Return True if the material is incompressible.
         """
+
         return self._incompressible
 
 
     def set_incompressible(self, boolIncompressible):
         """
-        Set material to incompressible formulation
+        Set material to incompressible formulation.
+
         """
+
         self._incompressible = boolIncompressible
 
 
     def set_inverse(self, boolInverse):
         """
-        Set material to inverse formulation
+        Set material to inverse formulation.
+
         """
+
         self._inverse = boolInverse
 
 
     def is_inverse(self):
         """
-        Return True if the material formulation is inverse
+        Return True if the material formulation is inverse.
+
         """
+
         return self._inverse
 
 
     def set_active(self, boolActive):
         """
-        Set material to inverse formulation
+        Set material to inverse formulation.
+
         """
+
         self._inverse = boolActive
 
 
@@ -87,8 +105,10 @@ class ElasticMaterial(object):
 
     def print_info(self) :
         """
-        Print material information
+        Print material information.
+
         """
+
         print('-'*80)
         print('Material: %s' % self._material_name)
         print('Parameters: %s' % self._parameters)
@@ -99,6 +119,27 @@ class ElasticMaterial(object):
 
 
     def incompressibilityCondition(self, u):
+        """
+        Return the incompressibility condition for the specific material. The
+        default is
+
+        p = ln(J)/J
+
+
+        Parameters
+        ----------
+
+        u :
+            The displacement vector.
+
+
+        Returns
+        -------
+
+        UFL object defining the incompressibility condition.
+
+        """
+
         I    = dlf.Identity(ufl.domain.find_geometric_dimension(u))
         F    = I + dlf.grad(u)
         Finv = dlf.inv(F)
@@ -110,7 +151,9 @@ class ElasticMaterial(object):
 
 class LinearMaterial(ElasticMaterial):
     """
-    Return the stress tensor based on the linear elasticity
+    Return the stress tensor based on the linear elasticity, i.e. infinitesimal
+    deformations.
+
     """
 
 
@@ -136,8 +179,38 @@ class LinearMaterial(ElasticMaterial):
         return params
 
 
-    # def stress_tensor(self, u, p=None):
     def stress_tensor(self, F, J, p=None, formulation=None):
+        """
+        Return the Cauchy stress tensor for a linear material, namely
+
+        T = la*tr(e)*I + 2*mu*e,
+
+        where e = sym(grad(u)), I is the identity tensor, and la & mu are
+        the Lame parameters.
+
+
+        Parameters
+        ----------
+
+        F :
+            The deformation gradient.
+        J :
+            The jacobian, i.e. determinant of the deformation gradient. Note
+            that this is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+        p : (default, None)
+            The UFL pressure function for incompressible materials.
+        formulation : (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+
+
+        Returns
+        -------
+
+        T defined above.
+
+        """
 
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(F)
@@ -145,7 +218,6 @@ class LinearMaterial(ElasticMaterial):
         la = dlf.Constant(params['lambda'], name='lambda')
 
         I = dlf.Identity(dim)
-        # F = I + dlf.grad(u)
         if self._inverse:
             epsilon = dlf.sym(dlf.inv(F)) - I
         else:
@@ -160,6 +232,25 @@ class LinearMaterial(ElasticMaterial):
 
 
     def incompressibilityCondition(self, u):
+        """
+        Return the incompressibility condition for a linear material,
+        p = div(u).
+
+
+        Parameters
+        ----------
+
+        u :
+            The displacement vector.
+
+
+        Returns
+        -------
+
+        UFL object defining the incompressibility condition.
+
+        """
+
         return dlf.div(u)
 
 
@@ -208,42 +299,49 @@ class NeoHookeMaterial(ElasticMaterial) :
         return params
 
 
-    # def strain_energy(self, u, p=None):
-    #     """
-    #     UFL form of the strain energy.
-    #     """
-    #     params = self._parameters
-    #     dim = ufl.domain.find_geometric_dimension(u)
-    #     mu = dlf.Constant(params['mu'], name='mu')
-    #     kappa = dlf.Constant(params['kappa'], name='kappa')
-    #     la = dlf.Constant(params['lambda'], name='lambda')
-
-    #     I = dlf.Identity(dim)
-    #     F = I + dlf.grad(u)
-    #     if params['inverse'] is True:
-    #         F = dlf.inv(F)
-    #     J = dlf.det(F)
-    #     C = F.T*F
-    #     Jm2d = pow(J, -float(2)/dim)
-
-    #     # incompressibility
-    #     if self._incompressible:
-    #         I1bar = dlf.tr(Jm2d*C)
-    #         W_isc = 0.5*mu * (I1bar - dim)
-    #         if p == 0 or p == None:
-    #             W_vol = kappa * (J**2 - 1 - 2*dlf.ln(J))
-    #         else:
-    #             W_vol = - p * (J - 1)
-    #     else:
-    #         W_isc = 0.5*mu * (dlf.tr(C) - dim)
-    #         W_vol = (la*dlf.ln(J) - mu)
-
-    #     return W_vol + W_isc
-
-
     def strain_energy(self, F, J, formulation=None):
         """
+        Define the total strain energy based on the incompressibility of
+        the material (fully or nearly incompressible, or compressible), defined
+        with respect to the deformation gradient, or by its inverse if the
+        objective is to find the inverse displacement. The strain energy for a
+        compressible material is defined by
 
+        W = 0.5*mu*(I1 - dim) + 0.5*la*(ln(J))**2 - mu*ln(J)
+          = 0.5*mu*(i2/i3 - dim) + 0.5*la*(ln(j))**2 - mu*ln(j),
+
+        where I1 is the first invariant of C = F.T*F, while i2 and i3 are the
+        second and third invariants of c = f.T*f, with f = inv(F). For a
+        (nearly-)incompressible material, the strain energy is defined by
+
+        W = U(J) + 0.5*mu*(I1 - dim)
+          = U(j) + 0.5*mu*(i2/i3 - dim),
+
+        where the invariants are now those of Cbar = J**(-2.0/dim)*C or cbar =
+        j**(-2.0/dim)*c, and dU/dJ = p for fully incompressible material, while
+        U(J) = kappa*phi(J), where the particular form of phi is given below.
+
+
+        Parameters
+        ----------
+
+        F :
+            The (forward or inverse) deformation gradient.
+        J :
+            The jacobian, i.e. determinant of the deformation gradient given
+            above.
+        formulation : (default, None)
+            The formulation used for the nearly-incompressible materials.
+            The accepted values are:
+
+            * square:     phi(J) = 0.5*kappa*(J - 1)**2
+            * log:        phi(J) = 0.5*kappa*(ln(J))**2
+
+
+        Returns
+        -------
+
+        The strain energy, W, defined above.
 
         """
 
@@ -252,11 +350,13 @@ class NeoHookeMaterial(ElasticMaterial) :
         else:
             W = self._forward_strain_energy(F, J, formulation)
 
-        return
+        return W
 
 
     def _forward_strain_energy(self, F, J, formulation=None):
         """
+        Define the strain energy function for the Neo-Hookean material
+        based on the forward deformation gradient, dx/dX.
 
         """
 
@@ -286,7 +386,8 @@ class NeoHookeMaterial(ElasticMaterial) :
 
     def _inverse_strain_energy(self, f, j, formulation=None):
         """
-
+        Define the strain energy function for the Neo-Hookean material
+        based on the inverse deformation gradient, dX/dx.
 
         """
 
@@ -301,11 +402,11 @@ class NeoHookeMaterial(ElasticMaterial) :
             i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(cbar**2))
             w = self._basic_strain_energy(i2, mu)
 
-            if formulation is not None:
+            if formulation is not None: # Nearly incompressible
                 kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
                 w += self._penalty_strain_energy(1.0/j, kappa,
                                                  formulation=formulation)
-            else:
+            else: # Fully incompressible
                 # Need to figure out what to do here.
                 pass
 
@@ -320,42 +421,6 @@ class NeoHookeMaterial(ElasticMaterial) :
                                                  formulation=formulation)
 
         return w
-
-
-    # def stress_tensor(self, u, p=None):
-    #     """
-    #     UFL form of the stress tensor.
-    #     """
-    #     #parameters
-    #     dim    = ufl.domain.find_geometric_dimension(u)
-    #     params = self._parameters
-    #     mu     = dlf.Constant(params['mu'], name='mu')
-    #     kappa  = dlf.Constant(params['kappa'], name='kappa')
-    #     la     = dlf.Constant(params['lambda'], name='lambda')
-
-    #     I      = dlf.Identity(dim)
-    #     F      = I + dlf.grad(u)
-    #     Finv   = dlf.inv(F)
-    #     Cinv   = dlf.inv(F.T*F)
-    #     J      = dlf.det(F)
-    #     Jm2d   = pow(J, -float(2)/dim)
-    #     I1     = dlf.tr(F.T*F)
-
-    #     # incompressibility
-    #     if self._incompressible:
-    #         FS_isc = mu*Jm2d*F - 1./dim*Jm2d*mu*I1*Finv.T
-    #         # nearly incompressible penalty formulation
-    #         if p == 0 or p == None:
-    #             FS_vol = J*2.*kappa*(J-1./J)*Finv.T
-    #         # (nearly) incompressible block system formulation
-    #         else:
-    #             FS_vol = J*p*Finv.T
-    #     # standard compressible formulation
-    #     else:
-    #         FS_isc = mu*F
-    #         FS_vol = (la*dlf.ln(J) - mu)*Finv.T
-
-    #     return FS_vol + FS_isc
 
 
     def stress_tensor(self, F, J, p=None, formulation=None):
@@ -374,6 +439,50 @@ class NeoHookeMaterial(ElasticMaterial) :
 
     def _forward_stress_tensor(self, F, J, p=None, formulation=None):
         """
+        Define the (first Piola-Kirchhoff or Cauchy) stress tensor based on the
+        incompressibility of the material (fully or nearly incompressible, or
+        compressible), defined with respect to the deformation gradient, or by
+        its inverse if the objective is to find the inverse displacement. The
+        first Piola-Kirchhoff stress tensor for a compressible material is defined
+        by
+
+        P = [la*ln(J) - mu]*inv(F).T + mu*F
+          = -[la*ln(j) + mu]*f.T + mu*inv(f),
+
+        where f = inv(F), and j = det(f) = 1.0/det(F). For a (nearly-)
+        incompressible material, the first Piola-Kirchhoff stress tensor is given
+        by
+
+        P = [U'(J)]*inv(F).T
+
+        W = U(J) + 0.5*mu*(I1 - dim)
+          = U(j) + 0.5*mu*(i2/i3 - dim),
+
+        where the invariants are now those of Cbar = J**(-2.0/dim)*C or cbar =
+        j**(-2.0/dim)*c, and dU/dJ = p for fully incompressible material, while
+        U(J) = kappa*phi(J), where the particular form of phi is given below.
+
+
+        Parameters
+        ----------
+
+        F :
+            The (forward or inverse) deformation gradient.
+        J :
+            The jacobian, i.e. determinant of the deformation gradient given
+            above.
+        formulation : (default, None)
+            The formulation used for the nearly-incompressible materials.
+            The accepted values are:
+
+            * square:     phi(J) = 0.5*kappa*(J - 1)**2
+            * log:        phi(J) = 0.5*kappa*(ln(J))**2
+
+
+        Returns
+        -------
+
+        The strain energy, W, defined above.
 
 
         """

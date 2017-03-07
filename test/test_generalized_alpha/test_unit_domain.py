@@ -105,6 +105,7 @@ dt = (tf - t0)/nsteps
 tspan = [t0, tf]
 alpha = 1.0
 save_freq = int(0.01/dt)
+# save_freq = 1
 
 # Traction on the Neumann boundary region
 expr_subclass = True
