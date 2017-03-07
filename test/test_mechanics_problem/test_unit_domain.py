@@ -85,6 +85,7 @@ if not os.path.isfile(mesh_function):
 # Optimization options for the form compiler
 dlf.parameters['form_compiler']['cpp_optimize'] = True
 dlf.parameters['form_compiler']['quadrature_degree'] = 3
+dlf.parameters['form_compiler']['representation'] = 'uflacs'
 ffc_options = {'optimize' : True,
                'eliminate_zeros' : True,
                'precompute_basis_const' : True,
@@ -93,11 +94,12 @@ ffc_options = {'optimize' : True,
 # Elasticity parameters
 E = 20.0 # Young's modulus
 nu = 0.3 # Poisson's ratio
-la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+# la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+la = None
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
-trac = dlf.Constant([1.0] + [0.0]*(args.dim-1))
+trac = dlf.Constant([0.1] + [0.0]*(args.dim-1))
 
 # Region IDs
 ALL_ELSE = 0
@@ -149,7 +151,7 @@ problem = fm.MechanicsProblem(config)
 my_solver = fm.MechanicsSolver(problem)
 my_solver.solve(print_norm=True,
                 iter_tol=1e-6,
-                maxLinIters=500,
+                maxLinIters=50,
                 fname_disp=disp_file,
                 show=2)
 

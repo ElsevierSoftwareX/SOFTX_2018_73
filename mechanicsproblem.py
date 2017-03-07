@@ -976,8 +976,7 @@ class MechanicsProblem:
             #                                              self.pressure)
             stress_tensor = self._material.stress_tensor(self.deformationGradient,
                                                          self.jacobian,
-                                                         self.pressure,
-                                                         self.config['formulation'])
+                                                         self.pressure)
         else:
             raise NotImplementedError("Shouldn't be in here...")
 
@@ -987,8 +986,7 @@ class MechanicsProblem:
             if self.config['material']['type'] == 'elastic':
                 stress_tensor0 = self._material.stress_tensor(self.deformationGradient0,
                                                               self.jacobian0,
-                                                              self.pressure0,
-                                                              self.config['formulation'])
+                                                              self.pressure0)
             else:
                 raise NotImplementedError("Shouldn't be in here...")
             self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx

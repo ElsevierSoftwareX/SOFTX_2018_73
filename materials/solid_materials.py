@@ -345,7 +345,7 @@ class NeoHookeMaterial(ElasticMaterial) :
 
         """
 
-        if self._parameters['inverse']:
+        if self._inverse:
             W = self._inverse_strain_energy(F, J, formulation)
         else:
             W = self._forward_strain_energy(F, J, formulation)
@@ -368,12 +368,11 @@ class NeoHookeMaterial(ElasticMaterial) :
             Cbar = Fbar.T*Fbar
             I1 = dlf.tr(Cbar)
             W = self._basic_strain_energy(I1, mu)
-            if formulation is not None:
-                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
-                W += self._penalty_strain_energy(J, kappa, formulation=formulation)
-            else:
-                # Need to figure out what to do here.
-                pass
+
+            # Note that the strain energy is the same for fully incompressible
+            # and penalty formulations.
+            kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
+            W += self._penalty_strain_energy(J, kappa, formulation=formulation)
         else:
             la = dlf.Constant(self._parameters['lambda'], name='lambda')
             C = F.T*F
@@ -429,7 +428,7 @@ class NeoHookeMaterial(ElasticMaterial) :
 
         """
 
-        if self._parameters['inverse']:
+        if self._inverse:
             P = self._inverse_stress_tensor(F, J, p, formulation)
         else:
             P = self._forward_stress_tensor(F, J, p, formulation)
@@ -471,6 +470,9 @@ class NeoHookeMaterial(ElasticMaterial) :
         J :
             The jacobian, i.e. determinant of the deformation gradient given
             above.
+        p : (default, None)
+            The pressure scalar field. If it is set to None, the penalty method
+            formulation will be used.
         formulation : (default, None)
             The formulation used for the nearly-incompressible materials.
             The accepted values are:
@@ -492,15 +494,17 @@ class NeoHookeMaterial(ElasticMaterial) :
         if self._parameters['incompressible']:
             dim = ufl.domain.find_geometric_dimension(F)
             Fbar = J**(-1.0/dim)*F
+            Fbar_inv = dlf.inv(Fbar)
             Cbar = Fbar.T*Fbar
             I1 = dlf.tr(Cbar)
-            P = self._basic_stress_tensor(Fbar, mu)
-            if formulation is not None:
+            P = J**(-1.0/dim)*self._basic_stress_tensor(Fbar, mu)
+            b_vol = (-1.0/dim)*mu*I1
+            if p is None:
                 kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
-                P += self._penalty_stress_tensor(F, J, kappa, formulation)
+                b_vol += J*self._volumetric_strain_energy_diff(J, kappa, formulation)
             else:
-                # Need to figure out what to do here.
-                pass
+                b_vol -= J*p
+            P += b_vol*J**(-1.0/dim)*Fbar_inv.T
         else:
             la = dlf.Constant(self._parameters['lambda'], name='lambda')
             C = F.T*F
@@ -517,34 +521,32 @@ class NeoHookeMaterial(ElasticMaterial) :
 
         """
 
-        mu = dlf.Constant(self._parameters['mu'], name='name')
+        mu = self._parameters['mu']
         finv = dlf.inv(f)
+        c = f.T*f
+        i1 = dlf.tr(c)
+        i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(c*c))
+        T = self._basic_stress_tensor(dlf.inv(c), mu)
+        dim = ufl.domain.find_geometric_dimension(f)
+        I = dlf.Identity(dim)
 
         if self._parameters['incompressible']:
-            dim = ufl.domain.find_geometric_dimension(f)
-            fbar = j**(-1.0/dim)*f
-            cbar = fbar.T*fbar
-            i1 = dlf.tr(cbar)
-            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(cbar**2))
 
-            P = self._basic_stress_tensor(dlf.inv(fbar), mu)
-
-            if formulation is not None:
-                kappa = dlf.Constant(self._parameters['kappa'], name='kappa')
-                P += self._penalty_stress_tensor(finv, 1.0/j, kappa, formulation)
+            T *= j**(-5.0/3)
+            b_vol = (-1.0/dim)*mu*(-1.0/dim)*i2
+            if p is None:
+                kappa = self._parameters['kappa']
+                b_vol += self._volumetric_strain_energy_diff(1.0/j, kappa,
+                                                             formulation)
             else:
-                # Need to figure out what to do here.
-                pass
+                b_vol -= p
+            T += b_vol*I
         else:
-            la = dlf.Constant(self._parameters['lambda'], name='lambda')
-            c = f.T*f
-            i1 = dlf.tr(c)
-            i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(c**2))
-            i3 = dlf.det(c)
-            P = self._basic_stress_tensor(finv, mu)
-            P += self._compressible_stress_tensor(finv, 1.0/j, la, mu)
+            la = self._parameters['lambda']
+            T = self._basic_stress_tensor(dlf.inv(c), mu)
+            T += self._compressible_strain_energy_diff(1.0/j, la, mu)*I
 
-        return j*P*finv.T
+        return T
 
 
     @staticmethod
@@ -607,7 +609,17 @@ class NeoHookeMaterial(ElasticMaterial) :
 
 
     @staticmethod
-    def _penalty_strain_energy(J, kappa, formulation='square'):
+    def _compressible_strain_energy_diff(J, la, mu):
+        """
+
+
+        """
+
+        return (la*dlf.ln(J) - mu)/J
+
+
+    @staticmethod
+    def _volumetric_strain_energy(J, kappa, formulation='square'):
         """
         Define the additional penalty component for the strain energy function
         a nearly incompressible material:
@@ -640,11 +652,30 @@ class NeoHookeMaterial(ElasticMaterial) :
         elif formulation == 'log':
             f = (dlf.ln(J))**2
         else:
-            s = "Formulation, \"%s\" of the penalty function is not recognized." \
-                % formulation
+            s = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                + " function is not recognized."
             raise ValueError(s)
 
         return dlf.Constant(0.5)*kappa*f
+
+
+    @staticmethod
+    def _volumetric_strain_energy_diff(J, kappa, formulation='square'):
+        """
+
+
+        """
+
+        if formulation == 'square':
+            dfdJ = J - dlf.Constant(1.0)
+        elif formulation == 'log':
+            dfdJ = dlf.ln(J)/J
+        else:
+            s = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                + " function is not recognized."
+            raise ValueError(s)
+
+        return kappa*dfdJ
 
 
     @staticmethod
@@ -919,17 +950,15 @@ def convert_elastic_moduli(param):
         mu = param['mu']       # shear modulus (Lame's second parameter) [kPa]
         lam = param['lambda']  # Lame's first parameter [kPa]
 
-        if (kappa is not None) and (mu is not None) \
-           and (kappa > 0) and (mu > 0):
+        if (kappa > 0) and (mu > 0):
             E = 9.*kappa*mu / (3.*kappa + mu)
             lam = kappa - 2.*mu/3.
             nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
-        if (lam is not None) and (mu is not None) \
-           and (lam > 0) and (mu > 0):
+        elif (lam > 0) and (mu > 0):
             E = mu*(3.*lam + 2.*mu) / (lam + mu)
             kappa = lam + 2.*mu / 3.
             nu = lam / (2.*(lam + mu))
-        if (0 < nu <= 0.5) and (E > 0):
+        elif (0 < nu <= 0.5) and (E > 0):
             kappa = E / (3.*(1 - 2.*nu))
             lam = E*nu / ((1. + nu)*(1. - 2.*nu))
             mu = E / (2.*(1. + nu))
