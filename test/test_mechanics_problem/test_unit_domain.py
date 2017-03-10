@@ -93,13 +93,15 @@ ffc_options = {'optimize' : True,
 
 # Elasticity parameters
 E = 20.0 # Young's modulus
-nu = 0.3 # Poisson's ratio
+# nu = 0.499999999 # Poisson's ratio
+nu = 0.5 # Poisson's ratio
 # la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
-la = None
+inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu)
+# la = None
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
-trac = dlf.Constant([0.1] + [0.0]*(args.dim-1))
+trac = dlf.Constant([1.0] + [0.0]*(args.dim-1))
 
 # Region IDs
 ALL_ELSE = 0
@@ -112,33 +114,41 @@ else:
     domain = 'lagrangian'
 
 # Problem configuration dictionary
-config = {'material' : {
+config = {'material' :
+          {
               'const_eqn' : args.material,
               'type' : 'elastic',
               'incompressible' : args.incompressible,
               'density' : 10.0,
-              'lambda' : la,
+              # 'lambda' : la,
+              'inv_la': inv_la,
               'mu' : mu,
               'kappa' : kappa
               },
-          'mesh' : {
+          'mesh' :
+          {
               'mesh_file' : mesh_file,
               'mesh_function' : mesh_function,
               'element' : element_type
               },
-          'formulation' : {
-              'time' : {
+          'formulation' :
+          {
+              'time' :
+              {
                   'unsteady' : False
                   },
               'domain' : domain,
               'inverse' : args.inverse,
               'body_force' : dlf.Constant((0.,)*args.dim),
-              'bcs' : {
-                  'dirichlet' : {
+              'bcs' :
+              {
+                  'dirichlet' :
+                  {
                       'displacement' : [dlf.Constant([0.]*args.dim)],
                       'regions' : [CLIP],
                       },
-                  'neumann' : {
+                  'neumann' :
+                  {
                       'regions' : [TRACTION],
                       'types' : ['cauchy'],
                       'values' : [trac]
