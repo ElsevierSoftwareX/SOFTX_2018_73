@@ -173,7 +173,7 @@ class LinearMaterial(ElasticMaterial):
     def default_parameters():
         params = { 'mu': None,
                    'kappa': None,
-                   'lambda': None,
+                   'la': None,
                    'inv_la': None,
                    'E': None,
                    'nu': None }
@@ -216,7 +216,7 @@ class LinearMaterial(ElasticMaterial):
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(F)
         mu = dlf.Constant(params['mu'], name='mu')
-        la = dlf.Constant(params['lambda'], name='lambda')
+        la = dlf.Constant(params['la'], name='la')
 
         I = dlf.Identity(dim)
         if self._inverse:
@@ -292,11 +292,12 @@ class NeoHookeMaterial(ElasticMaterial):
 
     @staticmethod
     def default_parameters():
-        params = {'mu' : None,
-                  'kappa' : None,
-                  'lambda' : None,
-                  'E' : None,
-                  'nu' : None}
+        params = {'mu': None,
+                  'kappa': None,
+                  'la': None,
+                  'inv_la': None,
+                  'E': None,
+                  'nu': None}
         return params
 
 
@@ -375,7 +376,7 @@ class NeoHookeMaterial(ElasticMaterial):
             kappa = self._parameters['kappa']
             W += self._penalty_strain_energy(J, kappa, formulation=formulation)
         else:
-            la = self._parameters['lambda']
+            la = self._parameters['la']
             C = F.T*F
             I1 = dlf.tr(C)
             W = self._basic_strain_energy(I1, mu)
@@ -411,7 +412,7 @@ class NeoHookeMaterial(ElasticMaterial):
                 pass
 
         else:
-            la = self._parameters['lambda']
+            la = self._parameters['la']
             c = f.T*f
             i1 = dlf.tr(c)
             i2 = dlf.Constant(0.5)*(i1**2 - dlf.tr(c**2))
@@ -507,7 +508,7 @@ class NeoHookeMaterial(ElasticMaterial):
                 b_vol -= J*p
             P += b_vol*J**(-1.0/dim)*Fbar_inv.T
         else:
-            la = self._parameters['lambda']
+            la = self._parameters['la']
             C = F.T*F
             I1 = dlf.tr(C)
             P = self._basic_stress_tensor(F, mu)
@@ -543,7 +544,7 @@ class NeoHookeMaterial(ElasticMaterial):
                 b_vol -= p
             T += b_vol*I
         else:
-            la = self._parameters['lambda']
+            la = self._parameters['la']
             T = self._basic_stress_tensor(dlf.inv(c), mu)
             T += self._compressible_strain_energy_diff(1.0/j, la, mu)*I
 
@@ -810,6 +811,7 @@ class GuccioneMaterial(ElasticMaterial):
         if self._parameters['bt'] == 1.0 and self._parameters['bf'] == 1.0 \
            and self._parameters['bfs'] == 1.0:
             ElasticMaterial.set_material_class(self, 'isotropic')
+        ElasticMaterial.set_incompressible(self, kwargs['incompressible'])
         fbrs = kwargs or {}
         self._fiber_directions = self.default_fiber_directions()
         self._fiber_directions.update(fibers)
@@ -951,11 +953,11 @@ def convert_elastic_moduli(param, tol=1e8):
         E = param['E']           # Young's modulus [kPa]
         kappa = param['kappa']   # bulk modulus [kPa]
         mu = param['mu']         # shear modulus (Lame's second parameter) [kPa]
-        la = param['lambda']     # Lame's first parameter [kPa]
+        la = param['la']     # Lame's first parameter [kPa]
         inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
 
         if (la is not None) and (inv_la is not None):
-            raise ValueError("The user must provide either 'lambda' or "\
+            raise ValueError("The user must provide either 'la' or "\
                              + "'inv_la', but not both.")
 
         if la is not None:
@@ -997,8 +999,8 @@ def convert_elastic_moduli(param, tol=1e8):
             print s % 'E'
         if (param['kappa'] is not None) and (param['kappa'] != kappa):
             print s % 'kappa'
-        if (param['lambda'] is not None) and (param['lambda'] != la):
-            print s % 'lambda'
+        if (param['la'] is not None) and (param['la'] != la):
+            print s % 'la'
         if (param['mu'] is not None) and (param['mu'] != mu):
             print s % 'mu'
         if (param['nu'] is not None) and (param['nu'] != nu):
@@ -1008,4 +1010,4 @@ def convert_elastic_moduli(param, tol=1e8):
         param['E'] = dlf.Constant(E)         # Young's modulus [kPa]
         param['kappa'] = dlf.Constant(kappa) # bulk modulus [kPa]
         param['mu'] = dlf.Constant(mu)       # shear modulus (Lame's second parameter) [kPa]
-        param['lambda'] = dlf.Constant(la)  # Lame's first parameter [kPa]
+        param['la'] = dlf.Constant(la)  # Lame's first parameter [kPa]

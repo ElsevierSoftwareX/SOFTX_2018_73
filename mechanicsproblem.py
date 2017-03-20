@@ -35,7 +35,7 @@ class MechanicsProblem:
             constraint will be added to the problem.
        * 'density' : float, int, dolfin.Constant
             Scalar specifying the density of the material.
-       * 'lambda' : float, int, dolfin.Constant
+       * 'la' : float, int, dolfin.Constant
             Scalar value used in constitutive equations. E.g.,
             it is the first Lame parameter in linear elasticity.
        * 'mu' : float, int, dolfin.Constant
@@ -1129,7 +1129,7 @@ class MechanicsProblem:
         else:
             b_vol = self._material.incompressibilityCondition(self.velocity)
 
-        inv_la = dlf.Constant(1.0/self._material._parameters['lambda'])
+        inv_la = self._material._parameters['inv_la']
         self.f3 = self.test_scalar*(b_vol - inv_la*self.pressure)*dlf.dx
 
         return None
