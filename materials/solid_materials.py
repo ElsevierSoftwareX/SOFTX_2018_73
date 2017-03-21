@@ -953,44 +953,49 @@ def convert_elastic_moduli(param, tol=1e8):
         E = param['E']           # Young's modulus [kPa]
         kappa = param['kappa']   # bulk modulus [kPa]
         mu = param['mu']         # shear modulus (Lame's second parameter) [kPa]
-        la = param['la']     # Lame's first parameter [kPa]
+        la = param['la']         # Lame's first parameter [kPa]
         inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
 
-        if (la is not None) and (inv_la is not None):
-            raise ValueError("The user must provide either 'la' or "\
-                             + "'inv_la', but not both.")
-
-        if la is not None:
+        if (kappa > 0) and (mu > 0):
+            E = 9.*kappa*mu / (3.*kappa + mu)
+            nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
+            la = kappa - 2.*mu/3.
             try:
                 inv_la = 1.0/la
                 if inv_la > tol:
                     raise ZeroDivisionError
             except ZeroDivisionError:
                 inv_la = float('inf')
-        else:
+        elif (la > 0) and (mu > 0):
+            E = mu*(3.*la + 2.*mu) / (la + mu)
+            kappa = la + 2.*mu / 3.
+            nu = la / (2.*(la + mu))
+            try:
+                inv_la = 1.0/la
+                if inv_la > tol:
+                    raise ZeroDivisionError
+            except ZeroDivisionError:
+                inv_la = float('inf')
+        elif (inv_la > 0) and (mu > 0):
+            E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
+            kappa = 1.0/inv_la + 2.0*mu/3.0
+            nu = 1.0/(2.0*(1.0 + mu*inv_la))
             try:
                 la = 1.0/inv_la
                 if la > tol:
                     raise ZeroDivisionError
             except ZeroDivisionError:
                 la = float('inf')
-
-        if (kappa > 0) and (mu > 0):
-            E = 9.*kappa*mu / (3.*kappa + mu)
-            la = kappa - 2.*mu/3.
-            nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
-        elif (la > 0) and (mu > 0):
-            E = mu*(3.*la + 2.*mu) / (la + mu)
-            kappa = la + 2.*mu / 3.
-            nu = la / (2.*(la + mu))
-        elif (inv_la > 0) and (mu > 0):
-            E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
-            kappa = 1.0/inv_la + 2.0*mu/3.0
-            nu = 1.0/(2.0*(1.0 + mu*inv_la))
         elif (0 < nu <= 0.5) and (E > 0):
             kappa = E / (3.*(1 - 2.*nu))
-            la = E*nu / ((1. + nu)*(1. - 2.*nu))
             mu = E / (2.*(1. + nu))
+            la = E*nu / ((1. + nu)*(1. - 2.*nu))
+            try:
+                inv_la = 1.0/la
+                if inv_la > tol:
+                    raise ZeroDivisionError
+            except ZeroDivisionError:
+                inv_la = float('inf')
         else:
             raise ValueError('Two material parameters must be specified.')
 
@@ -1001,13 +1006,16 @@ def convert_elastic_moduli(param, tol=1e8):
             print s % 'kappa'
         if (param['la'] is not None) and (param['la'] != la):
             print s % 'la'
+        if (param['inv_la'] is not None) and (param['inv_la'] != inv_la):
+            print s % 'inv_la'
         if (param['mu'] is not None) and (param['mu'] != mu):
             print s % 'mu'
         if (param['nu'] is not None) and (param['nu'] != nu):
             print s % 'nu'
 
-        param['nu'] = dlf.Constant(nu)       # Poisson's ratio [-]
-        param['E'] = dlf.Constant(E)         # Young's modulus [kPa]
-        param['kappa'] = dlf.Constant(kappa) # bulk modulus [kPa]
-        param['mu'] = dlf.Constant(mu)       # shear modulus (Lame's second parameter) [kPa]
-        param['la'] = dlf.Constant(la)  # Lame's first parameter [kPa]
+        param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
+        param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
+        param['kappa'] = dlf.Constant(kappa)   # bulk modulus [kPa]
+        param['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
+        param['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
+        param['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]

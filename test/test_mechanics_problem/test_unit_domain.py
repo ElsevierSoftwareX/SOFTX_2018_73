@@ -93,11 +93,8 @@ ffc_options = {'optimize' : True,
 
 # Elasticity parameters
 E = 20.0 # Young's modulus
-# nu = 0.499999999 # Poisson's ratio
-nu = 0.5 # Poisson's ratio
-# la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+nu = 0.3 # Poisson's ratio
 inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu)
-# la = None
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
@@ -119,11 +116,11 @@ config = {'material' :
               'const_eqn' : args.material,
               'type' : 'elastic',
               'incompressible' : args.incompressible,
-              'density' : 10.0,
+              # 'density' : 10.0,
               # 'lambda' : la,
               'inv_la': inv_la,
               'mu' : mu,
-              'kappa' : kappa
+              # 'kappa' : kappa
               },
           'mesh' :
           {
