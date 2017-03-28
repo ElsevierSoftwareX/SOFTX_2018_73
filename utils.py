@@ -180,7 +180,7 @@ def duplicate_expressions(*args):
             else:
                 expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
         else:
-            print "Expression subclass was used..."
+            print ("Expression subclass was used...")
             expr = copy.copy(arg)
 
         retval.append(expr)
@@ -196,15 +196,15 @@ def list_implemented_materials():
     header = string_template.format("Type", "Constitutive Equation")
     string_length = len(header)
 
-    print "\n", header
-    print "-"*string_length
+    print ("\n", header)
+    print ("-"*string_length)
 
     for mat_type in dict_implemented['materials']:
         n = len(dict_implemented['materials'][mat_type])
         for i in range(n):
             if i == 0:
-                print string_template.format(mat_type, dict_implemented['materials'][mat_type][i])
+                print (string_template.format(mat_type, dict_implemented['materials'][mat_type][i]))
             else:
-                print string_template.format("", dict_implemented['materials'][mat_type][i])
+                print (string_template.format("", dict_implemented['materials'][mat_type][i]))
 
     return None
