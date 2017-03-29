@@ -85,6 +85,7 @@ if not os.path.isfile(mesh_function):
 # Optimization options for the form compiler
 dlf.parameters['form_compiler']['cpp_optimize'] = True
 dlf.parameters['form_compiler']['quadrature_degree'] = 3
+dlf.parameters['form_compiler']['representation'] = 'uflacs'
 ffc_options = {'optimize' : True,
                'eliminate_zeros' : True,
                'precompute_basis_const' : True,
@@ -93,7 +94,7 @@ ffc_options = {'optimize' : True,
 # Elasticity parameters
 E = 20.0 # Young's modulus
 nu = 0.3 # Poisson's ratio
-la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu)
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
@@ -110,33 +111,41 @@ else:
     domain = 'lagrangian'
 
 # Problem configuration dictionary
-config = {'material' : {
+config = {'material' :
+          {
               'const_eqn' : args.material,
               'type' : 'elastic',
               'incompressible' : args.incompressible,
-              'density' : 10.0,
-              'lambda' : la,
+              # 'density' : 10.0,
+              # 'lambda' : la,
+              'inv_la': inv_la,
               'mu' : mu,
-              'kappa' : kappa
+              # 'kappa' : kappa
               },
-          'mesh' : {
+          'mesh' :
+          {
               'mesh_file' : mesh_file,
               'mesh_function' : mesh_function,
               'element' : element_type
               },
-          'formulation' : {
-              'time' : {
+          'formulation' :
+          {
+              'time' :
+              {
                   'unsteady' : False
                   },
               'domain' : domain,
               'inverse' : args.inverse,
               'body_force' : dlf.Constant((0.,)*args.dim),
-              'bcs' : {
-                  'dirichlet' : {
+              'bcs' :
+              {
+                  'dirichlet' :
+                  {
                       'displacement' : [dlf.Constant([0.]*args.dim)],
                       'regions' : [CLIP],
                       },
-                  'neumann' : {
+                  'neumann' :
+                  {
                       'regions' : [TRACTION],
                       'types' : ['cauchy'],
                       'values' : [trac]
@@ -149,7 +158,7 @@ problem = fm.MechanicsProblem(config)
 my_solver = fm.MechanicsSolver(problem)
 my_solver.solve(print_norm=True,
                 iter_tol=1e-6,
-                maxLinIters=500,
+                maxLinIters=50,
                 fname_disp=disp_file,
                 show=2)
 
