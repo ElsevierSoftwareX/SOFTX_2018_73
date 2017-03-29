@@ -93,11 +93,11 @@ class MechanicsSolver(object):
                 if fname_disp:
                     file_disp << (self._mp.displacement, t)
                     if not rank:
-                        print '* Displacement saved *'
+                        print ('* Displacement saved *')
                 if fname_vel:
                     file_vel << (self._mp.velocity, t)
                     if not rank:
-                        print '* Velocity saved *'
+                        print ('* Velocity saved *')
 
             # Set to the next time step
             t += dt
@@ -107,8 +107,8 @@ class MechanicsSolver(object):
 
             # Print the current time
             if not rank:
-                print '*'*30
-                print 't = %3.5f' % t
+                print ('*'*30)
+                print ('t = %3.5f' % t)
 
             # Solve the nonlinear equation(s) at current time step.
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
@@ -168,7 +168,7 @@ class MechanicsSolver(object):
 
             norm = du.norm('l2')
             if not rank and print_norm:
-                print '(iter %2i) norm %.3e' % (count, norm)
+                print ('(iter %2i) norm %.3e' % (count, norm))
 
             count += 1
 

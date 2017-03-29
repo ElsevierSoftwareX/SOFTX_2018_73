@@ -189,5 +189,5 @@ if args.compute_volume:
 
     ale = dlf.ALE()
     ale.move(problem.mesh, u_move)
-    print "Total volume after: ", \
-        dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh))
+    print ("Total volume after: ", \
+        dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh)))

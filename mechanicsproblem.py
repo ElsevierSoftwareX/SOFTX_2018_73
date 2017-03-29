@@ -343,7 +343,7 @@ class MechanicsProblem:
         if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
-            print '*** No BCs (Neumann and Dirichlet) were specified. ***'
+            print ('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
 
         self.check_dirichlet(config)
@@ -371,7 +371,7 @@ class MechanicsProblem:
         """
 
         if config['formulation']['bcs']['dirichlet'] is None:
-            print '*** No Dirichlet BCs were specified. ***'
+            print ('*** No Dirichlet BCs were specified. ***')
             return None
 
         vel = 'velocity'
@@ -437,7 +437,7 @@ class MechanicsProblem:
 
         # Exit if Neumann BCs were not specified.
         if config['formulation']['bcs']['neumann'] is None:
-            print '*** No Neumann BCs were specified. ***'
+            print ('*** No Neumann BCs were specified. ***')
             return None
 
         # Make sure that a list for all keys was provided (types, regions, values).
@@ -1214,7 +1214,7 @@ class MechanicsProblem:
         """
 
         if self.config['formulation']['bcs']['dirichlet'] is None:
-            print 'No Dirichlet BCs to update!'
+            print ('No Dirichlet BCs to update!')
             return None
 
         expr_list = list()

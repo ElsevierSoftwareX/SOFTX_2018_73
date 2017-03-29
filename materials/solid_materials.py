@@ -1001,17 +1001,17 @@ def convert_elastic_moduli(param, tol=1e8):
 
         s = 'Parameter %s was changed due to contradictory settings.'
         if (param['E'] is not None) and (param['E'] != E):
-            print s % 'E'
+            print(s % 'E')
         if (param['kappa'] is not None) and (param['kappa'] != kappa):
-            print s % 'kappa'
+            print(s % 'kappa')
         if (param['la'] is not None) and (param['la'] != la):
-            print s % 'la'
+            print(s % 'la')
         if (param['inv_la'] is not None) and (param['inv_la'] != inv_la):
-            print s % 'inv_la'
+            print(s % 'inv_la')
         if (param['mu'] is not None) and (param['mu'] != mu):
-            print s % 'mu'
+            print(s % 'mu')
         if (param['nu'] is not None) and (param['nu'] != nu):
-            print s % 'nu'
+            print(s % 'nu')
 
         param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
         param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
