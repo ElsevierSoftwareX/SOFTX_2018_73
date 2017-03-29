@@ -116,11 +116,9 @@ config = {'material' :
               'const_eqn' : args.material,
               'type' : 'elastic',
               'incompressible' : args.incompressible,
-              # 'density' : 10.0,
-              # 'lambda' : la,
+              'density' : 10.0,
               'inv_la': inv_la,
               'mu' : mu,
-              # 'kappa' : kappa
               },
           'mesh' :
           {
