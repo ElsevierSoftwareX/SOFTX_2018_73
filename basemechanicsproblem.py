@@ -5,12 +5,10 @@ from .utils import load_mesh, load_mesh_function
 from .__CONSTANTS__ import dict_implemented as _implemented
 from inspect import isclass
 
+__all__ = ['BaseMechanicsProblem']
+
 
 class BaseMechanicsProblem(object):
-    """
-
-
-    """
 
 
     def __init__(self, user_config):
