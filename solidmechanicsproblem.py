@@ -145,6 +145,16 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
+        self.ufl_acceleration = 1.0/(beta*dt**2)*(u - u0 - dt*v0) - (1.0/(2.0*beta) - 1.0)*a0
+
+        dt = self.config['formulation']['time']['dt']
+        beta = self.config['formulation']['time']['beta']
+        self.ufl_acceleration = self.ufl_displacement \
+                                - self.ufl_displacement0 \
+                                - dt*self.ufl_velocity0
+        self.ufl_acceleration *= 1.0/(beta*dt**2)
+        self.ufl_acceleration += (1.0/(2.0*beta) - 1.0)*self.ufl_acceleration0
+
         return None
 
 
@@ -302,7 +312,33 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         rho = self.config['material']['density']
 
         # Will need both of these terms if problem is unsteady
-        self.ufl_local_inertia = dlf.dot(xi, rho*self.acceleration)*dlf.dx
+        self.ufl_local_inertia = dlf.dot(xi, rho*self.ufl_acceleration)
+        self.ufl_local_inertia *= dlf.dx
+
+        return None
+
+
+    def define_ufl_stress_work(self):
+        """
+
+
+        """
+
+        stress_func = self._material.stress_tensor
+        stress_tensor = stress_func(self.deformationGradient,
+                                    self.jacobian,
+                                    self.ufl_pressure)
+        xi = self.test_vector
+        self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)
+        self.ufl_stress_work *= dlf.dx
+        if self.config['formulation']['time']['unsteady']:
+            stress_tensor0 = stress_func(self.deformationGradient0,
+                                         self.jacobian0,
+                                         self.ufl_pressure0)
+            self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)
+            self.ufl_stress_work0 *= dlf.dx
+        else:
+            self.ufl_stress_work0 = 0
 
         return None
 
