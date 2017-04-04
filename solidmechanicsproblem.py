@@ -27,6 +27,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.define_deformation_tensors()
         self.define_material()
         self.define_dirichlet_bcs()
+        self.define_forms()
+        self.define_ufl_equations()
+        self.define_ufl_equations_diff()
 
         return None
 
@@ -87,6 +90,11 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.ufl_displacement, self.ufl_pressure = dlf.split(self.sys_u)
         self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
 
+        self.sys_du = dlf.TrialFunction(self.functionSpace)
+        self.trial_vector, self.trial_scalar = dlf.split(self.sys_du)
+
+        self.test_vector, self.test_scalar = dlf.TestFunctions(self.functionSpace)
+
         if self.config['formulation']['time']['unsteady']:
             self.sys_u0 = dlf.Function(self.functionSpace)
             self.ufl_displacement0, self.ufl_pressure0 = dlf.split(self.sys_u0)
@@ -100,6 +108,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.ufl_acceleration0, _ = dlf.split(self.sys_a0)
             self.acceleration0, self._i1 = self.sys_a0.split(deepcopy=True)
 
+            self.define_ufl_acceleration()
+
         return None
 
 
@@ -111,6 +121,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         self.sys_u = self.ufl_displacement \
                      = self.displacement = dlf.Function(self.functionSpace)
+        self.test_vector = dlf.TestFunction(self.functionSpace)
+        self.trial_vector = dlf.TrialFunction(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
             self.sys_u0 = self.ufl_displacement0 \
@@ -121,6 +133,17 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
             self.sys_a0 = self.ufl_acceleration0 \
                           = self.acceleration0 = dlf.Function(self.functionSpace)
+
+            self.define_ufl_acceleration()
+
+        return None
+
+
+    def define_ufl_acceleration(self):
+        """
+
+
+        """
 
         return None
 
@@ -226,6 +249,60 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if not self.dirichlet_bcs:
             self.dirichlet_bcs = None
+
+        return None
+
+
+    def define_forms(self):
+        """
+
+
+        """
+
+        # Define UFL objects corresponding to the local acceleration
+        # if problem is unsteady.
+        self.define_ufl_local_inertia()
+        self.define_ufl_local_inertia_diff()
+
+        # Define UFL objects corresponding to the convective acceleration
+        # if problem is formulated with respect to Eulerian coordinates
+        self.define_ufl_convec_accel()
+        self.define_ufl_convec_accel_diff()
+
+        # Define UFL objects corresponding to the stress tensor term.
+        # This should always be non-zero for deformable bodies.
+        self.define_ufl_stress_work()
+        self.define_ufl_stress_work_diff()
+
+        # Define UFL object corresponding to the body force term. Assume
+        # it is zero if key was not provided.
+        self.define_ufl_body_force()
+
+        # Define UFL object corresponding to the traction force terms. Assume
+        # it is zero if key was not provided.
+        self.define_ufl_neumann_bcs()
+        self.define_ufl_neumann_bcs_diff()
+
+        return None
+
+
+    def define_ufl_local_inertia(self):
+        """
+
+
+        """
+
+        # Set to 0 and exit if problem is steady.
+        if not self.config['formulation']['time']['unsteady']:
+            self.ufl_local_inertia = 0
+            # self.ufl_local_inertia0 = 0
+            return None
+
+        xi = self.test_vector
+        rho = self.config['material']['density']
+
+        # Will need both of these terms if problem is unsteady
+        self.ufl_local_inertia = dlf.dot(xi, rho*self.acceleration)*dlf.dx
 
         return None
 
