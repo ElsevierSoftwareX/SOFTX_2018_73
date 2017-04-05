@@ -130,7 +130,8 @@ config = {'material' :
           {
               'time' :
               {
-                  'unsteady' : False
+                  'unsteady' : False,
+                  'theta': 1.0
                   },
               'domain' : domain,
               'inverse' : args.inverse,
@@ -151,6 +152,15 @@ config = {'material' :
                   }
               }
           }
+
+problem = fm.SolidMechanicsProblem(config)
+bcs = list()
+for val in problem.dirichlet_bcs.values():
+    bcs.extend(val)
+dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
+                                              bcs, J=problem.dG)
+solver = dlf.NonlinearVariationalSolver(dlf_problem)
+solver.solve()
 
 problem = fm.MechanicsProblem(config)
 my_solver = fm.MechanicsSolver(problem)
