@@ -373,3 +373,53 @@ class BaseMechanicsProblem(object):
             return True
         else:
             return False
+
+
+    @staticmethod
+    def define_ufl_neumann_form(regions, types, values, domain,
+                                mesh, mesh_function, F, J, xi):
+        """
+        Define the UFL object representing the Neumann boundary
+        conditions based on the problem configuration given by
+        the user. The function exits if the object has already
+        been defined.
+
+
+        """
+
+        # Check if Nanson's formula is necessary
+        if domain == 'lagrangian':
+            if ('pressure' in types) or ('cauchy' in types):
+                Finv = dlf.inv(F)
+                N = dlf.FacetNormal(mesh)
+
+            if 'pressure' in types:
+                n = J*Finv.T*N # Nanson's formula
+
+            if 'cauchy' in types:
+                nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+        else:
+            if 'pressure' in types:
+                # No need for Nanson's formula in Eulerian coordinates
+                n = dlf.FacetNormal(mesh)
+
+        neumann_form = 0
+        zipped_vals = zip(regions, types, values)
+
+        for region, tt, value in zipped_vals:
+
+            ds_region = dlf.ds(region, domain=mesh,
+                               subdomain_data=mesh_function)
+
+            if tt == 'pressure':
+                val = -dlf.dot(xi, value*n)*ds_region
+            elif tt == 'cauchy' and domain == 'lagrangian':
+                val = nanson_mag*dlf.dot(xi, value)*ds_region
+            elif tt == 'cauchy' and domain == 'eulerian':
+                val = dlf.dot(xi, value)*ds_region
+            else: # piola traction in lagrangian coordinates
+                val = dlf.dot(xi, value)*ds_region
+
+            neumann_form += val
+
+        return neumann_form

@@ -31,6 +31,14 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.define_ufl_equations()
         self.define_ufl_equations_diff()
 
+        # bcs = list()
+        # for val in self.dirichlet_bcs.values():
+        #     bcs.extend(val)
+        # dlf.NonlinearVariationalProblem.__init__(self.G,
+        #                                          self.sys_u,
+        #                                          bcs,
+        #                                          J=self.dG)
+
         return None
 
 
@@ -121,8 +129,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         self.sys_u = self.ufl_displacement \
                      = self.displacement = dlf.Function(self.functionSpace)
+        self.ufl_pressure = self.pressure = None
         self.test_vector = dlf.TestFunction(self.functionSpace)
-        self.trial_vector = dlf.TrialFunction(self.functionSpace)
+        self.trial_vector = self.sys_du = dlf.TrialFunction(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
             self.sys_u0 = self.ufl_displacement0 \
@@ -272,17 +281,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         # Define UFL objects corresponding to the local acceleration
         # if problem is unsteady.
         self.define_ufl_local_inertia()
-        self.define_ufl_local_inertia_diff()
-
-        # Define UFL objects corresponding to the convective acceleration
-        # if problem is formulated with respect to Eulerian coordinates
-        self.define_ufl_convec_accel()
-        self.define_ufl_convec_accel_diff()
 
         # Define UFL objects corresponding to the stress tensor term.
         # This should always be non-zero for deformable bodies.
         self.define_ufl_stress_work()
-        self.define_ufl_stress_work_diff()
 
         # Define UFL object corresponding to the body force term. Assume
         # it is zero if key was not provided.
@@ -291,7 +293,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         # Define UFL object corresponding to the traction force terms. Assume
         # it is zero if key was not provided.
         self.define_ufl_neumann_bcs()
-        self.define_ufl_neumann_bcs_diff()
 
         return None
 
@@ -305,7 +306,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         # Set to 0 and exit if problem is steady.
         if not self.config['formulation']['time']['unsteady']:
             self.ufl_local_inertia = 0
-            # self.ufl_local_inertia0 = 0
             return None
 
         xi = self.test_vector
@@ -339,6 +339,110 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.ufl_stress_work0 *= dlf.dx
         else:
             self.ufl_stress_work0 = 0
+
+        return None
+
+
+    def define_ufl_body_force(self):
+        """
+
+
+        """
+
+        if self.config['formulation']['body_force'] is None:
+            self.ufl_body_force = 0
+            self.ufl_body_force0 = 0
+            return None
+
+        rho = self.config['material']['density']
+        b = self.config['formulation']['body_force']
+        xi = self.test_vector
+        self.ufl_body_force = dlf.dot(xi, rho*b)*dlf.dx
+
+        # Create a copy of the body force term to use at a different time step.
+        if self.config['formulation']['time']['unsteady']:
+            b0 = duplicate_expressions(b)
+            self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
+        else:
+            self.ufl_body_force0 = 0
+
+        return None
+
+
+    def define_ufl_neumann_bcs(self):
+        """
+
+
+        """
+
+        if self.config['formulation']['bcs']['neumann'] is None:
+            self.ufl_neumann_bcs = 0
+            self.ufl_neumann_bcs0 = 0
+            return None
+
+        regions = self.config['formulation']['bcs']['neumann']['regions']
+        types = self.config['formulation']['bcs']['neumann']['types']
+        values = self.config['formulation']['bcs']['neumann']['values']
+        domain = self.config['formulation']['domain']
+
+        define_ufl_neumann = BaseMechanicsProblem.define_ufl_neumann_form
+
+        self.ufl_neumann_bcs = define_ufl_neumann(regions, types,
+                                                  values, domain,
+                                                  self.mesh,
+                                                  self.mesh_function,
+                                                  self.deformationGradient,
+                                                  self.jacobian,
+                                                  self.test_vector)
+        if self.config['formulation']['time']['unsteady']:
+            values0 = duplicate_expressions(*values)
+            self.ufl_neumann_bcs0 = define_ufl_neumann(regions, types,
+                                                       values0, domain,
+                                                       self.mesh,
+                                                       self.mesh_function,
+                                                       self.deformationGradient0,
+                                                       self.jacobian0,
+                                                       self.test_vector)
+        else:
+            self.ufl_neumann_bcs0 = 0
+
+        return None
+
+
+    def define_ufl_equations(self):
+        """
+
+
+        """
+
+        theta = self.config['formulation']['time']['theta']
+        self.G1 = self.ufl_local_inertia \
+                  + theta*(self.ufl_stress_work \
+                           - self.ufl_body_force \
+                           - self.ufl_neumann_bcs) \
+                  + (1.0 - theta)*(self.ufl_stress_work0 \
+                                   - self.ufl_body_force0 \
+                                   - self.ufl_neumann_bcs0)
+
+        if self.config['material']['incompressible']:
+            q = self.test_scalar
+            inv_la = self._material._parameters['inv_la']
+            bvol = self._material.incompressibilityCondition(self.ufl_displacement)
+            self.G2 = q*(bvol - inv_la*self.ufl_pressure)*dlf.dx
+        else:
+            self.G2 = 0
+        self.G = self.G1 + self.G2
+
+        return None
+
+
+    def define_ufl_equations_diff(self):
+        """
+
+
+        """
+
+        self.dG = dlf.derivative(self.G, self.sys_u, self.sys_du)
 
         return None
 
