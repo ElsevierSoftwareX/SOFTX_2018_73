@@ -31,14 +31,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.define_ufl_equations()
         self.define_ufl_equations_diff()
 
-        # bcs = list()
-        # for val in self.dirichlet_bcs.values():
-        #     bcs.extend(val)
-        # dlf.NonlinearVariationalProblem.__init__(self.G,
-        #                                          self.sys_u,
-        #                                          bcs,
-        #                                          J=self.dG)
-
         return None
 
 
@@ -82,6 +74,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if self.config['material']['incompressible']:
             self.define_incompressible_functions()
+            self.define_function_assigners()
         else:
             self.define_compressible_functions()
 
@@ -479,3 +472,187 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             pressure_bcs['pressure'].append(bc)
 
         return pressure_bcs
+
+
+class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
+    """
+
+
+    """
+
+
+    def __init__(self, problem):
+
+        self._problem = problem
+
+        bcs = list()
+        for val in problem.dirichlet_bcs.values():
+            bcs.extend(val)
+
+        dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
+                                                      bcs, J=problem.dG)
+
+        dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
+
+        return None
+
+
+    def set_parameters(self, linear_solver='default',
+                       newton_abstol=1e-10,
+                       newton_reltol=1e-9,
+                       newton_maxIters=50,
+                       krylov_abstol=1e-8,
+                       krylov_reltol=1e-7,
+                       krylov_maxIters=50):
+        """
+
+
+        """
+
+        param = self.parameters
+        param['newton_solver']['linear_solver'] = linear_solver
+        param['newton_solver']['absolute_tolerance'] = newton_abstol
+        param['newton_solver']['relative_tolerance'] = newton_reltol
+        param['newton_solver']['maximum_iterations'] = newton_maxIters
+        param['newton_solver']['krylov_solver']['absolute_tolerance'] = krylov_abstol
+        param['newton_solver']['krylov_solver']['relative_tolerance'] = krylov_reltol
+        param['newton_solver']['krylov_solver']['maximum_iterations'] = krylov_maxIters
+
+        return None
+
+
+    def full_solve(self, fname_disp=None, fname_press=None, save_freq=1):
+        """
+
+
+        """
+
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
+        if fname_disp:
+            file_disp = dlf.File(fname_disp, 'compressed')
+        if fname_press:
+            file_press = dlf.File(fname_press, 'compressed')
+
+        if self._problem.config['formulation']['time']['unsteady']:
+            t, tf = self._problem.config['formulation']['time']['interval']
+            t0 = t
+
+            dt = self._problem.config['formulation']['time']['dt']
+            count = 0 # Used to check if files should be saved.
+
+            while t <= tf:
+
+                if not count % save_freq:
+                    if fname_disp:
+                        file_disp << (self._problem.displacement, t)
+                        if not rank:
+                            print('* Displacement saved *')
+                    if fname_press:
+                        file_press << (self._problem.pressure, t)
+                        if not rank:
+                            print('* Pressure saved *')
+
+                # Advance the time.
+                t0 = t
+                t += dt
+
+                # Update expressions that depend on time.
+                self._problem.update_time(t, t0)
+
+                # Print the current time.
+                if not rank:
+                    print('*'*30)
+                    print('t = %3.6f' % t)
+
+                # Solver current time step.
+                self.step()
+
+                # Assign and update all vectors.
+                self.update_assign()
+
+                count += 1
+
+        else:
+            self.step()
+
+            if fname_disp:
+                file_disp << self._problem.displacement
+            if fname_press:
+                file_press << self._problem.pressure
+
+        return None
+
+
+    def step(self):
+        """
+
+
+        """
+
+        self.solve()
+
+        return None
+
+
+    def update_assign(self):
+
+        problem = self._problem
+
+        u = problem.displacement
+        u0 = problem.displacement0
+        v0 = problem.velocity0
+        a0 = problem.acceleration0
+
+        beta = problem.config['formulation']['time']['beta']
+        gamma = problem.config['formulation']['time']['gamma']
+        dt = problem.config['formulation']['time']['dt']
+
+        self.assigner_sys2u.assign([u, p], problem.sys_u)
+
+        self.update(u, u0, v0, a0, beta, gamma, dt)
+
+        self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
+        self.assigner_v02sys.assign(v0, problem.sys_v0.sub(0))
+        self.assigner_a02sys.assign(a0, problem.sys_a0.sub(0))
+
+        return None
+
+
+    def define_function_assigners(self):
+
+        problem = self._problem
+        W = problem.functionSpace
+        u = problem.displacement
+        p = problem.pressure
+        u0 = problem.displacement0
+        p0 = problem.pressure0
+        v0 = problem.velocity0
+        a0 = problem.acceleration0
+
+        self.assigner_sys2u = dlf.FunctionAssigner([u.function_space(),
+                                                    p.function_space()], W)
+        self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
+                                                        p0.function_space()])
+        self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0), v0.function_space())
+        self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0), a0.function_space())
+
+        return None
+
+
+    @staticmethod
+    def update(self, u, u0, v0, a0, beta, gamma, dt):
+
+        # Get vector references
+        u_vec, u0_vec = u.vector(), u0.vector()
+        v0_vec, a0_vec = v0.vector(), a0.vector()
+
+        # Update acceleration and velocity
+        a_vec = (1.0/(2.0*beta))*((u_vec - u0_vec - v0_vec*dt)/(0.5*dt*dt)\
+                                  - (1.0 - 2.0*beta)*a0_vec)
+        v_vec = dt*((1.0 - gamma)*a0_vec + gamma*a_vec) + v0_vec
+
+        v0.vector()[:], a0.vector()[:] = v_vec, a_vec
+        u0.vector()[:] = u_vec
+
+        return None

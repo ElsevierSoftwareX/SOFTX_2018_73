@@ -35,6 +35,7 @@ parser.add_argument('-v', '--compute-volume',
                     help='compute deformed volume',
                     action='store_true')
 args = parser.parse_args()
+args.incompressible = True
 
 # Mesh file names based on arguments given
 mesh_dims = (args.refinement,)*args.dim
