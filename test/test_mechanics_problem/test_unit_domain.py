@@ -35,7 +35,6 @@ parser.add_argument('-v', '--compute-volume',
                     help='compute deformed volume',
                     action='store_true')
 args = parser.parse_args()
-args.incompressible = True
 
 # Mesh file names based on arguments given
 mesh_dims = (args.refinement,)*args.dim
@@ -44,11 +43,9 @@ dim_str = 'x'.join(['%i' % i for i in mesh_dims])
 if args.incompressible:
     name_dims = ('incomp_' + args.material, dim_str)
     element_type = 'p2-p1'
-    kappa = 1e8
 else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
-    kappa = None
 
 mesh_dir = '../meshfiles/unit_domain/'
 if args.save:
@@ -94,7 +91,10 @@ ffc_options = {'optimize' : True,
 
 # Elasticity parameters
 E = 20.0 # Young's modulus
-nu = 0.3 # Poisson's ratio
+if args.incompressible:
+    nu = 0.5 # Poisson's ratio
+else:
+    nu = 0.3 # Poisson's ratio
 inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu)
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
@@ -132,7 +132,6 @@ config = {'material' :
               'time' :
               {
                   'unsteady' : False,
-                  'theta': 1.0
                   },
               'domain' : domain,
               'inverse' : args.inverse,
@@ -155,21 +154,16 @@ config = {'material' :
           }
 
 problem = fm.SolidMechanicsProblem(config)
-bcs = list()
-for val in problem.dirichlet_bcs.values():
-    bcs.extend(val)
-dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
-                                              bcs, J=problem.dG)
-solver = dlf.NonlinearVariationalSolver(dlf_problem)
-solver.solve()
+solver = fm.SolidMechanicsSolver(problem)
+solver.full_solve(fname_disp=disp_file)
 
-problem = fm.MechanicsProblem(config)
-my_solver = fm.MechanicsSolver(problem)
-my_solver.solve(print_norm=True,
-                iter_tol=1e-6,
-                maxLinIters=50,
-                fname_disp=disp_file,
-                show=2)
+# problem = fm.MechanicsProblem(config)
+# my_solver = fm.MechanicsSolver(problem)
+# my_solver.solve(print_norm=True,
+#                 iter_tol=1e-6,
+#                 maxLinIters=50,
+#                 fname_disp=disp_file,
+#                 show=2)
 
 # Plot solution if running on one process.
 if dlf.MPI.size(dlf.mpi_comm_world()) == 1:
