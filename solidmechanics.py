@@ -48,7 +48,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             vec_family = 'CG'
 
         vec_element = dlf.VectorElement(vec_family, cell, vec_degree)
-        # self.vectorSpace = dlf.FunctionSpace(self.mesh, vec_element)
 
         if self.config['material']['incompressible']:
             scalar_degree = int(self.config['mesh']['element'][1][-1])
@@ -74,7 +73,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if self.config['material']['incompressible']:
             self.define_incompressible_functions()
-            self.define_function_assigners()
         else:
             self.define_compressible_functions()
 
@@ -90,6 +88,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.sys_u = dlf.Function(self.functionSpace)
         self.ufl_displacement, self.ufl_pressure = dlf.split(self.sys_u)
         self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
+        self.displacement.rename('u', 'displacement')
+        self.pressure.rename('p', 'pressure')
 
         self.sys_du = dlf.TrialFunction(self.functionSpace)
         self.trial_vector, self.trial_scalar = dlf.split(self.sys_du)
@@ -100,14 +100,18 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.sys_u0 = dlf.Function(self.functionSpace)
             self.ufl_displacement0, self.ufl_pressure0 = dlf.split(self.sys_u0)
             self.displacement0, self.pressure0 = self.sys_u0.split(deepcopy=True)
+            self.displacement0.rename('u0', 'displacement0')
+            self.pressure0.rename('p0', 'pressure0')
 
             self.sys_v0 = dlf.Function(self.functionSpace)
             self.ufl_velocity0, _ = dlf.split(self.sys_v0)
-            self.velocity0, self._i0 = self.sys_v0.split(deepcopy=True)
+            self.velocity0, _ = self.sys_v0.split(deepcopy=True)
+            self.velocity0.rename('v0', 'velocity0')
 
             self.sys_a0 = dlf.Function(self.functionSpace)
             self.ufl_acceleration0, _ = dlf.split(self.sys_a0)
-            self.acceleration0, self._i1 = self.sys_a0.split(deepcopy=True)
+            self.acceleration0, _ = self.sys_a0.split(deepcopy=True)
+            self.acceleration0.rename('a0', 'acceleration0')
 
             self.define_ufl_acceleration()
 
@@ -122,19 +126,24 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         self.sys_u = self.ufl_displacement \
                      = self.displacement = dlf.Function(self.functionSpace)
+        self.displacement.rename('u', 'displacement')
         self.ufl_pressure = self.pressure = None
+        self.ufl_pressure0 = self.pressure0 = None
         self.test_vector = dlf.TestFunction(self.functionSpace)
         self.trial_vector = self.sys_du = dlf.TrialFunction(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
             self.sys_u0 = self.ufl_displacement0 \
                           = self.displacement0 = dlf.Function(self.functionSpace)
+            self.displacement0.rename('u0', 'displacement0')
 
             self.sys_v0 = self.ufl_velocity0 \
                           = self.velocity0 = dlf.Function(self.functionSpace)
+            self.velocity0.rename('v0', 'velocity0')
 
             self.sys_a0 = self.ufl_acceleration0 \
                           = self.acceleration0 = dlf.Function(self.functionSpace)
+            self.acceleration0.rename('a0', 'acceleration0')
 
             self.define_ufl_acceleration()
 
@@ -146,8 +155,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 
         """
-
-        self.ufl_acceleration = 1.0/(beta*dt**2)*(u - u0 - dt*v0) - (1.0/(2.0*beta) - 1.0)*a0
 
         dt = self.config['formulation']['time']['dt']
         beta = self.config['formulation']['time']['beta']
@@ -354,7 +361,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         # Create a copy of the body force term to use at a different time step.
         if self.config['formulation']['time']['unsteady']:
-            b0 = duplicate_expressions(b)
+            b0, = duplicate_expressions(b)
             self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
         else:
             self.ufl_body_force0 = 0
@@ -494,6 +501,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
 
+        if problem.config['material']['incompressible']:
+            self.define_function_assigners()
+
         return None
 
 
@@ -527,6 +537,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         """
 
+        problem = self._problem
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         if fname_disp:
@@ -534,22 +545,22 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         if fname_press:
             file_press = dlf.File(fname_press, 'compressed')
 
-        if self._problem.config['formulation']['time']['unsteady']:
-            t, tf = self._problem.config['formulation']['time']['interval']
+        if problem.config['formulation']['time']['unsteady']:
+            t, tf = problem.config['formulation']['time']['interval']
             t0 = t
 
-            dt = self._problem.config['formulation']['time']['dt']
+            dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
             while t <= tf:
 
                 if not count % save_freq:
                     if fname_disp:
-                        file_disp << (self._problem.displacement, t)
+                        file_disp << (problem.displacement, t)
                         if not rank:
                             print('* Displacement saved *')
                     if fname_press:
-                        file_press << (self._problem.pressure, t)
+                        file_press << (problem.pressure, t)
                         if not rank:
                             print('* Pressure saved *')
 
@@ -558,7 +569,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 t += dt
 
                 # Update expressions that depend on time.
-                self._problem.update_time(t, t0)
+                problem.update_time(t, t0)
 
                 # Print the current time.
                 if not rank:
@@ -575,6 +586,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         else:
             self.step()
+
+            self.update_assign()
 
             if fname_disp:
                 file_disp << self._problem.displacement
@@ -598,23 +611,31 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     def update_assign(self):
 
         problem = self._problem
+        incompressible = problem.config['material']['incompressible']
+        unsteady = problem.config['formulation']['time']['unsteady']
 
         u = problem.displacement
-        u0 = problem.displacement0
-        v0 = problem.velocity0
-        a0 = problem.acceleration0
 
-        beta = problem.config['formulation']['time']['beta']
-        gamma = problem.config['formulation']['time']['gamma']
-        dt = problem.config['formulation']['time']['dt']
+        if unsteady:
+            u0 = problem.displacement0
+            v0 = problem.velocity0
+            a0 = problem.acceleration0
 
-        self.assigner_sys2u.assign([u, p], problem.sys_u)
+            beta = problem.config['formulation']['time']['beta']
+            gamma = problem.config['formulation']['time']['gamma']
+            dt = problem.config['formulation']['time']['dt']
 
-        self.update(u, u0, v0, a0, beta, gamma, dt)
+        if incompressible:
+            p = problem.pressure
+            self.assigner_sys2u.assign([u, p], problem.sys_u)
 
-        self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
-        self.assigner_v02sys.assign(v0, problem.sys_v0.sub(0))
-        self.assigner_a02sys.assign(a0, problem.sys_a0.sub(0))
+        if unsteady:
+            self.update(u, u0, v0, a0, beta, gamma, dt)
+
+        if incompressible and unsteady:
+            self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
+            self.assigner_v02sys.assign(v0, problem.sys_v0.sub(0))
+            self.assigner_a02sys.assign(a0, problem.sys_a0.sub(0))
 
         return None
 
@@ -625,23 +646,26 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         W = problem.functionSpace
         u = problem.displacement
         p = problem.pressure
-        u0 = problem.displacement0
-        p0 = problem.pressure0
-        v0 = problem.velocity0
-        a0 = problem.acceleration0
 
         self.assigner_sys2u = dlf.FunctionAssigner([u.function_space(),
                                                     p.function_space()], W)
-        self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
-                                                        p0.function_space()])
-        self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0), v0.function_space())
-        self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0), a0.function_space())
+
+        if problem.config['formulation']['time']['unsteady']:
+            u0 = problem.displacement0
+            p0 = problem.pressure0
+            v0 = problem.velocity0
+            a0 = problem.acceleration0
+
+            self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
+                                                            p0.function_space()])
+            self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0), v0.function_space())
+            self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0), a0.function_space())
 
         return None
 
 
     @staticmethod
-    def update(self, u, u0, v0, a0, beta, gamma, dt):
+    def update(u, u0, v0, a0, beta, gamma, dt):
 
         # Get vector references
         u_vec, u0_vec = u.vector(), u0.vector()
