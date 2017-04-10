@@ -180,7 +180,6 @@ def duplicate_expressions(*args):
             else:
                 expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
         else:
-            print ("Expression subclass was used...")
             expr = copy.copy(arg)
 
         retval.append(expr)
