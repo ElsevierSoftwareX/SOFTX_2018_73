@@ -138,31 +138,25 @@ class BaseMechanicsProblem(object):
 
         # Exit function if problem was specified as steady.
         if not config['formulation']['time']['unsteady']:
-            config['formulation']['time']['alpha'] = 1
+            config['formulation']['time']['theta'] = 1
             config['formulation']['time']['dt'] = 1
             return None
-
-        supported = ['explicit_euler', 'generalized_alpha']
-        if config['formulation']['time']['integrator'] not in supported:
-            s1 = 'The time integrating scheme, \'%s\', has not been implemented.' \
-                 % config['formulation']['time']['integrator']
-            raise NotImplementedError(s1)
 
         if not isinstance(config['formulation']['time']['dt'], (float,dlf.Constant)):
             s1 = 'The \'dt\' parameter must be a scalar value of type: ' \
                  + 'dolfin.Constant, float'
             raise TypeError(s1)
 
-        # if config['formulation']['time']['integrator'] == 'generalized_alpha':
+        # if config['formulation']['time']['integrator'] == 'generalized_theta':
         try:
-            alpha = config['formulation']['time']['alpha']
-            if alpha < 0.0 or alpha > 1.0:
-                s1 = 'The value of alpha for the generalized alpha ' \
+            theta = config['formulation']['time']['theta']
+            if theta < 0.0 or theta > 1.0:
+                s1 = 'The value of theta for the generalized theta ' \
                      + 'method must be between 0 and 1. The value ' \
-                     + 'provided was: %.4f ' % alpha
+                     + 'provided was: %.4f ' % theta
                 raise ValueError(s1)
         except KeyError:
-            s1 = 'The value of alpha for the generalized alpha ' \
+            s1 = 'The value of theta for the generalized theta ' \
                  + 'method must be provided.'
             raise KeyError(s1)
 
@@ -359,6 +353,85 @@ class BaseMechanicsProblem(object):
         return None
 
 
+    def update_time(self, t, t0=None):
+        """
+        Update the time parameter in the BCs that depend on time explicitly.
+        Also, the body force expression if necessary.
+
+        """
+
+        if self.dirichlet_bcs:
+            self.update_dirichlet_time(t)
+
+        if self.ufl_neumann_bcs:
+            neumann_updated = self.update_neumann_time(t, t0=t0)
+
+        if self.ufl_body_force:
+            bodyforce_updated = self.update_bodyforce_time(t, t0=t0)
+
+        return None
+
+
+    def update_dirichlet_time(self, t):
+        """
+        Update the time parameter in the Dirichlet BCs that depend on time
+        explicitly.
+
+        """
+
+        if self.config['formulation']['bcs']['dirichlet'] is None:
+            print ('No Dirichlet BCs to update!')
+            return None
+
+        expr_list = list()
+
+        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['displacement'])
+
+        if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
+
+        for expr in expr_list:
+            if hasattr(expr, 't'):
+                expr.t = t
+
+        return None
+
+
+    def update_neumann_time(self, t, t0=None):
+        """
+        Update the time parameter in the Neumann BCs that depend on time
+        explicitly. The PETSc vector corresponding to this term is assembled
+        again if necessary.
+
+        """
+
+        if self.ufl_neumann_bcs is not None:
+            self.update_form_time(self.ufl_neumann_bcs, t)
+
+        if self.ufl_neumann_bcs0 and (t0 is not None):
+            self.update_form_time(self.ufl_neumann_bcs0, t0)
+
+        return None
+
+
+    def update_bodyforce_time(self, t, t0=None):
+        """
+        Update the time parameter in the body force expression if it depends
+        on time explicitly. The PETSc vector corresponding to this term is
+        assembled again if necessary.
+
+        """
+
+        if self.ufl_body_force is not None:
+            self.update_form_time(self.ufl_body_force, t)
+
+        if self.ufl_body_force0 and (t0 is not None):
+            self.update_form_time(self.ufl_body_force0, t0)
+
+        return None
+
+
     @staticmethod
     def __check_bc_params(bc_dict):
         """
@@ -373,3 +446,68 @@ class BaseMechanicsProblem(object):
             return True
         else:
             return False
+
+
+    @staticmethod
+    def define_ufl_neumann_form(regions, types, values, domain,
+                                mesh, mesh_function, F, J, xi):
+        """
+        Define the UFL object representing the Neumann boundary
+        conditions based on the problem configuration given by
+        the user. The function exits if the object has already
+        been defined.
+
+
+        """
+
+        # Check if Nanson's formula is necessary
+        if domain == 'lagrangian':
+            if ('pressure' in types) or ('cauchy' in types):
+                Finv = dlf.inv(F)
+                N = dlf.FacetNormal(mesh)
+
+            if 'pressure' in types:
+                n = J*Finv.T*N # Nanson's formula
+
+            if 'cauchy' in types:
+                nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+        else:
+            if 'pressure' in types:
+                # No need for Nanson's formula in Eulerian coordinates
+                n = dlf.FacetNormal(mesh)
+
+        neumann_form = 0
+        zipped_vals = zip(regions, types, values)
+
+        for region, tt, value in zipped_vals:
+
+            ds_region = dlf.ds(region, domain=mesh,
+                               subdomain_data=mesh_function)
+
+            if tt == 'pressure':
+                val = -dlf.dot(xi, value*n)*ds_region
+            elif tt == 'cauchy' and domain == 'lagrangian':
+                val = nanson_mag*dlf.dot(xi, value)*ds_region
+            elif tt == 'cauchy' and domain == 'eulerian':
+                val = dlf.dot(xi, value)*ds_region
+            else: # piola traction in lagrangian coordinates
+                val = dlf.dot(xi, value)*ds_region
+
+            neumann_form += val
+
+        return neumann_form
+
+
+    @staticmethod
+    def update_form_time(form, t):
+        """
+
+
+        """
+
+        coeffs = form.coefficients()
+        for expr in coeffs:
+            if hasattr(expr, 't'):
+                expr.t = t
+
+        return None

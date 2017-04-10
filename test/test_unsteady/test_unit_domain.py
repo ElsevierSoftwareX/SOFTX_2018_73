@@ -43,11 +43,9 @@ dim_str = 'x'.join(['%i' % i for i in mesh_dims])
 if args.incompressible:
     name_dims = ('incomp_' + args.material, dim_str)
     element_type = 'p2-p1'
-    kappa = 1e8
 else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
-    kappa = None
 
 mesh_dir = '../meshfiles/unit_domain/'
 if args.save:
@@ -91,10 +89,12 @@ ffc_options = {'optimize' : True,
                'precompute_ip_const' : True}
 
 # Elasticity parameters
-# E = 500.0 # Young's modulus (TRY A SMALLER VALUE)
 E = 20.0 # Young's modulus (TRY A SMALLER VALUE)
-nu = 0.3 # Poisson's ratio
-la = E*nu/((1. + nu)*(1. - 2.*nu)) # 1st Lame parameter
+if args.incompressible:
+    nu = 0.5 # Poisson's ratio
+else:
+    nu = 0.3 # Poisson's ratio
+inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu) # Reciprocal of 1st Lame parameter
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Time interval
@@ -103,12 +103,13 @@ tf = 1.0
 nsteps = 200
 dt = (tf - t0)/nsteps
 tspan = [t0, tf]
-alpha = 1.0
+theta = 1.0
+beta = 0.25
+gamma = 0.5
 save_freq = int(0.01/dt)
-# save_freq = 1
 
 # Traction on the Neumann boundary region
-expr_subclass = True
+expr_subclass = False
 if expr_subclass:
     class Pressure(dlf.Expression):
         def __init__(self, t=0.0, **kwargs):
@@ -132,9 +133,8 @@ config = {'material' : {
               'type' : 'elastic',
               'incompressible' : args.incompressible,
               'density' : 10.0,
-              'lambda' : la,
+              'inv_la' : inv_la,
               'mu' : mu,
-              'kappa' : kappa
               },
           'mesh' : {
               'mesh_file' : mesh_file,
@@ -144,8 +144,9 @@ config = {'material' : {
           'formulation' : {
               'time' : {
                   'unsteady' : True,
-                  'integrator' : 'generalized_alpha',
-                  'alpha' : alpha,
+                  'theta' : theta,
+                  'beta': beta,
+                  'gamma': gamma,
                   'dt' : dt,
                   'interval' : tspan
                   },
@@ -167,13 +168,9 @@ config = {'material' : {
               }
           }
 
-problem = fm.MechanicsProblem(config)
-my_solver = fm.MechanicsSolver(problem)
-my_solver.solve(iter_tol=1e-6,
-                maxLinIters=250,
-                fname_disp=disp_file,
-                fname_vel=vel_file,
-                save_freq=save_freq, show=0)
+problem = fm.SolidMechanicsProblem(config)
+solver = fm.SolidMechanicsSolver(problem)
+solver.full_solve(fname_disp=disp_file, save_freq=save_freq)
 
 # Compute the final volume
 if args.compute_volume:
