@@ -89,7 +89,6 @@ ffc_options = {'optimize' : True,
                'precompute_ip_const' : True}
 
 # Elasticity parameters
-# E = 500.0 # Young's modulus (TRY A SMALLER VALUE)
 E = 20.0 # Young's modulus (TRY A SMALLER VALUE)
 if args.incompressible:
     nu = 0.5 # Poisson's ratio
@@ -105,6 +104,8 @@ nsteps = 200
 dt = (tf - t0)/nsteps
 tspan = [t0, tf]
 theta = 1.0
+beta = 0.25
+gamma = 0.5
 save_freq = int(0.01/dt)
 
 # Traction on the Neumann boundary region
@@ -144,8 +145,8 @@ config = {'material' : {
               'time' : {
                   'unsteady' : True,
                   'theta' : theta,
-                  'beta': 0.25,
-                  'gamma': 0.5,
+                  'beta': beta,
+                  'gamma': gamma,
                   'dt' : dt,
                   'interval' : tspan
                   },
@@ -170,14 +171,6 @@ config = {'material' : {
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem)
 solver.full_solve(fname_disp=disp_file, save_freq=save_freq)
-
-# problem = fm.MechanicsProblem(config)
-# my_solver = fm.MechanicsSolver(problem)
-# my_solver.solve(iter_tol=1e-6,
-#                 maxLinIters=250,
-#                 fname_disp=disp_file,
-#                 fname_vel=vel_file,
-#                 save_freq=save_freq, show=0)
 
 # Compute the final volume
 if args.compute_volume:
