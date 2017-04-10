@@ -158,11 +158,14 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         dt = self.config['formulation']['time']['dt']
         beta = self.config['formulation']['time']['beta']
-        self.ufl_acceleration = self.ufl_displacement \
-                                - self.ufl_displacement0 \
-                                - dt*self.ufl_velocity0
-        self.ufl_acceleration *= 1.0/(beta*dt**2)
-        self.ufl_acceleration += (1.0/(2.0*beta) - 1.0)*self.ufl_acceleration0
+
+        u = self.ufl_displacement
+        u0 = self.ufl_displacement0
+        v0 = self.ufl_velocity0
+        a0 = self.ufl_acceleration0
+
+        self.ufl_acceleration = 1.0/(beta*dt**2)*(u - u0 - dt*v0) \
+                                - (1.0/(2.0*beta) - 1.0)*a0
 
         return None
 
@@ -416,6 +419,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
 
         theta = self.config['formulation']['time']['theta']
+
         self.G1 = self.ufl_local_inertia \
                   + theta*(self.ufl_stress_work \
                            - self.ufl_body_force \
@@ -552,21 +556,22 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
-            while t <= tf:
+            # Save initial condition
+            if fname_disp:
+                file_disp << (problem.displacement, t)
+                if not rank:
+                    print('* Displacement saved *')
+            if fname_press:
+                file_press << (problem.pressure, t)
+                if not rank:
+                    print('* Pressure saved *')
 
-                if not count % save_freq:
-                    if fname_disp:
-                        file_disp << (problem.displacement, t)
-                        if not rank:
-                            print('* Displacement saved *')
-                    if fname_press:
-                        file_press << (problem.pressure, t)
-                        if not rank:
-                            print('* Pressure saved *')
+            while t <= tf:
 
                 # Advance the time.
                 t0 = t
                 t += dt
+                count += 1
 
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
@@ -582,7 +587,16 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Assign and update all vectors.
                 self.update_assign()
 
-                count += 1
+                # Save current time step
+                if not count % save_freq:
+                    if fname_disp:
+                        file_disp << (problem.displacement, t)
+                        if not rank:
+                            print('* Displacement saved *')
+                    if fname_press:
+                        file_press << (problem.pressure, t)
+                        if not rank:
+                            print('* Pressure saved *')
 
         else:
             self.step()
@@ -672,8 +686,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         v0_vec, a0_vec = v0.vector(), a0.vector()
 
         # Update acceleration and velocity
-        a_vec = (1.0/(2.0*beta))*((u_vec - u0_vec - v0_vec*dt)/(0.5*dt*dt)\
-                                  - (1.0 - 2.0*beta)*a0_vec)
+        a_vec = 1.0/(beta*dt**2)*(u_vec - u0_vec - v0_vec*dt) \
+                                  - (1.0/(2.0*beta) - 1.0)*a0_vec
         v_vec = dt*((1.0 - gamma)*a0_vec + gamma*a_vec) + v0_vec
 
         v0.vector()[:], a0.vector()[:] = v_vec, a_vec
