@@ -847,7 +847,7 @@ class GuccioneMaterial(ElasticMaterial):
         E = 0.5*(C - I)
 
         CC = dlf.Constant(params['C'], name='C')
-        if self.get_material_class(self) == 'isotropic':
+        if self._material_class == 'isotropic':
             # isotropic case
             Q = dlf.inner(E, E)
         else:
