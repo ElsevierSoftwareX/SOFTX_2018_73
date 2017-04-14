@@ -13,6 +13,9 @@ parser.add_argument("-m", "--material",
                     help="constitutive relation",
                     default='guccione',
                     choices=['linear','neo-hooke','aniso','guccione'])
+parser.add_argument("--output_dir",
+                    help="output directory",
+                    default='problem_2')
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -64,7 +67,7 @@ if rank !=0:
     df.set_log_level(df.ERROR)
 
 # --- GLOBAL VARIABLES --------------------------------------------------------
-output_dir = 'problem_2'
+output_dir = args.output_dir
 
 # Region IDs
 HNBC  = 0  # homogeneous Neumann BC
@@ -100,7 +103,7 @@ public:
 };
 """
 
-meshname = '../meshfiles/ellipsoid/ellipsoid_100um.h5'
+meshname = '../meshfiles/ellipsoid/ellipsoid_1000um.h5'
 hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
 mesh = df.Mesh()
 hdf.read(mesh, 'mesh', False)

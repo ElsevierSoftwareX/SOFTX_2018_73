@@ -1,0 +1,32 @@
+### Note: Lines starting with #PBS are PBS directives, NOT comments
+### PBS directives must come before any shell commands
+
+### Set the job name
+#PBS -N benchHypre
+
+### Run in the queue named "default"
+### Note: as of now, "default" is the only available queue on Orbit
+#PBS -q default
+
+### Optionally set the destination for your program's output
+### Specify localhost and an NFS filesystem to prevent file copy errors.
+### Note: PBS_O_WORKDIR is directory from which you called qsub
+#PBS -j oe localhost:$PBS_O_WORKDIR/IC$PBS_JOBID.log
+
+### Set walltime to 72 hours
+#PBS -l walltime=720:00:00
+
+### Specify the number of cpus for your job.  This example will allocate 60 cores
+### using 20 processors on each of 3 nodes.
+### Note: On Orbit, max nodes is 6 and max ppn is 20
+#PBS -l nodes=1:ppn=20
+
+### Switch to the working directory of your choice; by default TORQUE launches processes
+### from your home directory.
+cd $PBS_O_WORKDIR
+
+# Calculate the number of processors allocated to this run.
+NPROCS=`wc -l < $PBS_NODEFILE`
+
+### Launch executable
+time mpiexec -np ${NPROCS} python /home/augustin/programs/fenicsmechanics/test/land_benchmark/problem2.py --solver hypre_amg --output_dir=prob2_nearlyIncHypre > outputNInc300Hypre.log
