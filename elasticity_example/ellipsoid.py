@@ -14,6 +14,9 @@ parser.add_argument("-m", "--material",
                     help="constitutive relation",
                     default='guccione',
                     choices=['linear','neo-hooke','aniso','guccione'])
+parser.add_argument("--output_dir",
+                    help="output directory",
+                    default='problem_2')
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -26,7 +29,7 @@ parser.add_argument("-ic","--incompressible",
                     action='store_true')
 parser.add_argument("--pressure",
                     help="target pressure of inflation test in kPA",
-                    default=50,
+                    default=10,
                     type=float)
 parser.add_argument("-nu", "--poissons_ratio",
                     help="poissons ratio",
@@ -42,7 +45,7 @@ parser.add_argument("-mu", "--shear_modulus",
                     type=float)
 parser.add_argument("-ls", "--loading_steps",
                     help="number of loading steps",
-                    default=5,
+                    default=50,
                     type=int)
 parser.add_argument("--solver",
                     help="choose solving method",
@@ -65,7 +68,7 @@ if rank !=0:
     df.set_log_level(df.ERROR)
 
 # --- GLOBAL VARIABLES --------------------------------------------------------
-output_dir = 'problem_2'
+output_dir = args.output_dir
 
 # Region IDs
 HNBC  = 0  # homogeneous Neumann BC
@@ -131,7 +134,7 @@ if meshformat_xml:
     Hdf.write(she3, "she3")
     Hdf.close()
 else:
-    meshname = './meshes/ellipsoid.h5'
+    meshname = '/home/public/meshes/ellipsoid/ellipsoid_300um.h5'
     hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
     mesh = df.Mesh()
     hdf.read(mesh, 'mesh', False)
