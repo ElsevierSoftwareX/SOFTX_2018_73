@@ -16,6 +16,9 @@ parser.add_argument("-m", "--material",
 parser.add_argument("--output_dir",
                     help="output directory",
                     default='problem_2')
+parser.add_argument("--meshname",
+                    help="mesh file",
+                    default='../meshfiles/ellipsoid/ellipsoid_1000um.h5')
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -103,7 +106,7 @@ public:
 };
 """
 
-meshname = '../meshfiles/ellipsoid/ellipsoid_1000um.h5'
+meshname = args.meshname
 hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
 mesh = df.Mesh()
 hdf.read(mesh, 'mesh', False)
