@@ -481,8 +481,11 @@ class BaseMechanicsProblem(object):
 
         for region, tt, value in zipped_vals:
 
-            ds_region = dlf.ds(region, domain=mesh,
-                               subdomain_data=mesh_function)
+            if region == 'all':
+                ds_region = dlf.ds
+            else:
+                ds_region = dlf.ds(region, domain=mesh,
+                                   subdomain_data=mesh_function)
 
             if tt == 'pressure':
                 val = -dlf.dot(xi, value*n)*ds_region
