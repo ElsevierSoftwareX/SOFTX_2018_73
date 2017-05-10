@@ -647,9 +647,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             self.update(u, u0, v0, a0, beta, gamma, dt)
 
         if incompressible and unsteady:
+            p0 = problem.pressure0
             self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
-            self.assigner_v02sys.assign(v0, problem.sys_v0.sub(0))
-            self.assigner_a02sys.assign(a0, problem.sys_a0.sub(0))
+            self.assigner_v02sys.assign(problem.sys_v0.sub(0), v0)
+            self.assigner_a02sys.assign(problem.sys_a0.sub(0), a0)
 
         return None
 
