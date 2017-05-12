@@ -200,12 +200,20 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.LinearMaterial
         elif self.config['material']['const_eqn'] == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'guccione':
+            mat_class = materials.solid_materials.GuccioneMaterial
         else:
             s = "The material '%s' has not been implemented. A class for such" \
                 + " material must be provided."
             raise ValueError(s)
 
-        self._material = mat_class(inverse=self.config['formulation']['inverse'],
+        try:
+            fiber_file = self.config['mesh']['fiber_file']
+        except KeyError:
+            fiber_file = None
+        self._material = mat_class(mesh=self.mesh,
+                                   fiber_file=fiber_file,
+                                   inverse=self.config['formulation']['inverse'],
                                    **self.config['material'])
 
         return None
@@ -312,7 +320,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             return None
 
         xi = self.test_vector
-        rho = self.config['material']['density']
+        rho = dlf.Constant(self.config['material']['density'])
 
         # Will need both of these terms if problem is unsteady
         self.ufl_local_inertia = dlf.dot(xi, rho*self.ufl_acceleration)
