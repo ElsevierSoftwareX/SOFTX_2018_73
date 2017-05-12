@@ -166,7 +166,7 @@ class LinearMaterial(ElasticMaterial):
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
-        convert_elastic_moduli (self._parameters)
+        convert_elastic_moduli(self._parameters)
 
 
     @staticmethod
@@ -798,33 +798,42 @@ class NeoHookeMaterial(ElasticMaterial):
 
 class GuccioneMaterial(ElasticMaterial):
 
-    def __init__(self, parameters={}, fibers={}, **kwargs):
+
+    def __init__(self, mesh, fiber_file, inverse=False, **params):
         ElasticMaterial.__init__(self)
         ElasticMaterial.set_material_class(self, 'transversely isotropic')
         ElasticMaterial.set_material_name(self, 'Guccione material')
         self._parameters = self.default_parameters()
-        if parameters == {}:
-            prms = kwargs or {}
-            self._parameters.update(prms)
-        else:
-            self._parameters.update(parameters)
-        if self._parameters['bt'] == 1.0 and self._parameters['bf'] == 1.0 \
-           and self._parameters['bfs'] == 1.0:
+        self._parameters.update(params)
+        convert_elastic_moduli(self._parameters)
+
+        bt = self._parameters['bt']
+        bf = self._parameters['bf']
+        bfs = self._parameters['bfs']
+        if 1.0 == bt == bf == bfs:
             ElasticMaterial.set_material_class(self, 'isotropic')
-        ElasticMaterial.set_incompressible(self, kwargs['incompressible'])
-        fbrs = kwargs or {}
+
+        ElasticMaterial.set_incompressible(self, params['incompressible'])
+
         self._fiber_directions = self.default_fiber_directions()
+        fibers = self.define_fibers(fiber_file, mesh)
         self._fiber_directions.update(fibers)
-        self._fiber_directions.update(fbrs)
+
 
     @staticmethod
     def default_parameters():
-        param = {'C' : 2.0,
-                 'bf' : 8.0,
-                 'bt' : 2.0,
-                 'bfs' : 4.0,
-                 'kappa' : 1000.0}
+        param = {'C': 2.0,
+                 'bf': 8.0,
+                 'bt': 2.0,
+                 'bfs': 4.0,
+                 'mu': None,
+                 'kappa': 1000.0,
+                 'la': None,
+                 'inv_la': None,
+                 'E': None,
+                 'nu': None}
         return param
+
 
     @staticmethod
     def default_fiber_directions():
@@ -832,6 +841,14 @@ class GuccioneMaterial(ElasticMaterial):
                   'e2' : None,
                   'e3' : None}
         return fibers
+
+
+    @staticmethod
+    def define_fibers(fname, mesh):
+        e1 = define_fiber_dir(fname, ['fib1', 'fib2', 'fib3'], mesh)
+        e2 = define_fiber_dir(fname, ['she1', 'she2', 'she3'], mesh)
+        return {'e1': e1, 'e2': e2}
+
 
     def strain_energy(self, u, p=None):
         """
@@ -890,17 +907,18 @@ class GuccioneMaterial(ElasticMaterial):
 
         return Wpassive + Winc
 
-    def stress_tensor(self, u, p=None):
+
+    def stress_tensor(self, F, J, p=None):
         """
         UFL form of the stress tensor.
         """
-        dim = ufl.domain.find_geometric_dimension(u)
+        dim = ufl.domain.find_geometric_dimension(F)
         params = self._parameters
         kappa = dlf.Constant(params['kappa'], name='kappa')
         CC = dlf.Constant(params['C'], name='C')
         I = dlf.Identity(dim)
-        F = I + dlf.grad(u)
-        J = dlf.det(F)
+        # F = I + dlf.grad(u)
+        # J = dlf.det(F)
         Jm2d = pow(J, -float(2)/dim)
         C = F.T*F
         E_ = 0.5*(Jm2d*C - I)
@@ -946,6 +964,7 @@ class GuccioneMaterial(ElasticMaterial):
             FS_vol = J*2.*kappa*(J-1./J)*Finv.T
 
         return FS_vol + FS_isc
+
 
 def convert_elastic_moduli(param, tol=1e8):
         # original parameters
@@ -1013,3 +1032,55 @@ def convert_elastic_moduli(param, tol=1e8):
         param['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
         param['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
         param['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]
+
+
+__fiber_directions_code__ = """
+
+class FiberDirections : public Expression
+{
+public:
+
+  // Create expression with 3 components
+  FiberDirections() : Expression(3) {}
+
+  // Function for evaluating expression on each cell
+  void eval(Array<double>& values, const Array<double>& x, const ufc::cell& cell) const
+  {
+    const uint D = cell.topological_dimension;
+    const uint cell_index = cell.index;
+    values[0] = (*f1)[cell_index];
+    values[1] = (*f2)[cell_index];
+    values[2] = (*f3)[cell_index];
+  }
+
+  // The data stored in mesh functions
+  std::shared_ptr<MeshFunction<double> > f1;
+  std::shared_ptr<MeshFunction<double> > f2;
+  std::shared_ptr<MeshFunction<double> > f3;
+
+};
+"""
+
+
+def load_fibers(fname, fiber_names, mesh):
+
+    fiber_mesh_functions = list()
+    f = dlf.HDF5File(dlf.mpi_comm_world(), fname, 'r')
+
+    for name in fiber_names:
+        fib = dlf.MeshFunction('double', mesh)
+        f.read(fib, name)
+        fiber_mesh_functions.append(fib)
+    f.close()
+
+    return fiber_mesh_functions
+
+
+def define_fiber_dir(fname, fiber_names, mesh, degree=0):
+
+    fibers = load_fibers(fname, fiber_names, mesh)
+    c = dlf.Expression(cppcode=__fiber_directions_code__,
+                       degree=degree)
+    c.f1, c.f2, c.f3 = fibers
+
+    return dlf.as_vector((c[0], c[1], c[2]))

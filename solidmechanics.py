@@ -200,12 +200,20 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.LinearMaterial
         elif self.config['material']['const_eqn'] == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'guccione':
+            mat_class = materials.solid_materials.GuccioneMaterial
         else:
             s = "The material '%s' has not been implemented. A class for such" \
                 + " material must be provided."
             raise ValueError(s)
 
-        self._material = mat_class(inverse=self.config['formulation']['inverse'],
+        try:
+            fiber_file = self.config['mesh']['fiber_file']
+        except KeyError:
+            fiber_file = None
+        self._material = mat_class(mesh=self.mesh,
+                                   fiber_file=fiber_file,
+                                   inverse=self.config['formulation']['inverse'],
                                    **self.config['material'])
 
         return None
@@ -312,7 +320,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             return None
 
         xi = self.test_vector
-        rho = self.config['material']['density']
+        rho = dlf.Constant(self.config['material']['density'])
 
         # Will need both of these terms if problem is unsteady
         self.ufl_local_inertia = dlf.dot(xi, rho*self.ufl_acceleration)
@@ -647,9 +655,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             self.update(u, u0, v0, a0, beta, gamma, dt)
 
         if incompressible and unsteady:
+            p0 = problem.pressure0
             self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
-            self.assigner_v02sys.assign(v0, problem.sys_v0.sub(0))
-            self.assigner_a02sys.assign(a0, problem.sys_a0.sub(0))
+            self.assigner_v02sys.assign(problem.sys_v0.sub(0), v0)
+            self.assigner_a02sys.assign(problem.sys_a0.sub(0), a0)
 
         return None
 
