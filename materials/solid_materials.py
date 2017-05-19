@@ -1,7 +1,10 @@
 import dolfin as dlf
 import ufl
 
-__all__ = ['LinearMaterial', 'NeoHookeMaterial', 'GuccioneMaterial']
+__all__ = ['LinearMaterial',
+           'NeoHookeMaterial',
+           'FungMaterial',
+           'GuccioneMaterial']
 
 class ElasticMaterial(object):
     """
@@ -796,6 +799,278 @@ class NeoHookeMaterial(ElasticMaterial):
         return kappa*g*Finv.T
 
 
+class FiberMaterial(ElasticMaterial):
+
+
+    def __init__(self, fiber_dict, mesh):
+        ElasticMaterial.__init__(self)
+        ElasticMaterial.set_material_class(self, 'transversely isotropic')
+
+        # Extract fiber file information
+        s = "A value must be given for '%s' within the 'fibers' " \
+            + "sub-dictionary of the material dictionary."
+        try:
+            fiber_files = fiber_dict['fiber_files']
+        except KeyError as err:
+            err.args += (s % 'fiber_files',)
+            raise
+
+        # Extract fiber names
+        try:
+            fiber_names = fiber_dict['fiber_names']
+        except KeyError as err:
+            err.args += (s % 'fiber_names',)
+            raise
+
+        try:
+            element_type = fiber_dict['element']
+        except KeyError as err:
+            err.args += (s % 'element',)
+            raise
+
+        if element_type is not None:
+            pd = int(element_type[-1])
+            if pd == 0:
+                function_space = dlf.VectorFunctionSpace(mesh, "DG", pd)
+            else:
+                function_space = dlf.VectorFunctionSpace(mesh, "CG", pd)
+        else:
+            function_space = None
+
+        self.define_fiber_directions(fiber_files, fiber_names,
+                                     function_space=function_space)
+
+
+    def define_fiber_directions(self, fiber_files, fiber_names, function_space=None):
+
+        self._fiber_directions = dict()
+        key = 'e%i'
+
+        if isinstance(fiber_files, str):
+            if fiber_files[-3:] == '.h5':
+                fbr = self.__load_fibers_hdf5(fiber_files, fiber_names, function_space)
+                self._fiber_directions.update(fbr)
+            else:
+                self._fiber_directions[key % 1] = dlf.Function(function_space, fiber_files,
+                                                               name=fiber_names)
+        elif isinstance(fiber_files, dlf.Coefficient):
+            fiber_files.rename(fiber_names, "Fiber direction")
+            self._fiber_directions[key % 1] = fiber_files
+        else:
+            if len(fiber_files) != len(fiber_names):
+                s = "The number of files and fiber family names must be the same."
+                raise ValueError(s)
+
+            self._fiber_directions = dict()
+            for i,f in enumerate(fiber_files):
+                if isinstance(f, dlf.Coefficient):
+                    f.rename(fiber_names[i], "Fiber direction")
+                    self._fiber_directions[key % (i+1)] = f
+                    continue
+
+                if f[-3:] == '.h5':
+                    fbr = self.__load_fibers_hdf5(f, fiber_names[i],
+                                                  function_space, key=key%(i+1))
+                    self._fiber_directions.update(fbr)
+                else:
+                    self._fiber_directions[key % (i+1)] = dlf.Function(function_space, f,
+                                                                       name=fiber_names[i])
+
+
+    @staticmethod
+    def __load_fibers_hdf5(fiber_file, fiber_names, function_space, key='e1'):
+        f = dlf.HDF5File(dlf.mpi_comm_world(), fiber_file, 'r')
+        fiber_directions = dict()
+        if isinstance(fiber_names, str):
+            n = dlf.Function(function_space)
+            f.read(n, fiber_names)
+            fiber_directions[key] = n
+        else:
+            key = 'e%i'
+            for i,name in enumerate(fiber_names):
+                n = dlf.Function(function_space)
+                f.read(n, name)
+                fiber_directions[key % (i+1)] = n
+        return fiber_directions
+
+
+class FungMaterial(FiberMaterial):
+
+
+    def __init__(self, mesh, inverse=False, **params):
+        params_cp = dict(params)
+        fiber_dict = params_cp.pop('fibers')
+
+        self._fiber_directions = self.default_fiber_directions()
+        FiberMaterial.__init__(self, fiber_dict, mesh)
+
+        FiberMaterial.set_material_name(self, 'Fung material')
+        FiberMaterial.set_inverse(self, inverse)
+        FiberMaterial.set_incompressible(self, params['incompressible'])
+
+        self._parameters = self.default_parameters()
+        self._parameters.update(params_cp)
+
+        # Check if material is isotropic to change the name
+        d = list(self._parameters['d'])
+        d_iso = [1.0]*3 + [0.0]*3 + [0.5]*3
+        if d == d_iso:
+            FiberMaterial.set_material_class(self, 'isotropic')
+
+
+    @staticmethod
+    def default_parameters():
+        param = {'C': 2.0,
+                 'd': [1.0]*3 + [0.0]*3 + [0.5]*3,
+                 'mu': None,
+                 'kappa': 1000.0,
+                 'la': None,
+                 'inv_la': None,
+                 'E': None,
+                 'nu': None}
+        return param
+
+
+    @staticmethod
+    def default_fiber_directions():
+        fibers = {'e1': None,
+                  'e2': None,
+                  'e3': None}
+        return fibers
+
+
+    def stress_tensor(self, F, J, p=None, formulation=None):
+        """
+        UFL form of the stress tensor.
+
+        """
+
+        if self._inverse:
+            stress = self._inverse_stress_tensor(F, J, p, formulation)
+        else:
+            stress = self._forward_stress_tensor(F, J, p, formulation)
+
+        return stress
+
+
+    def _forward_stress_tensor(self, F, J, p=None, formulation=None):
+        """
+
+
+        """
+
+        CC = self._parameters['C']
+        dd = self._parameters['d']
+        kappa = self._parameters['kappa']
+        dim = ufl.domain.find_geometric_dimension(F)
+        I = dlf.Identity(dim)
+        C = F.T*F
+        Finv = dlf.inv(F)
+        Jm2d = pow(J, -float(2)/dim)
+        E = dlf.Constant(0.5)*(Jm2d*C - I)
+
+        e1 = self._fiber_directions['e1']
+        e2 = self._fiber_directions['e2']
+        if (e1 is None) or (e2 is None):
+            if dim == 2:
+                e1 = dlf.Constant([1.0, 0.0])
+                e2 = dlf.Constant([0.0, 1.0])
+                e3 = dlf.Constant([0.0, 0.0])
+            elif dim == 3:
+                e1 = dlf.Constant([1.0, 0.0, 0.0])
+                e2 = dlf.Constant([0.0, 1.0, 0.0])
+                e3 = dlf.Constant([0.0, 0.0, 1.0])
+        else:
+            if dim == 2:
+                e3 = dlf.Constant([0.0, 0.0])
+            elif dim == 3:
+                e3 = dlf.cross(e1, e2)
+
+        E11,E12,E13 = dlf.inner(e1, E*e1), dlf.inner(e1, E*e2), dlf.inner(e1, E*e3)
+        E22,E23 = dlf.inner(e2, E*e2), dlf.inner(e2, E*e3)
+        E33 = dlf.inner(e3, E*e3)
+
+        Q = dd[0]*E11**2 + dd[1]*E22**2 + dd[2]*E33**2 \
+            + 2.0*dd[3]*E11*E22 + 2.0*dd[4]*E22*E33 + 2.0*dd[5]*E11*E33 \
+            + dd[6]*E12**2 + dd[7]*E23**2 + dd[8]*E13**2
+        S_ = CC*dlf.exp(Q) \
+             *((dd[0]*E11 + dd[3]*E22 + dd[5]*E33)*dlf.outer(e1, e1) \
+               + (dd[3]*E11 + dd[1]*E22 + dd[4]*E33)*dlf.outer(e2, e2) \
+               + (dd[5]*E11 + dd[4]*E22 + dd[2]*E33)*dlf.outer(e3, e3) \
+               + dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
+               + dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
+               + dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
+        FS_isc = Jm2d*F*S_ - 1./dim*Jm2d*dlf.tr(C*S_)*Finv.T
+
+        # incompressibility
+        if self._incompressible:
+            FS_vol = -J*p*Finv.T
+        else:
+            FS_vol = J*2.*kappa*(J-1./J)*Finv.T
+
+        return FS_vol + FS_isc
+
+
+    def _inverse_stress_tensor(self, f, j, p=None, formulation=None):
+        """
+
+
+        """
+
+        CC = self._parameters['C']
+        dd = self._parameters['d']
+        kappa = self._parameters['kappa']
+        dim = ufl.domain.find_geometric_dimension(f)
+        I = dlf.Identity(dim)
+        finv = dlf.inv(f)
+        b = f*f.T
+        binv = dlf.inv(b)
+        jm2d = pow(j, 2.0/dim)
+        E = dlf.Constant(0.5)*(jm2d*binv - I)
+
+        e1 = self._fiber_directions['e1']
+        e2 = self._fiber_directions['e2']
+        if (e1 is None) or (e2 is None):
+            if dim == 2:
+                e1 = dlf.Constant([1.0, 0.0])
+                e2 = dlf.Constant([0.0, 1.0])
+                e3 = dlf.Constant([0.0, 0.0])
+            elif dim == 3:
+                e1 = dlf.Constant([1.0, 0.0, 0.0])
+                e2 = dlf.Constant([0.0, 1.0, 0.0])
+                e3 = dlf.Constant([0.0, 0.0, 1.0])
+        else:
+            if dim == 2:
+                e3 = dlf.Constant([0.0, 0.0])
+            elif dim == 3:
+                e3 = dlf.cross(e1, e2)
+
+        E11,E12,E13 = dlf.inner(e1, E*e1), dlf.inner(e1, E*e2), dlf.inner(e1, E*e3)
+        E22,E23 = dlf.inner(e2, E*e2), dlf.inner(e2, E*e3)
+        E33 = dlf.inner(e3, E*e3)
+
+        Q = dd[0]*E11**2 + dd[1]*E22**2 + dd[2]*E33**2 \
+            + 2.0*dd[3]*E11*E22 + 2.0*dd[4]*E22*E33 + 2.0*dd[5]*E11*E33 \
+            + dd[6]*E12**2 + dd[7]*E23**2 + dd[8]*E13**2
+        S_ = CC*dlf.exp(Q) \
+             *((dd[0]*E11 + dd[3]*E22 + dd[5]*E33)*dlf.outer(e1, e1) \
+               + (dd[3]*E11 + dd[1]*E22 + dd[4]*E33)*dlf.outer(e2, e2) \
+               + (dd[5]*E11 + dd[4]*E22 + dd[2]*E33)*dlf.outer(e3, e3) \
+               + dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
+               + dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
+               + dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
+        T_iso = j**(-5.0/dim)*finv*S_*finv.T \
+                - (1.0/dim)*dlf.inner(S_, binv)*I
+
+        # Incompressibility
+        if self._incompressible:
+            T_vol = -p*I
+        else:
+            T_vol = 2.0*kappa*(1.0/j - j)*I
+
+        return T_vol + T_iso
+
+
 class GuccioneMaterial(ElasticMaterial):
 
 
@@ -917,8 +1192,6 @@ class GuccioneMaterial(ElasticMaterial):
         kappa = dlf.Constant(params['kappa'], name='kappa')
         CC = dlf.Constant(params['C'], name='C')
         I = dlf.Identity(dim)
-        # F = I + dlf.grad(u)
-        # J = dlf.det(F)
         Jm2d = pow(J, -float(2)/dim)
         C = F.T*F
         E_ = 0.5*(Jm2d*C - I)

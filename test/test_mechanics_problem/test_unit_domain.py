@@ -18,7 +18,8 @@ parser.add_argument('-r', '--refinement',
 parser.add_argument('-m', '--material',
                     help='constitutive relation',
                     default='lin_elastic',
-                    choices=['lin_elastic', 'neo_hookean'])
+                    choices=['lin_elastic', 'neo_hookean',
+                             'guccione', 'fung'])
 parser.add_argument('-inv', '--inverse',
                     help='activate inverse elasticity',
                     action='store_true')
@@ -99,7 +100,7 @@ inv_la = (1. + nu)*(1. - 2.*nu)/(E*nu)
 mu = E/(2.*(1. + nu)) # 2nd Lame parameter
 
 # Traction on the Neumann boundary region
-trac = dlf.Constant([1.0] + [0.0]*(args.dim-1))
+trac = dlf.Constant([10.0] + [0.0]*(args.dim-1))
 
 # Region IDs
 ALL_ELSE = 0
@@ -111,47 +112,64 @@ if args.material == 'lin_elastic':
 else:
     domain = 'lagrangian'
 
+# Material subdictionary
+material_dict = {'const_eqn': args.material,
+                 'type': 'elastic',
+                 'incompressible': args.incompressible,
+                 'density': 10.0}
+
+# Isotropic parameters
+if args.material == 'fung':
+    material_dict['d'] = [10.0]*3 + [0.0]*3 + [5.0]*3
+elif args.material == 'guccione':
+    material_dict['bt'] = 1.0
+    material_dict['bf'] = 1.0
+    material_dict['bfs'] = 1.0
+
+if args.material in ['fung', 'guccione']:
+    from numpy import sqrt
+    material_dict['C'] = 20.0
+    material_dict['kappa'] = 1e4
+    if args.dim == 2:
+        e1 = dlf.Constant([1.0/sqrt(2.0)]*2)
+        e2 = dlf.Constant([1.0/sqrt(2.0), -1.0/sqrt(2.0)])
+    else:
+        e1 = dlf.Constant([1.0/sqrt(2.0)]*2 + [0.0])
+        e2 = dlf.Constant([1.0/sqrt(2.0), -1.0/sqrt(2.0), 0.0])
+    material_dict['fibers'] = {'fiber_files': [e1, e2],
+                               'fiber_names': ['e1', 'e2'],
+                               'element': None}
+else:
+    material_dict.update({'inv_la': inv_la, 'mu': mu})
+
+# Mesh subdictionary
+mesh_dict = {'mesh_file': mesh_file,
+             'mesh_function': mesh_function,
+             'element': element_type}
+
+# Formulation subdictionary
+formulation_dict = {'time': {'unsteady': False},
+                    'domain': domain,
+                    'inverse': args.inverse,
+                    'body_force': dlf.Constant([0.0]*args.dim),
+                    'bcs': {
+                        'dirichlet':
+                        {
+                            'displacement': [dlf.Constant([0.0]*args.dim)],
+                            'regions': [CLIP],
+                            },
+                        'neumann':
+                        {
+                            'regions': [TRACTION],
+                            'types': ['cauchy'],
+                            'values': [trac]
+                            }
+                    }}
+
 # Problem configuration dictionary
-config = {'material' :
-          {
-              'const_eqn' : args.material,
-              'type' : 'elastic',
-              'incompressible' : args.incompressible,
-              'density' : 10.0,
-              'inv_la': inv_la,
-              'mu' : mu,
-              },
-          'mesh' :
-          {
-              'mesh_file' : mesh_file,
-              'mesh_function' : mesh_function,
-              'element' : element_type
-              },
-          'formulation' :
-          {
-              'time' :
-              {
-                  'unsteady' : False,
-                  },
-              'domain' : domain,
-              'inverse' : args.inverse,
-              'body_force' : dlf.Constant((0.,)*args.dim),
-              'bcs' :
-              {
-                  'dirichlet' :
-                  {
-                      'displacement' : [dlf.Constant([0.]*args.dim)],
-                      'regions' : [CLIP],
-                      },
-                  'neumann' :
-                  {
-                      'regions' : [TRACTION],
-                      'types' : ['cauchy'],
-                      'values' : [trac]
-                      }
-                  }
-              }
-          }
+config = {'material': material_dict,
+          'mesh': mesh_dict,
+          'formulation': formulation_dict}
 
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem)

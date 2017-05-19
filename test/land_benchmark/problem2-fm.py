@@ -10,7 +10,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
                     default='guccione',
-                    choices=['linear','neo-hooke','aniso','guccione'])
+                    choices=['linear', 'neo_hookean',
+                             'aniso', 'guccione', 'fung'])
 parser.add_argument("--output_dir",
                     help="output directory",
                     default='problem_2')
@@ -102,12 +103,16 @@ config = {
         'type': 'elastic',
         'incompressible': args.incompressible,
         'density': 0.0,
-        'nu': nu,
+        # 'nu': nu,
+        'kappa': kappa,
         'mu': mu,
         'C': C,
-        'bf': bf,
-        'bt': bt,
-        'bfs': bfs
+        # 'bf': bf,
+        # 'bt': bt,
+        # 'bfs': bfs
+        'd': [0.0499, 1.0672, 0.4775,
+              0.0042, 0.0903, 0.585,
+              0.0, 0.0, 0.0],
         },
     'mesh': {
         'mesh_file': args.meshname,
