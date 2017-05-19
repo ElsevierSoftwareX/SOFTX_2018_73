@@ -290,6 +290,8 @@ class MechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.LinearMaterial
         elif self.config['material']['const_eqn'] == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'fung':
+            mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
         else:
@@ -787,8 +789,8 @@ class MechanicsProblem(BaseMechanicsProblem):
         else:
             b_vol = self._material.incompressibilityCondition(self.velocity)
 
-        inv_la = self._material._parameters['inv_la']
-        self.f3 = self.test_scalar*(b_vol - inv_la*self.pressure)*dlf.dx
+        kappa = self._material._parameters['kappa']
+        self.f3 = self.test_scalar*(kappa*b_vol - self.pressure)*dlf.dx
 
         return None
 
