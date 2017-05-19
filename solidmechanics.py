@@ -200,6 +200,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.LinearMaterial
         elif self.config['material']['const_eqn'] == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'fung':
+            mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
         else:
@@ -438,9 +440,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if self.config['material']['incompressible']:
             q = self.test_scalar
-            inv_la = self._material._parameters['inv_la']
+            # inv_la = self._material._parameters['inv_la']
+            kappa = self._material._parameters['kappa']
             bvol = self._material.incompressibilityCondition(self.ufl_displacement)
-            self.G2 = q*(bvol - inv_la*self.ufl_pressure)*dlf.dx
+            self.G2 = q*(kappa*bvol - self.ufl_pressure)*dlf.dx
         else:
             self.G2 = 0
         self.G = self.G1 + self.G2
