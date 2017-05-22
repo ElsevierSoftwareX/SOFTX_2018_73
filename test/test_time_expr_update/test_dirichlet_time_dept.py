@@ -1,9 +1,9 @@
 import numpy as np
 import dolfin as dlf
-import fenicsmechanics_dev.mechanicsproblem as mprob
+import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file = '../meshfiles/unit_domain-mesh-2x2.xml.gz'
-mesh_function = '../meshfiles/unit_domain-mesh_function-2x2.xml.gz'
+mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
+mesh_function = '../meshfiles/unit_domain/unit_domain-mesh_function-2x2.xml.gz'
 
 # Region IDs
 ALL_ELSE = 0
@@ -16,8 +16,8 @@ disp_trac = dlf.Expression(['1.0 + 2.0*t', '3.0*t'],
                            t=0.0, degree=2)
 
 # Elasticity parameters
-la = dlf.Constant(2.0) # 1st Lame parameter
-mu = dlf.Constant(0.5) # 2nd Lame parameter
+la = 2.0 # 1st Lame parameter
+mu = 0.5 # 2nd Lame parameter
 
 # Problem configuration dictionary
 config = {'material' : {
@@ -25,7 +25,7 @@ config = {'material' : {
               'const_eqn' : 'lin_elastic',
               'incompressible' : False,
               'density' : dlf.Constant(10.0),
-              'lambda' : la,
+              'la' : la,
               'mu' : mu,
               'kappa' : None
               },
@@ -35,17 +35,21 @@ config = {'material' : {
               'element' : 'p2'
               },
           'formulation' : {
-              'unsteady' : False,
+              'time': {'unsteady' : False},
               'domain' : 'lagrangian',
               'inverse' : False,
               'body_force' : dlf.Constant([0.0]*2),
               'bcs' : {
-                  'displacement' : {
-                      'dirichlet' : {
-                          'regions' : [CLIP, TRACTION], # MORE REGIONS THAN ACTUALLY DEFINED
-                          'values' : [disp_clip, disp_trac]
-                          }
+                  'dirichlet': {
+                      'displacement': [disp_clip, disp_trac],
+                      'regions': [CLIP, TRACTION] # MORE REGIONS THAN ACTUALLY DEFINED
                       }
+                  # 'displacement' : {
+                  #     'dirichlet' : {
+                  #         'regions' :
+                  #         'values' :
+                  #         }
+                  #     }
                   }
               }
           }
@@ -69,7 +73,7 @@ while t <= tf:
     t += dt
 
     problem.update_time(t)
-    problem.config['formulation']['bcs']['dirichlet']['values'][1].eval(vals, zero)
+    problem.config['formulation']['bcs']['dirichlet']['displacement'][1].eval(vals, zero)
 
     expected = v1 + t*v2
 
@@ -78,4 +82,3 @@ while t <= tf:
     print 'vals     = ', vals
     print 'expected = ', expected
     print '\n'
-    print 'vector   = ', problem._tractionWorkVector

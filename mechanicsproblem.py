@@ -740,10 +740,10 @@ class MechanicsProblem(BaseMechanicsProblem):
             self.f1 = 0
             return None
 
-        alpha = self.config['formulation']['time']['alpha']
+        theta = self.config['formulation']['time']['theta']
         dt = self.config['formulation']['time']['dt']
         f1 = self.displacement - self.displacement0 \
-             - dt*(alpha*self.velocity + (1.0 - alpha)*self.velocity0)
+             - dt*(theta*self.velocity + (1.0 - theta)*self.velocity0)
 
         self.f1 = dlf.dot(self.test_vector, f1)*dlf.dx
 
@@ -759,13 +759,13 @@ class MechanicsProblem(BaseMechanicsProblem):
         if hasattr(self, 'f2'):
             return None
 
-        alpha = self.config['formulation']['time']['alpha']
+        theta = self.config['formulation']['time']['theta']
         dt = self.config['formulation']['time']['dt']
 
         self.f2 = self.ufl_local_inertia - self.ufl_local_inertia0
-        self.f2 += dt*alpha*(self.ufl_convec_accel + self.ufl_stress_work \
+        self.f2 += dt*theta*(self.ufl_convec_accel + self.ufl_stress_work \
                              - self.ufl_neumann_bcs - self.ufl_body_force)
-        self.f2 += dt*(1.0 - alpha)*(self.ufl_convec_accel0 + self.ufl_stress_work0 \
+        self.f2 += dt*(1.0 - theta)*(self.ufl_convec_accel0 + self.ufl_stress_work0 \
                                      - self.ufl_neumann_bcs0 - self.ufl_body_force0)
 
         return None

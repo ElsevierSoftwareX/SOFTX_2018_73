@@ -440,7 +440,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if self.config['material']['incompressible']:
             q = self.test_scalar
-            # inv_la = self._material._parameters['inv_la']
             kappa = self._material._parameters['kappa']
             bvol = self._material.incompressibilityCondition(self.ufl_displacement)
             self.G2 = q*(kappa*bvol - self.ufl_pressure)*dlf.dx

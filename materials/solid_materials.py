@@ -913,7 +913,7 @@ class FungMaterial(FiberMaterial):
 
         # Check if material is isotropic to change the name
         d = list(self._parameters['d'])
-        d_iso = [1.0]*3 + [0.0]*3 + [0.5]*3
+        d_iso = [1.0]*3 + [0.0]*3 + [2.0]*3
         if d == d_iso:
             FiberMaterial.set_material_class(self, 'isotropic')
 
@@ -1071,59 +1071,18 @@ class FungMaterial(FiberMaterial):
         return T_vol + T_iso
 
 
-class GuccioneMaterial(ElasticMaterial):
+class GuccioneMaterial(FungMaterial):
 
 
-    def __init__(self, mesh, fiber_file, inverse=False, **params):
-        ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class(self, 'transversely isotropic')
+    def __init__(self, mesh, inverse=False, **params):
+        bt = params['bt']
+        bf = params['bf']
+        bfs = params['bfs']
+        params['d'] = [bf, bt, bt,
+                       0.0, 0.0, 0.0,
+                       2.0*bfs, 2.0*bt, 2.0*bfs]
+        FungMaterial.__init__(self, mesh, inverse=inverse, **params)
         ElasticMaterial.set_material_name(self, 'Guccione material')
-        self._parameters = self.default_parameters()
-        self._parameters.update(params)
-        convert_elastic_moduli(self._parameters)
-
-        bt = self._parameters['bt']
-        bf = self._parameters['bf']
-        bfs = self._parameters['bfs']
-        if 1.0 == bt == bf == bfs:
-            ElasticMaterial.set_material_class(self, 'isotropic')
-
-        ElasticMaterial.set_incompressible(self, params['incompressible'])
-
-        self._fiber_directions = self.default_fiber_directions()
-        fibers = self.define_fibers(fiber_file, mesh)
-        self._fiber_directions.update(fibers)
-
-
-    @staticmethod
-    def default_parameters():
-        param = {'C': 2.0,
-                 'bf': 8.0,
-                 'bt': 2.0,
-                 'bfs': 4.0,
-                 'mu': None,
-                 'kappa': 1000.0,
-                 'la': None,
-                 'inv_la': None,
-                 'E': None,
-                 'nu': None}
-        return param
-
-
-    @staticmethod
-    def default_fiber_directions():
-        fibers = {'e1' : None,
-                  'e2' : None,
-                  'e3' : None}
-        return fibers
-
-
-    @staticmethod
-    def define_fibers(fname, mesh):
-        e1 = define_fiber_dir(fname, ['fib1', 'fib2', 'fib3'], mesh)
-        e2 = define_fiber_dir(fname, ['she1', 'she2', 'she3'], mesh)
-        return {'e1': e1, 'e2': e2}
-
 
     def strain_energy(self, u, p=None):
         """
@@ -1181,62 +1140,6 @@ class GuccioneMaterial(ElasticMaterial):
             Winc = kappa*(J**2 - 1 - 2*dlf.ln(J))
 
         return Wpassive + Winc
-
-
-    def stress_tensor(self, F, J, p=None):
-        """
-        UFL form of the stress tensor.
-        """
-        dim = ufl.domain.find_geometric_dimension(F)
-        params = self._parameters
-        kappa = dlf.Constant(params['kappa'], name='kappa')
-        CC = dlf.Constant(params['C'], name='C')
-        I = dlf.Identity(dim)
-        Jm2d = pow(J, -float(2)/dim)
-        C = F.T*F
-        E_ = 0.5*(Jm2d*C - I)
-        Finv = dlf.inv(F)
-
-        # fully anisotropic
-        bt = dlf.Constant(params['bt'], name='bt')
-        bf = dlf.Constant(params['bf'], name='bf')
-        bfs = dlf.Constant(params['bfs'], name='bfs')
-
-        e1 = self._fiber_directions['e1']
-        e2 = self._fiber_directions['e2']
-        if e1 == None or e2 == None:
-            if dim == 2:
-                e1 = dlf.Constant((1.0,0.0))
-                e2 = dlf.Constant((0.0,1.0))
-                e3 = dlf.Constant((0.0,0.0))
-            elif dim == 3:
-                e1 = dlf.Constant((1.0,0.0,0.0))
-                e2 = dlf.Constant((0.0,1.0,0.0))
-                e3 = dlf.Constant((0.0,0.0,1.0))
-        else:
-            e3 = dlf.cross(e1,e2)
-
-        E11,E12,E13 = dlf.inner(E_*e1,e1), dlf.inner(E_*e1,e2), dlf.inner(E_*e1,e3)
-        E21,E22,E23 = dlf.inner(E_*e2,e1), dlf.inner(E_*e2,e2), dlf.inner(E_*e2,e3)
-        E31,E32,E33 = dlf.inner(E_*e3,e1), dlf.inner(E_*e3,e2), dlf.inner(E_*e3,e3)
-
-        Q = bf*E11**2 + bt*(E22**2 + E33**2 + E23**2 + E32**2) \
-          + bfs*(E12**2 + E21**2 + E13**2 + E31**2)
-        S_ = CC*dlf.exp(Q) \
-            *(bf*E11*dlf.outer(e1,e1) + bt*( E22*dlf.outer(e2,e2) \
-            + E33*dlf.outer(e3,e3) + E23*dlf.outer(e2,e3) \
-            + E32*dlf.outer(e3,e2)) + bfs*(E12*dlf.outer(e1,e2) \
-            + E21*dlf.outer(e2,e1) + E13*dlf.outer(e1,e3) \
-            + E31*dlf.outer(e3,e1)))
-        FS_isc = Jm2d*F*S_ - 1./dim*Jm2d*dlf.tr(C*S_)*Finv.T
-
-        # incompressibility
-        if self._incompressible:
-            FS_vol = J*p*Finv.T
-        else:
-            FS_vol = J*2.*kappa*(J-1./J)*Finv.T
-
-        return FS_vol + FS_isc
 
 
 def convert_elastic_moduli(param, tol=1e8):
