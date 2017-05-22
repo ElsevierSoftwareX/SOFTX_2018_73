@@ -1,16 +1,16 @@
 import numpy as np
 import dolfin as dlf
-import fenicsmechanics_dev.mechanicsproblem as mprob
+import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file = '../meshfiles/unit_domain-mesh-2x2.xml.gz'
-mesh_function = '../meshfiles/unit_domain-mesh_function-2x2.xml.gz'
+mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
+mesh_function = '../meshfiles/unit_domain/unit_domain-mesh_function-2x2.xml.gz'
 
 body_force = dlf.Expression(['log(1.0+t)', 'exp(t)'],
                             t=0.0, degree=2)
 
 # Elasticity parameters
-la = dlf.Constant(2.0) # 1st Lame parameter
-mu = dlf.Constant(0.5) # 2nd Lame parameter
+la = 2.0 # 1st Lame parameter
+mu = 0.5 # 2nd Lame parameter
 
 # Problem configuration dictionary
 config = {'material' : {
@@ -18,7 +18,7 @@ config = {'material' : {
               'const_eqn' : 'lin_elastic',
               'incompressible' : False,
               'density' : dlf.Constant(10.0),
-              'lambda' : la,
+              'la' : la,
               'mu' : mu,
               'kappa' : None
               },
@@ -28,7 +28,8 @@ config = {'material' : {
               'element' : 'p2'
               },
           'formulation' : {
-              'unsteady' : False,
+              'time': {'unsteady': False},
+              # 'unsteady' : False,
               'domain' : 'lagrangian',
               'inverse' : False,
               'body_force' : body_force,
@@ -64,4 +65,3 @@ while t <= tf:
     print 'vals      = ', vals
     print 'expected  = ', expected
     print '\n'
-    print 'vector = \n', problem._bodyForceWorkVector.array()

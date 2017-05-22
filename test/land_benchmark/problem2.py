@@ -12,7 +12,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
                     default='guccione',
-                    choices=['linear','neo-hooke','aniso','guccione'])
+                    choices=['linear','neo-hooke',
+                             'guccione','fung'])
 parser.add_argument("--output_dir",
                     help="output directory",
                     default='problem_2')
@@ -134,9 +135,6 @@ cf.f3 = fib3
 cs.f1 = she1
 cs.f2 = she2
 cs.f3 = she3
-e1=df.as_vector((cf[0],cf[1],cf[2]))
-e2=df.as_vector((cs[0],cs[1],cs[2]))
-
 
 mesh_dim = mesh.topology().dim()
 
@@ -206,33 +204,39 @@ if (args.material == "neo-hooke"):
 elif (args.material == "guccione"):
     mat = materials.solid_materials.GuccioneMaterial
     params = mat.default_parameters()
+    params['incompressible'] = args.incompressible
     params['C']     = 10.0
     params['bf']    = 1.0
     params['bt']    = 1.0
     params['bfs']   = 1.0
     params['kappa'] = args.bulk_modulus
-    fibers          = mat.default_fiber_directions()
-    fibers['e1']    = e1
-    fibers['e2']    = e2
-    mat = mat(parameters=params, fibers=fibers,
-              incompressible=args.incompressible)
-else:
-    raise NotImplementedError("Other material types not implemented")
-
+    params['fibers'] = {'fiber_files': [cf, cs],
+                        'fiber_names': ['e1', 'e2'],
+                        'element': None}
+    mat = mat(mesh, inverse=args.inverse, **params)
+else: # fung
+    mat = materials.solid_materials.FungMaterial
+    params = mat.default_parameters()
+    params['incompressible'] = args.incompressible
+    params['C'] = 10.0
+    params['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
+    params['kappa'] = args.bulk_modulus
+    params['fibers'] = {'fiber_files': [cf, cs],
+                        'fiber_names': ['e1', 'e2'],
+                        'element': None}
+    mat = mat(mesh, inverse=args.inverse, **params)
 
 mat.set_active(False)
-mat.set_inverse(args.inverse)
-mat.set_incompressible(args.incompressible)
 mat.print_info()
 
-strain_energy_formulation = True
+strain_energy_formulation = False
 
 if strain_energy_formulation:
     #strain energy formulation
     G  = df.derivative(mat.strain_energy(u,p) * df.dx, state, stest)
 else:
     #stress formulation
-    G = df.inner(df.grad(v), mat.stress_tensor(u, p)) * df.dx
+    G = df.inner(df.grad(v), mat.stress_tensor(F, J, p)) * df.dx
 
 if args.incompressible:
     B  = mat.incompressibilityCondition(u)

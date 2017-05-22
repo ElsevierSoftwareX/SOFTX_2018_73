@@ -80,13 +80,6 @@ HNBC  = 0  # homogeneous Neumann BC
 HDBC  = 10  # homogeneous Dirichlet BC
 INBC  = 20  # inhomogeneous Neumann BC
 
-# Elasticity parameters
-nu = args.poissons_ratio
-mu = args.shear_modulus
-kappa = args.bulk_modulus
-bf = bt = bfs = 1.0
-C = 10.0
-
 # Time parameters
 t0, tf = tspan = [0., 1.]
 dt = (tf - t0)/args.loading_steps
@@ -97,54 +90,61 @@ save_freq = 1
 
 pressure = dlf.Expression('%f*t' % args.pressure, degree=2, t=t0)
 
-config = {
-    'material': {
-        'const_eqn': args.material,
-        'type': 'elastic',
-        'incompressible': args.incompressible,
-        'density': 0.0,
-        # 'nu': nu,
-        'kappa': kappa,
-        'mu': mu,
-        'C': C,
-        # 'bf': bf,
-        # 'bt': bt,
-        # 'bfs': bfs
-        'd': [0.0499, 1.0672, 0.4775,
-              0.0042, 0.0903, 0.585,
-              0.0, 0.0, 0.0],
-        },
-    'mesh': {
-        'mesh_file': args.meshname,
-        'mesh_function': args.meshname,
-        'fiber_file': args.meshname,
-        'element': element_type
-        },
-    'formulation': {
-        'time': {
-            'unsteady': True,
-            'theta': theta,
-            'beta': beta,
-            'gamma': gamma,
-            'dt': dt,
-            'interval': tspan
-        },
-        'domain': 'lagrangian',
-        'inverse': args.inverse,
-        'bcs': {
-            'dirichlet': {
-                'displacement': [dlf.Constant([0.]*3)],
-                'regions': [HDBC],
-                'velocity': [dlf.Constant([0.]*3)]
-                },
-            'neumann': {
-                'regions': [INBC],
-                'types': ['pressure'],
-                'values': [pressure]
-                }
-            }
-        }
-    }
+# Material subdictionary
+mat_dict = {'const_eqn': args.material,
+            'type': 'elastic',
+            'incompressible': args.incompressible,
+            'density': 0.0,
+            'kappa': args.bulk_modulus}
+if args.material in ['fung', 'guccione']:
+    if args.material == 'fung':
+        mat_dict['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
+    else:
+        mat_dict['bt'] = 1.0
+        mat_dict['bf'] = 1.0
+        mat_dict['bfs'] = 1.0
+    mat_dict['C'] = 10.0
+    mat_dict['fibers'] = {'fiber_files': ['../meshfiles/ellipsoid/fibers/n1-p0.xml.gz',
+                                          '../meshfiles/ellipsoid/fibers/n2-p0.xml.gz'],
+                          'fiber_names': ['e1', 'e2'],
+                          'element': 'p0'}
+else:
+    mat_dict['nu'] = args.poissons_ratio
+    mat_dict['mu'] = args.shear_modulus
+
+# Mesh subdictionary
+mesh_dict = {'mesh_file': args.meshname,
+             'mesh_function': args.meshname,
+             'element': element_type}
+
+# Formulation subdictionary
+formulation_dict = {'time':
+                    {
+                        'unsteady': True,
+                        'theta': theta,
+                        'beta': beta,
+                        'gamma': gamma,
+                        'dt': dt,
+                        'interval': tspan
+                    },
+                    'domain': 'lagrangian',
+                    'inverse': args.inverse,
+                    'bcs':{
+                        'dirichlet': {
+                            'displacement': [dlf.Constant([0.]*3)],
+                            'regions': [HDBC],
+                            'velocity': [dlf.Constant([0.]*3)]
+                        },
+                        'neumann': {
+                            'regions': [INBC],
+                            'types': ['pressure'],
+                            'values': [pressure]
+                        }}}
+
+# Overall configuration
+config = {'material': mat_dict,
+          'mesh': mesh_dict,
+          'formulation': formulation_dict}
 
 result_file = args.output_dir + '/ellipsoid-fm.pvd'
 problem = fm.SolidMechanicsProblem(config)

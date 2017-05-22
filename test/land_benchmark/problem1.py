@@ -12,7 +12,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--material",
                     help="constitutive relation",
                     default='guccione',
-                    choices=['linear','neo-hooke','aniso','guccione'])
+                    choices=['linear','neo-hooke',
+                             'guccione','fung'])
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -158,9 +159,6 @@ cf.f3 = fib3
 cs.f1 = she1
 cs.f2 = she2
 cs.f3 = she3
-e1=df.as_vector((cf[0],cf[1],cf[2]))
-e2=df.as_vector((cs[0],cs[1],cs[2]))
-
 
 mesh_dim = mesh.topology().dim()
 
@@ -205,13 +203,13 @@ pressure = df.Function (Vscal)
 normal = df.FacetNormal(mesh)
 
 # Elasticity parameters
-nu     = df.Constant(args.poissons_ratio)           #Poisson's ratio nu
-mu     = df.Constant(args.shear_modulus)            #shear modulus mu
-inv_la = df.Constant((1.-2.*nu)/(2.*mu*nu))         #reciprocal 2nd Lame
-E      = df.Constant(2.*mu*(1.+nu))                 #Young's modulus E
-kappa  = df.Constant(args.bulk_modulus)  #bulk modulus kappa
+nu     = args.poissons_ratio           #Poisson's ratio nu
+mu     = args.shear_modulus            #shear modulus mu
+inv_la = (1.-2.*nu)/(2.*mu*nu)         #reciprocal 2nd Lame
+E      = 2.*mu*(1.+nu)                 #Young's modulus E
+kappa  = args.bulk_modulus  #bulk modulus kappa
 if (args.bulk_modulus < 10e6 and args.bulk_modulus > df.DOLFIN_EPS):
-    inv_kappa = df.Constant(1./args.bulk_modulus)
+    inv_kappa = 1./args.bulk_modulus
 else:
     la        = None
     inv_kappa = df.Constant(0.)
@@ -223,28 +221,39 @@ invF  = df.inv(F)
 J     = df.det(F)
 
 if (args.material == "linear"):
-    mat = materials.solid_materials.LinearMaterial
-if (args.material == "neo-hooke"):
-    mat = materials.solid_materials.NeoHookeMaterial
+    mat = materials.solid_materials.LinearMaterial(inverse=args.inverse,
+                                                   E=E, nu=nu,
+                                                   incompressible=args.incompressible)
+elif (args.material == "neo-hooke"):
+    mat = materials.solid_materials.NeoHookeMaterial(inverse=args.inverse,
+                                                     E=E, nu=nu,
+                                                     incompressible=args.incompressible)
 elif (args.material == "guccione"):
     mat = materials.solid_materials.GuccioneMaterial
     params = mat.default_parameters()
-    params['C'] = 2.0
-    params['bf'] = 8.0
-    params['bt'] = 2.0
-    params['bfs'] = 4.0
+    params['incompressible'] = args.incompressible
+    params['C']     = 10.0
+    params['bf']    = 1.0
+    params['bt']    = 1.0
+    params['bfs']   = 1.0
     params['kappa'] = args.bulk_modulus
-    fibers = mat.default_fiber_directions()
-    fibers['e1'] = e1
-    fibers['e2'] = e2
-    mat = mat(parameters=params, fibers=fibers, incompressible=args.incompressible)
-else:
-    raise NotImplementedError("Other material types not implemented")
-
+    params['fibers'] = {'fiber_files': [cf, cs],
+                        'fiber_names': ['e1', 'e2'],
+                        'element': None}
+    mat = mat(mesh, inverse=args.inverse, **params)
+else: # fung
+    mat = materials.solid_materials.FungMaterial
+    params = mat.default_parameters()
+    params['incompressible'] = args.incompressible
+    params['C'] = 10.0
+    params['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
+    params['kappa'] = args.bulk_modulus
+    params['fibers'] = {'fiber_files': [cf, cs],
+                        'fiber_names': ['e1', 'e2'],
+                        'element': None}
+    mat = mat(mesh, inverse=args.inverse, **params)
 
 mat.set_active(False)
-mat.set_inverse(args.inverse)
-mat.set_incompressible(args.incompressible)
 mat.print_info()
 
 strain_energy_formulation = False
@@ -254,7 +263,7 @@ if strain_energy_formulation:
     G  = df.derivative(mat.strain_energy(u,p) * df.dx, state, stest)
 else:
     #stress formulation
-    G = df.inner(df.grad(v), mat.stress_tensor(u, p)) * df.dx
+    G = df.inner(df.grad(v), mat.stress_tensor(F, J, p)) * df.dx
 
 if args.incompressible:
     B  = mat.incompressibilityCondition(u)
