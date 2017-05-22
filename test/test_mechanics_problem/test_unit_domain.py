@@ -120,11 +120,11 @@ material_dict = {'const_eqn': args.material,
 
 # Isotropic parameters
 if args.material == 'fung':
-    material_dict['d'] = [10.0]*3 + [0.0]*3 + [5.0]*3
+    material_dict['d'] = [15.0]*3 + [0.0]*3 + [10.0]*3
 elif args.material == 'guccione':
-    material_dict['bt'] = 1.0
+    material_dict['bt'] = 10.0
     material_dict['bf'] = 1.0
-    material_dict['bfs'] = 1.0
+    material_dict['bfs'] = 5.0
 
 if args.material in ['fung', 'guccione']:
     from numpy import sqrt

@@ -252,6 +252,9 @@ class BaseMechanicsProblem(object):
 
         """
 
+        if 'dirichlet' not in config['formulation']['bcs']:
+            config['formulation']['bcs']['dirichlet'] = None
+
         if config['formulation']['bcs']['dirichlet'] is None:
             print ('*** No Dirichlet BCs were specified. ***')
             return None

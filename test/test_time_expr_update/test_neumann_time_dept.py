@@ -1,9 +1,9 @@
 import numpy as np
 import dolfin as dlf
-import fenicsmechanics_dev.mechanicsproblem as mprob
+import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file = '../meshfiles/unit_domain-mesh-2x2.xml.gz'
-mesh_function = '../meshfiles/unit_domain-mesh_function-2x2.xml.gz'
+mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
+mesh_function = '../meshfiles/unit_domain/unit_domain-mesh_function-2x2.xml.gz'
 
 # Region IDs
 ALL_ELSE = 0
@@ -20,18 +20,17 @@ press_trac = dlf.Expression('10.0*cos(t)',
 body_force = dlf.Constant([0.0]*2)
 
 # Elasticity parameters
-la = dlf.Constant(2.0) # 1st Lame parameter
-mu = dlf.Constant(0.5) # 2nd Lame parameter
+la = 2.0 # 1st Lame parameter
+mu = 0.5 # 2nd Lame parameter
 
 # Problem configuration dictionary
 config = {'material' : {
               'type' : 'elastic',
               'const_eqn' : 'lin_elastic',
               'incompressible' : False,
-              'density' : dlf.Constant(10.0),
-              'lambda' : la,
+              'density' : 10.0,
+              'la' : la,
               'mu' : mu,
-              'kappa' : None
               },
           'mesh' : {
               'mesh_file' : mesh_file,
@@ -39,7 +38,7 @@ config = {'material' : {
               'element' : 'p2'
               },
           'formulation' : {
-              'unsteady' : False,
+              'time': {'unsteady' : False},
               'domain' : 'lagrangian',
               'inverse' : False,
               'body_force' : body_force,
@@ -81,6 +80,5 @@ while t <= tf:
     print 'pres_val  = ', pres_val
     print 'exp_pres  = ', exp_pres
     print '\n'
-    print 'vector    = \n', problem._tractionWorkVector.array()
 
     t += dt
