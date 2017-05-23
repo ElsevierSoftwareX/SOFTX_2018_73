@@ -25,7 +25,7 @@ class MechanicsSolver(object):
 
     def solve(self, nonlinear_tol=1e-10, iter_tol=1e-8, maxNonlinIters=50,
               maxLinIters=200, show=0, print_norm=True, fname_disp=None,
-              fname_vel=None, save_freq=1, lin_solver='mumps'):
+              fname_vel=None, fname_pressure=None, save_freq=1, lin_solver='mumps'):
         """
 
 
@@ -36,25 +36,22 @@ class MechanicsSolver(object):
                             maxNonlinIters=maxNonlinIters,
                             maxLinIters=maxLinIters, show=show,
                             print_norm=print_norm, fname_disp=fname_disp,
-                            fname_vel=fname_vel, save_freq=save_freq)
+                            fname_vel=fname_vel, fname_pressure=fname_pressure,
+                            save_freq=save_freq)
         else:
             lhs, rhs = self.ufl_lhs_rhs()
             bcs = self._mp.dirichlet_bcs.values()
             if len(bcs) == 1:
                 bcs = bcs[0]
 
-            if fname_disp:
-                fout = dlf.File(fname_disp)
-                func_out = self._mp.displacement
-            else:
-                fout = None
-
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
                                  iter_tol=iter_tol, maxNonlinIters=maxNonlinIters,
                                  maxLinIters=maxLinIters, show=show,
                                  print_norm=print_norm)
-            if fout:
-                fout << func_out
+            if fname_disp:
+                dlf.File(fname_disp, 'compressed') << self._mp.displacement
+            if fname_pressure:
+                dlf.File(fname_pressure, 'compressed') << self._mp.pressure
 
         return None
 
@@ -62,7 +59,7 @@ class MechanicsSolver(object):
     def time_solve(self, nonlinear_tol=1e-10, iter_tol=1e-8,
                    maxNonlinIters=50, maxLinIters=200, show=0,
                    print_norm=True, fname_disp=None, fname_vel=None,
-                   save_freq=1):
+                   fname_pressure=None, save_freq=1):
         """
 
 
@@ -77,6 +74,8 @@ class MechanicsSolver(object):
             file_disp = dlf.File(fname_disp, 'compressed')
         if fname_vel:
             file_vel = dlf.File(fname_vel, 'compressed')
+        if fname_pressure:
+            file_pressure = dlf.File(fname_pressure, 'compressed')
 
         lhs, rhs = self.ufl_lhs_rhs()
 
@@ -93,11 +92,15 @@ class MechanicsSolver(object):
                 if fname_disp:
                     file_disp << (self._mp.displacement, t)
                     if not rank:
-                        print ('* Displacement saved *')
+                        print('* Displacement saved *')
                 if fname_vel:
                     file_vel << (self._mp.velocity, t)
                     if not rank:
-                        print ('* Velocity saved *')
+                        print('* Velocity saved *')
+                if fname_pressure:
+                    file_pressure << (self._mp.pressure, t)
+                    if not rank:
+                        print('* Pressure saved *')
 
             # Set to the next time step
             t += dt
@@ -117,7 +120,8 @@ class MechanicsSolver(object):
                                  print_norm=print_norm)
 
             # Prepare for the next time step
-            self._mp.displacement0.assign(self._mp.displacement)
+            if self._mp.displacement0 != 0:
+                self._mp.displacement0.assign(self._mp.displacement)
             self._mp.velocity0.assign(self._mp.velocity)
             t0 = t
             count += 1

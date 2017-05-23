@@ -190,8 +190,8 @@ class MechanicsProblem(BaseMechanicsProblem):
         elif unsteady: # Unsteady viscous material.
             self.displacement = 0
             self.displacement0 = 0
-            self.velocity = dlf.Function(self.vectorSpace)
-            self.velocity0 = dlf.Function(self.vectorSpace)
+            self.velocity = dlf.Function(self.vectorSpace, name="v")
+            self.velocity0 = dlf.Function(self.vectorSpace, name="v0")
         elif elastic: # Steady elastic material.
             self.displacement = dlf.Function(self.vectorSpace, name="u")
             self.displacement0 = 0
@@ -200,7 +200,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         else: # Steady viscous material
             self.displacement = 0
             self.displacement0 = 0
-            self.velocity = dlf.Function(self.vectorSpace)
+            self.velocity = dlf.Function(self.vectorSpace, name="v")
             self.velocity0 = 0
 
         return None
@@ -267,6 +267,8 @@ class MechanicsProblem(BaseMechanicsProblem):
         else:
             self.deformationGradient = 0
             self.deformationGradient0 = 0
+            self.jacobian = 0
+            self.jacobian0 = 0
 
             self.velocityGradient = dlf.grad(self.velocity)
             if self.config['formulation']['time']['unsteady']:
@@ -294,12 +296,18 @@ class MechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
+        elif self.config['material']['const_eqn'] == 'newtonian':
+            mat_class = materials.fluids.NewtonianFluid
         else:
             raise NotImplementedError("Shouldn't be in here...")
 
         # Create an instance of the material class and store
         # as member data.
-        self._material = mat_class(inverse=self.config['formulation']['inverse'],
+        try:
+            inverse = self.config['formulation']['inverse']
+        except KeyError:
+            inverse = False
+        self._material = mat_class(inverse=inverse,
                                    **self.config['material'])
 
         return None
@@ -638,7 +646,9 @@ class MechanicsProblem(BaseMechanicsProblem):
                                                          self.jacobian,
                                                          self.pressure)
         else:
-            raise NotImplementedError("Shouldn't be in here...")
+            stress_tensor = self._material.stress_tensor(self.velocityGradient,
+                                                         self.pressure)
+            # raise NotImplementedError("Shouldn't be in here...")
 
         xi = self.test_vector
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
@@ -648,7 +658,9 @@ class MechanicsProblem(BaseMechanicsProblem):
                                                               self.jacobian0,
                                                               self.pressure0)
             else:
-                raise NotImplementedError("Shouldn't be in here...")
+                stress_tensor0 = self._material.stress_tensor(self.velocityGradient,
+                                                              self.pressure)
+                # raise NotImplementedError("Shouldn't be in here...")
             self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx
         else:
             self.ufl_stress_work0 = 0
@@ -667,16 +679,42 @@ class MechanicsProblem(BaseMechanicsProblem):
         if hasattr(self, 'ufl_stress_work_diff'):
             return None
 
-        # Derivative of stress term w.r.t. to displacement.
-        self.ufl_stress_work_du = dlf.derivative(self.ufl_stress_work,
-                                                 self.displacement,
-                                                 self.trial_vector)
+        if self.displacement != 0:
+            # Derivative of stress term w.r.t. to displacement.
+            self.ufl_stress_work_du = dlf.derivative(self.ufl_stress_work,
+                                                     self.displacement,
+                                                     self.trial_vector)
 
-        # Derivative of stress term w.r.t. to velocity.
+        #     # Derivative of stress term w.r.t. to velocity.
+        #     if self.velocity != 0:
+        #         self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
+        #                                                  self.velocity,
+        #                                                  self.trial_vector)
+
+        #     if self.pressure != 0:
+        #         self.ufl_stress_work_dp = dlf.derivative(self.ufl_stress)
+        # else:
+        #     self.ufl_stress_work_du = 0
+        #     self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
+        #                                              self.velocity,
+        #                                              self.trial_vector)
+        #     self.ufl_stress_work_dp = dlf.derivative(self.ufl_stress_work,
+        #                                              self.pressure,
+        #                                              self.trial_scalar)
+
         if self.velocity != 0:
             self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
                                                      self.velocity,
                                                      self.trial_vector)
+        else:
+            self.ufl_stress_work_dv = 0
+
+        if self.pressure != 0:
+            self.ufl_stress_work_dp = dlf.derivative(self.ufl_stress_work,
+                                                     self.pressure,
+                                                     self.trial_scalar)
+        else:
+            self.ufl_stress_work_dp = 0
 
         return None
 
@@ -736,6 +774,10 @@ class MechanicsProblem(BaseMechanicsProblem):
         if hasattr(self, 'f1'):
             return None
 
+        if self.config['material']['type'] == 'viscous':
+            self.f1 = 0
+            return None
+
         if not self.config['formulation']['time']['unsteady']:
             self.f1 = 0
             return None
@@ -789,8 +831,11 @@ class MechanicsProblem(BaseMechanicsProblem):
         else:
             b_vol = self._material.incompressibilityCondition(self.velocity)
 
-        kappa = self._material._parameters['kappa']
-        self.f3 = self.test_scalar*(kappa*b_vol - self.pressure)*dlf.dx
+        if self.config['material']['type'] == 'elastic':
+            kappa = self._material._parameters['kappa']
+            self.f3 = self.test_scalar*(kappa*b_vol - self.pressure)*dlf.dx
+        else:
+            self.f3 = self.test_scalar*b_vol*dlf.dx
 
         return None
 
