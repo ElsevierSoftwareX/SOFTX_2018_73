@@ -3,4 +3,5 @@ from .mechanicsproblem import MechanicsProblem
 from .solidmechanics import SolidMechanicsProblem, SolidMechanicsSolver
 from .mechanicssolver import MechanicsSolver
 from .materials.solid_materials import *
+from .materials.fluids import *
 from .utils import *
