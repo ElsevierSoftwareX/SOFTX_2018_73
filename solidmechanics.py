@@ -566,22 +566,22 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
-            # Save initial condition
-            if fname_disp:
-                file_disp << (problem.displacement, t)
-                if not rank:
-                    print('* Displacement saved *')
-            if fname_press:
-                file_press << (problem.pressure, t)
-                if not rank:
-                    print('* Pressure saved *')
+            # Hack to avoid rounding errors.
+            while t < (tf - dt/10.0):
 
-            while t <= tf:
+                # Save current time step
+                if not count % save_freq:
+                    if fname_disp:
+                        file_disp << (problem.displacement, t)
+                        if not rank:
+                            print('* Displacement saved *')
+                    if fname_press:
+                        file_press << (problem.pressure, t)
+                        if not rank:
+                            print('* Pressure saved *')
 
                 # Advance the time.
-                t0 = t
                 t += dt
-                count += 1
 
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
@@ -597,16 +597,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Assign and update all vectors.
                 self.update_assign()
 
-                # Save current time step
-                if not count % save_freq:
-                    if fname_disp:
-                        file_disp << (problem.displacement, t)
-                        if not rank:
-                            print('* Displacement saved *')
-                    if fname_press:
-                        file_press << (problem.pressure, t)
-                        if not rank:
-                            print('* Pressure saved *')
+                t0 = t
+                count += 1
 
         else:
             self.step()

@@ -286,17 +286,18 @@ class MechanicsProblem(BaseMechanicsProblem):
         """
 
         # Check which class should be called.
-        if isclass(self.config['material']['const_eqn']):
+        const_eqn = self.config['material']['const_eqn']
+        if isclass(const_eqn):
             mat_class = self.config['material']['const_eqn']
-        elif self.config['material']['const_eqn'] == 'lin_elastic':
+        elif const_eqn == 'lin_elastic':
             mat_class = materials.solid_materials.LinearMaterial
-        elif self.config['material']['const_eqn'] == 'neo_hookean':
+        elif const_eqn == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
-        elif self.config['material']['const_eqn'] == 'fung':
+        elif const_eqn == 'fung':
             mat_class = materials.solid_materials.FungMaterial
-        elif self.config['material']['const_eqn'] == 'guccione':
+        elif const_eqn == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
-        elif self.config['material']['const_eqn'] == 'newtonian':
+        elif const_eqn == 'newtonian' or const_eqn == 'stokes':
             mat_class = materials.fluids.NewtonianFluid
         else:
             raise NotImplementedError("Shouldn't be in here...")
@@ -582,8 +583,9 @@ class MechanicsProblem(BaseMechanicsProblem):
         # coordinates and is not an elastic material.
         eulerian = self.config['formulation']['domain'] == 'eulerian'
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
+        stokes = self.config['material']['const_eqn'] == 'stokes'
 
-        if (not eulerian) or lin_elastic:
+        if (not eulerian) or lin_elastic or stokes:
             self.ufl_convec_accel = 0
             self.ufl_convec_accel0 = 0
             return None
@@ -616,7 +618,8 @@ class MechanicsProblem(BaseMechanicsProblem):
         # coordinates and is not an elastic material.
         eulerian = self.config['formulation']['domain'] == 'eulerian'
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
-        if (not eulerian) or lin_elastic:
+        stokes = self.config['material']['const_eqn'] == 'stokes'
+        if (not eulerian) or lin_elastic or stokes:
             self.ufl_convec_accel_dv = 0
             return None
 
