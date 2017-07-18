@@ -50,6 +50,8 @@ class MechanicsSolver(object):
                                  print_norm=print_norm)
             if fname_disp:
                 dlf.File(fname_disp, 'compressed') << self._mp.displacement
+            if fname_vel:
+                dlf.File(fname_vel, 'compressed') << self._mp.velocity
             if fname_pressure:
                 dlf.File(fname_pressure, 'compressed') << self._mp.pressure
 
