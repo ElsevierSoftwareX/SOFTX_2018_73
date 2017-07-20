@@ -502,7 +502,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
 
 
-    def __init__(self, problem):
+    def __init__(self, problem, fname_disp=None, fname_pressure=None):
 
         self._problem = problem
 
@@ -517,6 +517,17 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         if problem.config['material']['incompressible']:
             self.define_function_assigners()
+
+        # Create file objects. This keeps the counter from being reset
+        # each time the solve function is called.
+        if fname_disp is not None:
+            self._file_disp = dlf.File(fname_disp, "compressed")
+        else:
+            self._file_disp = None
+        if fname_pressure is not None:
+            self._file_pressure = dlf.File(fname_pressure, "compressed")
+        else:
+            self._file_pressure = None
 
         return None
 
@@ -545,7 +556,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         return None
 
 
-    def full_solve(self, fname_disp=None, fname_press=None, save_freq=1):
+    def full_solve(self, save_freq=1, save_initial=True):
         """
 
 
@@ -554,10 +565,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         problem = self._problem
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
-        if fname_disp:
-            file_disp = dlf.File(fname_disp, 'compressed')
-        if fname_press:
-            file_press = dlf.File(fname_press, 'compressed')
+        # if fname_disp:
+        #     file_disp = dlf.File(fname_disp, 'compressed')
+        # if fname_press:
+        #     file_press = dlf.File(fname_press, 'compressed')
 
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
@@ -566,19 +577,19 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
+            # Save initial condition
+            if save_initial:
+                if self._file_disp is not None:
+                    self._file_disp << (problem.displacement, t)
+                    if not rank:
+                        print('* Displacement saved *')
+                if self._file_pressure:
+                    self._file_pressure << (problem.pressure, t)
+                    if not rank:
+                        print('* Pressure saved *')
+
             # Hack to avoid rounding errors.
             while t < (tf - dt/10.0):
-
-                # Save current time step
-                if not count % save_freq:
-                    if fname_disp:
-                        file_disp << (problem.displacement, t)
-                        if not rank:
-                            print('* Displacement saved *')
-                    if fname_press:
-                        file_press << (problem.pressure, t)
-                        if not rank:
-                            print('* Pressure saved *')
 
                 # Advance the time.
                 t += dt
@@ -597,6 +608,17 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Assign and update all vectors.
                 self.update_assign()
 
+                # Save current time step
+                if not count % save_freq:
+                    if self._file_disp:
+                        self._file_disp << (problem.displacement, t)
+                        if not rank:
+                            print('* Displacement saved *')
+                    if self._file_press:
+                        self._file_press << (problem.pressure, t)
+                        if not rank:
+                            print('* Pressure saved *')
+
                 t0 = t
                 count += 1
 
@@ -605,10 +627,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
             self.update_assign()
 
-            if fname_disp:
-                file_disp << self._problem.displacement
-            if fname_press:
-                file_press << self._problem.pressure
+            if self._file_disp:
+                self._file_disp << self._problem.displacement
+            if self._file_press:
+                self._file_press << self._problem.pressure
 
         return None
 

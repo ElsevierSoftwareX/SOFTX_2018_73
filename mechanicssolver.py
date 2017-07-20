@@ -15,17 +15,33 @@ class MechanicsSolver(object):
 
     """
 
-    def __init__(self, mechanics_problem):
+    def __init__(self, mechanics_problem, fname_disp=None,
+                 fname_vel=None, fname_pressure=None):
 
         # Make the MechanicsProblem object part of the member data.
         self._mp = mechanics_problem
+
+        # Create file objects. This keeps the counter from being reset
+        # each time the solve function is called.
+        if fname_disp is not None:
+            self._file_disp = dlf.File(fname_disp, "compressed")
+        else:
+            self._file_disp = None
+        if fname_vel is not None:
+            self._file_vel = dlf.File(fname_vel, "compressed")
+        else:
+            self._file_vel = None
+        if fname_pressure is not None:
+            self._file_pressure = dlf.File(fname_pressure, "compressed")
+        else:
+            self._file_pressure = None
 
         return None
 
 
     def solve(self, nonlinear_tol=1e-10, iter_tol=1e-8, maxNonlinIters=50,
-              maxLinIters=200, show=0, print_norm=True, fname_disp=None,
-              fname_vel=None, fname_pressure=None, save_freq=1, lin_solver='mumps'):
+              maxLinIters=200, show=0, print_norm=True, save_freq=1,
+              lin_solver='mumps'):
         """
 
 
@@ -48,20 +64,20 @@ class MechanicsSolver(object):
                                  iter_tol=iter_tol, maxNonlinIters=maxNonlinIters,
                                  maxLinIters=maxLinIters, show=show,
                                  print_norm=print_norm)
-            if fname_disp:
-                dlf.File(fname_disp, 'compressed') << self._mp.displacement
-            if fname_vel:
-                dlf.File(fname_vel, 'compressed') << self._mp.velocity
-            if fname_pressure:
-                dlf.File(fname_pressure, 'compressed') << self._mp.pressure
+
+            if self._file_disp is not None:
+                self._file_disp << self._mp.displacement
+            if self._file_vel is not None:
+                self._file_vel << self._mp.velocity
+            if self._file_pressure is not None:
+                self._file_pressure << self._mp.pressure
 
         return None
 
 
     def time_solve(self, nonlinear_tol=1e-10, iter_tol=1e-8,
                    maxNonlinIters=50, maxLinIters=200, show=0,
-                   print_norm=True, fname_disp=None, fname_vel=None,
-                   fname_pressure=None, save_freq=1):
+                   print_norm=True, save_freq=1, save_initial=True):
         """
 
 
@@ -72,37 +88,29 @@ class MechanicsSolver(object):
         dt = self._mp.config['formulation']['time']['dt']
         count = 0 # Used to check if file(s) should be saved.
 
-        if fname_disp:
-            file_disp = dlf.File(fname_disp, 'compressed')
-        if fname_vel:
-            file_vel = dlf.File(fname_vel, 'compressed')
-        if fname_pressure:
-            file_pressure = dlf.File(fname_pressure, 'compressed')
-
         lhs, rhs = self.ufl_lhs_rhs()
 
         # Need to be more specific here.
         bcs = block.block_bc(self._mp.dirichlet_bcs.values(), False)
 
+        # Save initial condition
+        if save_initial:
+            if self._file_disp is not None:
+                self._file_disp << (self._mp.displacement, t)
+                if not rank:
+                    print('* Displacement saved *')
+            if self._file_vel is not None:
+                self._file_vel << (self._mp.velocity, t)
+                if not rank:
+                    print('* Velocity saved *')
+            if self._file_pressure:
+                self._file_pressure << (self._mp.pressure, t)
+                if not rank:
+                    print('* Pressure saved *')
+
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         while t <= tf:
-
-            # Put this at the beginning so that the initial
-            # condition is saved.
-            if not count % save_freq:
-                if fname_disp:
-                    file_disp << (self._mp.displacement, t)
-                    if not rank:
-                        print('* Displacement saved *')
-                if fname_vel:
-                    file_vel << (self._mp.velocity, t)
-                    if not rank:
-                        print('* Velocity saved *')
-                if fname_pressure:
-                    file_pressure << (self._mp.pressure, t)
-                    if not rank:
-                        print('* Pressure saved *')
 
             # Set to the next time step
             t += dt
@@ -125,6 +133,22 @@ class MechanicsSolver(object):
             if self._mp.displacement0 != 0:
                 self._mp.displacement0.assign(self._mp.displacement)
             self._mp.velocity0.assign(self._mp.velocity)
+
+            # Save current time step.
+            if not count % save_freq:
+                if self._file_disp is not None:
+                    self._file_disp << (self._mp.displacement, t)
+                    if not rank:
+                        print('* Displacement saved *')
+                if self._file_vel is not None:
+                    self._file_vel << (self._mp.velocity, t)
+                    if not rank:
+                        print('* Velocity saved *')
+                if self._file_pressure:
+                    self._file_pressure << (self._mp.pressure, t)
+                    if not rank:
+                        print('* Pressure saved *')
+
             t0 = t
             count += 1
 
