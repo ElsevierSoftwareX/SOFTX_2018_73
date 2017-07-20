@@ -74,5 +74,6 @@ else:
     pressure_file = None
 
 problem = fm.MechanicsProblem(config)
-solver = fm.MechanicsSolver(problem)
-solver.solve(fname_vel=vel_file, fname_pressure=pressure_file)
+solver = fm.MechanicsSolver(problem, fname_vel=vel_file,
+                            fname_pressure=pressure_file)
+solver.solve()

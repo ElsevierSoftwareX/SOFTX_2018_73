@@ -13,8 +13,8 @@ dlf.parameters['form_compiler']['quadrature_degree'] = 3
 
 # Mesh files
 mesh_dir = '../meshfiles/unit_domain/'
-mesh_file = mesh_dir + 'unit_domain-mesh-12x12x12.xml.gz'
-mesh_function = mesh_dir + 'unit_domain-mesh_function-12x12x12.xml.gz'
+mesh_file = mesh_dir + 'unit_domain-mesh-24x16x16.xml.gz'
+mesh_function = mesh_dir + 'unit_domain-mesh_function-24x16x16.xml.gz'
 
 # Region IDs
 ALL_ELSE = 0
@@ -76,5 +76,5 @@ else:
     result_file = None
 
 problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem)
-solver.full_solve(fname_disp=result_file)
+solver = fm.SolidMechanicsSolver(problem, fname_disp=result_file)
+solver.full_solve()

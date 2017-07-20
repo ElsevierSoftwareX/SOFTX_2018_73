@@ -172,8 +172,8 @@ config = {'material': material_dict,
           'formulation': formulation_dict}
 
 problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem)
-solver.full_solve(fname_disp=disp_file)
+solver = fm.SolidMechanicsSolver(problem, fname_disp=disp_file)
+solver.full_solve()
 
 # problem = fm.MechanicsProblem(config)
 # my_solver = fm.MechanicsSolver(problem)
