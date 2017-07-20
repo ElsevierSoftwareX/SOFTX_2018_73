@@ -583,7 +583,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                     self._file_disp << (problem.displacement, t)
                     if not rank:
                         print('* Displacement saved *')
-                if self._file_pressure:
+                if self._file_pressure is not None:
                     self._file_pressure << (problem.pressure, t)
                     if not rank:
                         print('* Pressure saved *')
@@ -610,12 +610,12 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Save current time step
                 if not count % save_freq:
-                    if self._file_disp:
+                    if self._file_disp is not None:
                         self._file_disp << (problem.displacement, t)
                         if not rank:
                             print('* Displacement saved *')
-                    if self._file_press:
-                        self._file_press << (problem.pressure, t)
+                    if self._file_pressure is not None:
+                        self._file_pressure << (problem.pressure, t)
                         if not rank:
                             print('* Pressure saved *')
 
@@ -627,10 +627,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
             self.update_assign()
 
-            if self._file_disp:
+            if self._file_disp is not None:
                 self._file_disp << self._problem.displacement
-            if self._file_press:
-                self._file_press << self._problem.pressure
+            if self._file_pressure is not None:
+                self._file_pressure << self._problem.pressure
 
         return None
 

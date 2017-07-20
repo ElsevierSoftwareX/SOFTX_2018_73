@@ -51,8 +51,7 @@ class MechanicsSolver(object):
             self.time_solve(nonlinear_tol=nonlinear_tol, iter_tol=iter_tol,
                             maxNonlinIters=maxNonlinIters,
                             maxLinIters=maxLinIters, show=show,
-                            print_norm=print_norm, fname_disp=fname_disp,
-                            fname_vel=fname_vel, fname_pressure=fname_pressure,
+                            print_norm=print_norm,
                             save_freq=save_freq)
         else:
             lhs, rhs = self.ufl_lhs_rhs()
@@ -93,6 +92,8 @@ class MechanicsSolver(object):
         # Need to be more specific here.
         bcs = block.block_bc(self._mp.dirichlet_bcs.values(), False)
 
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
         # Save initial condition
         if save_initial:
             if self._file_disp is not None:
@@ -103,14 +104,14 @@ class MechanicsSolver(object):
                 self._file_vel << (self._mp.velocity, t)
                 if not rank:
                     print('* Velocity saved *')
-            if self._file_pressure:
+            if self._file_pressure is not None:
                 self._file_pressure << (self._mp.pressure, t)
                 if not rank:
                     print('* Pressure saved *')
 
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
-        while t <= tf:
+        while t < (tf - dt/10.0):
 
             # Set to the next time step
             t += dt
@@ -144,7 +145,7 @@ class MechanicsSolver(object):
                     self._file_vel << (self._mp.velocity, t)
                     if not rank:
                         print('* Velocity saved *')
-                if self._file_pressure:
+                if self._file_pressure is not None:
                     self._file_pressure << (self._mp.pressure, t)
                     if not rank:
                         print('* Pressure saved *')
