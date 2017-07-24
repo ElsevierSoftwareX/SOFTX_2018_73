@@ -608,6 +608,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Assign and update all vectors.
                 self.update_assign()
 
+                t0 = t
+                count += 1
+
                 # Save current time step
                 if not count % save_freq:
                     if self._file_disp is not None:
@@ -618,9 +621,6 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                         self._file_pressure << (problem.pressure, t)
                         if not rank:
                             print('* Pressure saved *')
-
-                t0 = t
-                count += 1
 
         else:
             self.step()

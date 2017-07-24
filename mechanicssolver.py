@@ -135,6 +135,9 @@ class MechanicsSolver(object):
                 self._mp.displacement0.assign(self._mp.displacement)
             self._mp.velocity0.assign(self._mp.velocity)
 
+            t0 = t
+            count += 1
+
             # Save current time step.
             if not count % save_freq:
                 if self._file_disp is not None:
@@ -149,9 +152,6 @@ class MechanicsSolver(object):
                     self._file_pressure << (self._mp.pressure, t)
                     if not rank:
                         print('* Pressure saved *')
-
-            t0 = t
-            count += 1
 
         return None
 
