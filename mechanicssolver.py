@@ -41,7 +41,7 @@ class MechanicsSolver(object):
 
     def solve(self, nonlinear_tol=1e-10, iter_tol=1e-8, maxNonlinIters=50,
               maxLinIters=200, show=0, print_norm=True, save_freq=1,
-              lin_solver='mumps'):
+              save_initial=True, lin_solver='mumps'):
         """
 
 
@@ -52,7 +52,8 @@ class MechanicsSolver(object):
                             maxNonlinIters=maxNonlinIters,
                             maxLinIters=maxLinIters, show=show,
                             print_norm=print_norm,
-                            save_freq=save_freq)
+                            save_freq=save_freq,
+                            save_initial=save_initial)
         else:
             lhs, rhs = self.ufl_lhs_rhs()
             bcs = self._mp.dirichlet_bcs.values()
