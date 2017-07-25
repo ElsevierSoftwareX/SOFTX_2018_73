@@ -4,6 +4,8 @@ from ufl import Form
 import block
 from block import iterative
 
+from mpi4py import MPI
+
 import dolfin as dlf
 import numpy as np
 
@@ -138,6 +140,8 @@ class MechanicsSolver(object):
 
             t0 = t
             count += 1
+
+            MPI.COMM_WORLD.Barrier()
 
             # Save current time step.
             if not count % save_freq:
