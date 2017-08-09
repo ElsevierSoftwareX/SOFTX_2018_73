@@ -56,7 +56,11 @@ class BaseMechanicsProblem(object):
             will be used to mark different regions of the domain boundary.
        * 'element' : str
             Name of the finite element to be used for the discrete
-            function space. E.g., 'p2-p1'.
+            function space. Currently, elements of the form 'p<n>-p<m>'
+            are supported, where <n> is the degree used for the vector
+            function space, and <m> is the degree used for the scalar
+            function space. If the material is not incompressible, only the
+            first term should be specified. E.g., 'p2-p1'.
 
 
     * 'formulation'
