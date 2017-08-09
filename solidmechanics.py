@@ -7,11 +7,19 @@ from .basemechanicsproblem import BaseMechanicsProblem
 
 from inspect import isclass
 
-__all__ = ['SolidMechanicsProblem']
+__all__ = ['SolidMechanicsProblem', 'SolidMechanicsSolver']
 
 
 class SolidMechanicsProblem(BaseMechanicsProblem):
     """
+    This class represents the variational form of a solid
+    mechanics problem. The specific form and boundary conditions
+    are generated based on definitions provided by the user in a
+    dictionary of sub-dictionaries.
+
+    *** Refer to the documentation of BaseMechanicsProblem ***
+    ***  for details on how to define a problem using the  ***
+    ***                'config' dictionary.                ***
 
 
     """
@@ -36,6 +44,12 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_function_spaces(self):
         """
+        Define the function space based on the degree(s) specified
+        in config['mesh']['element'] and add it as member data. If
+        the problem is specified as incompressible, a mixed function
+        space made up of a vector and scalar function spaces is defined.
+        Note that this differs from MechanicsProblem since there,
+        the vector and scalar function spaces are defined separately.
 
 
         """
@@ -67,6 +81,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_functions(self):
         """
+        Define mixed functions necessary to formulate the problem
+        specified in the 'config' dictionary. The sub-functions are
+        also defined for use in formulating variational forms and saving
+        results separately. Functions that are not needed are set to 0.
 
 
         """
@@ -81,6 +99,36 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_incompressible_functions(self):
         """
+        Define mixed functions necessary to formulate an incompressible
+        solid mechanics problem. The mixed function is also split using
+        dolfin.split (for use in UFL variational forms) and u.split(),
+        where u is a mixed function (for saving solutions separately).
+        The names of the member data added to the instance of the
+        SolidMechanicsProblem class are:
+
+        - sys_u : mixed function
+        - ufl_displacement : sub component corresponding to displacement
+        - displacement : copy of sub component for writing and assigning
+                         values
+        - ufl_pressure : sub component corresponding to pressure
+        - pressure : copy of sub component for writing and assigning values
+        - sys_du : mixed trial function
+        - trial_vector : sub component of mixed trial function
+        - trial_scalar : sub component of mixed trial function
+        - test_vector : sub component of mixed test function
+        - test_scalar : sub component of mixed test function
+
+        If problem is unsteady, the following are also added:
+
+        - ufl_velocity0 : sub component corresponding to velocity
+        - velocity0 : copy of sub component for writing and assigning values
+        - ufl_acceleration0 : sub component corresponding to acceleration
+        - acceleration0 : copy of sub component for writing and assigning values
+        - sys_u0 : mixed function at previous time step
+        - ufl_displacement0 : sub component at previous time step
+        - displacement0 : copy of sub component at previous time step
+        - ufl_pressure0 : sub component at previous time step
+        - pressure0 : copy of sub component at previous time step
 
 
         """
@@ -120,6 +168,21 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_compressible_functions(self):
         """
+        Define functions necessary to formulate a compressible solid
+        mechanics problem. The names of the member data added to the
+        instance of the SolidMechanicsProblem class are:
+
+        - sys_u = ufl_displacement = displacement : all point to the same
+                  displacement function, unlike the incompressible case.
+        - sys_du = trial_vector : trial function for vector function space
+        - test_vector : sub component of mixed test function
+        - ufl_pressure = pressure = None
+
+        If problem is unsteady, the following are also added:
+
+        - sys_v0 = ufl_velocity0 = velocity0
+        - sys_a0 = ufl_acceleration0 = acceleration0
+        - sys_u0 = ufl_displacement0 = displacement0
 
 
         """
@@ -152,7 +215,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_acceleration(self):
         """
-
+        Define the acceleration based on the Newmark integration scheme
+        and add as member data under 'ufl_acceleration'.
 
         """
 
@@ -172,6 +236,15 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_deformation_tensors(self):
         """
+        Define kinematic tensors needed for constitutive equations. Secondary
+        tensors are added with the suffix "0" if the problem is time-dependent.
+        The names of member data added to an instance of the SolidMechanicsProblem
+        class are:
+
+        - deformationGradient
+        - deformationGradient0
+        - jacobian
+        - jacobian0
 
 
         """
@@ -190,6 +263,13 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_material(self):
         """
+        Create an instance of the class that defines the constitutive
+        equation for the current problem and add it as member data under
+        '_material'. All necessary parameters must be included in the
+        'material' subdictionary of 'config'. The specific values necessary
+        depends on the constitutive equation used. Please check the
+        documentation of the material classes provided in
+        'fenicsmechanics.materials' if using a built-in material.
 
 
         """
@@ -223,6 +303,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_dirichlet_bcs(self):
         """
+        Define a list of Dirichlet BC objects based on the problem configuration
+        provided by the user, and add it as member data under 'dirichlet_bcs'. If
+        no Dirichlet BCs are provided, 'dirichlet_bcs' is set to None.
 
 
         """
@@ -242,6 +325,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_compressible_dirichlet_bcs(self):
         """
+        Define Dirichlet BCs for compressible solid mechanics problems.
 
 
         """
@@ -261,6 +345,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_incompressible_dirichlet_bcs(self):
         """
+        Define Dirichlet BCs for incompressible solid mechanics problems.
 
 
         """
@@ -287,6 +372,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_forms(self):
         """
+        Define all of the variational forms necessary for the problem specified
+        by the user and add them as member data. The variational forms are those
+        corresponding to the balance of linear momentum and the incompressibility
+        constraint.
 
 
         """
@@ -312,6 +401,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_local_inertia(self):
         """
+        Define the UFL object corresponding to the local acceleration
+        term in the weak form.
 
 
         """
@@ -333,6 +424,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_stress_work(self):
         """
+        Define the UFL object corresponding to the stress tensor term
+        in the weak form.
 
 
         """
@@ -358,6 +451,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_body_force(self):
         """
+        Define the UFL object corresponding to the body force term in
+        the weak form.
 
 
         """
@@ -384,6 +479,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_neumann_bcs(self):
         """
+        Define the variational forms for all of the Neumann BCs given
+        in the 'config' dictionary under "ufl_neumann_bcs". If the problem
+        is time-dependent, a secondary variational form is defined at the
+        previous time step with the name "ufl_neumann_bcs0".
 
 
         """
@@ -424,6 +523,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations(self):
         """
+        Define all of the variational forms necessary for the problem
+        specified in the 'config' dictionary, as well as the mixed
+        variational form.
 
 
         """
@@ -452,6 +554,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations_diff(self):
         """
+        Differentiate all of the variational forms with respect to appropriate
+        fields variables and add as member data.
 
 
         """
@@ -464,6 +568,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     @staticmethod
     def __define_displacement_bcs(W, dirichlet_dict, mesh_function):
         """
+        Create a dictionary storing the dolfin.DirichletBC objects for
+        each displacement BC specified in the 'dirichlet' subdictionary.
+
+
+        Parameters
+        ----------
+
+        W : dolfin.FunctionSpace
+            The function space for the displacement.
+        dirichlet_dict : dict
+            The 'dirichlet' subdictionary of 'config'. Refer to the
+            documentation for BaseMechanicsProblem for more information.
+        mesh_function : dolfin.MeshFunction
+            The mesh function used to tag different regions of the
+            domain boundary.
+
+
+        Returns
+        -------
+
+        displacement_bcs : dict
+            a dictionary of the form {'displacement': [...]}, where
+            the value is a list of dolfin.DirichletBC objects.
 
 
         """
@@ -481,6 +608,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     @staticmethod
     def __define_pressure_bcs(W, dirichlet_dict, mesh_function):
         """
+        Create a dictionary storing the dolfin.DirichletBC objects for
+        each pressure BC specified in the 'dirichlet' subdictionary.
+
+
+        Parameters
+        ----------
+
+        W : dolfin.FunctionSpace
+            The function space for pressure.
+        dirichlet_dict : dict
+            The 'dirichlet' subdictionary of 'config'. Refer to the
+            documentation for BaseMechanicsProblem for more information.
+        mesh_function : dolfin.MeshFunction
+            The mesh function used to tag different regions of the
+            domain boundary.
+
+
+        Returns
+        -------
+
+        pressure_bcs : dict
+            a dictionary of the form {'pressure': [...]}, where
+            the value is a list of dolfin.DirichletBC objects.
 
 
         """
