@@ -12,104 +12,11 @@ __all__ = ['MechanicsProblem']
 class MechanicsProblem(BaseMechanicsProblem):
     """
     This class represents the variational form of a continuum
-    mechanics problem. The user The specific form and boundary
-    conditions are generated based on definition provided by the
-    user in a dictionary of sub-dictionaries. The keys for the
-    dictionary and their descriptions are shown below:
+    mechanics problem. The specific form and boundary conditions
+    are generated based on definitions provided by the user in a
+    dictionary of sub-dictionaries. Refer to the documentation
+    of BaseMechanicsProblem for details on the 'config' dictionary.
 
-    * 'material'
-       * 'type' : str
-            The class of material that will be used, e.g.
-            elastic, viscous, viscoelastic, etc. The name
-            must match the name of a module inside of the
-            fenicsmechanics.materials sub-package.
-       * 'const_eqn' : str
-            The name of the constitutive equation to be
-            used. The name must match a function name in
-            the fenicsmechanics.materials subpackage, which
-            returns the stress tensor.
-       * 'incompressible' : bool
-            True if the material is incompressible. An
-            additional weak form for the incompressibility
-            constraint will be added to the problem.
-       * 'density' : float, int, dolfin.Constant
-            Scalar specifying the density of the material.
-       * 'la' : float, int, dolfin.Constant
-            Scalar value used in constitutive equations. E.g.,
-            it is the first Lame parameter in linear elasticity.
-       * 'mu' : float, int, dolfin.Constant
-            Scalar value used in constitutive equations. E.g.,
-            it is the second Lame parameter in linear elasticity,
-            and the dynamic viscosity for a Newtonian fluid.
-       * 'kappa' : float, int, dolfin.Constant
-            Scalar value of the penalty parameter for incompressibility.
-
-    * 'mesh'
-       * 'mesh_file' : str
-            Name of the file containing the mesh information of
-            the problem geometry.
-       * 'mesh_function' : str
-            Name of the file containing the mesh function information
-            of the geometry. A mesh function is typically used to
-            label different regions of the mesh.
-       * 'element' : str
-            Name of the finite element to be used for the discrete
-            function space. E.g., 'p2-p1'.
-
-    * 'formulation'
-        * 'time'
-            * 'unsteady' : bool
-                True if the problem is time dependent.
-            * 'integrator' : str
-                Name of the time integrating scheme to be used.
-            * 'dt' : float, dolfin.Constant
-                Time step used for the numerical integrator.
-            * 'interval' : list, tuple
-                A list or tuple of length 2 specifying the time interval,
-                i.e. t0 and tf.
-        * 'initial_condition' : subclass of dolfin.Expression
-            An expression specifying the initial value of the
-            solution to the problem.
-        * 'domain' : str
-            String specifying whether the problem is to be formulated
-            in terms of Lagrangian, Eulerian, or ALE coordinates.
-        * 'inverse' : bool
-            True if the problem is an inverse elastostatics problem.
-        * 'body_force' : dolfin.Expression, dolfin.Constant
-            Value of the body force throughout the body.
-        * 'bcs'
-            * 'dirichlet'
-                * 'velocity' : list, tuple
-                    List of velocity values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order must
-                    match the order used in the list of region IDs.
-                * 'displacement' : list, tuple
-                    List of displacement values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order must match
-                    the order used in the list of region IDs.
-                * 'regions' : list, tuple
-                    List of the region IDs (int) on which Dirichlet
-                    boundary conditions are to be imposed. These IDs
-                    must match those used by the mesh function provided.
-                    The order must match the order used in the list of
-                    values.
-            * 'neumann'
-                * 'regions' : list, tuple
-                    List of the region IDs (int) on which Neumann
-                    boundary conditions are to be imposed. These IDs
-                    must match those used by the mesh function provided.
-                    The order must match the order used in the list of
-                    types and values.
-                * 'types' : list, tuple
-                    List of strings specifying whether a 'pressure', 'piola',
-                    or 'cauchy' is provided for each region. The order
-                    must match the order used in the list of region IDs
-                    and values.
-                * 'values' : list, tuple
-                    List of values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order
-                    must match the order used in the list of region IDs
-                    and types.
 
     """
 
@@ -132,17 +39,31 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_function_spaces(self):
         """
+        Define the vector (and scalar if incompressible) function spaces
+        based on the degrees specified in the 'config' dictionary, and
+        add them to the instance of MechanicsProblem as member data. If
+        the material is not incompressible, the scalar function space is
+        set to None.
 
 
         """
 
-        vec_element = dlf.VectorElement('CG', self.mesh.ufl_cell(),
-                                        int(self.config['mesh']['element'][0][-1]))
+        cell = self.mesh.ufl_cell()
+        vec_degree = int(self.config['mesh']['element'][0][-1])
+        if vec_degree == 0:
+            vec_family = "DG"
+        else:
+            vec_family = "CG"
+        vec_element = dlf.VectorElement(vec_family, cell, vec_degree)
         self.vectorSpace = dlf.FunctionSpace(self.mesh, vec_element)
 
         if self.config['material']['incompressible']:
-            scalar_element = dlf.FiniteElement('CG', self.mesh.ufl_cell(),
-                                               int(self.config['mesh']['element'][1][-1]))
+            scalar_degree = int(self.config['mesh']['element'][1][-1])
+            if scalar_degree == 0:
+                scalar_family = "DG"
+            else:
+                scalar_family = "CG"
+            scalar_element = dlf.FiniteElement(scalar_family, cell, scalar_degree)
             self.scalarSpace = dlf.FunctionSpace(self.mesh, scalar_element)
         else:
             self.scalarSpace = None
@@ -152,6 +73,10 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_functions(self):
         """
+        Define the vector and scalar functions necessary to define the
+        problem specified in the 'config' dictionary. Functions that are
+        not needed are set to 0. This method calls a method to define
+        the vector functions and another for the scalar functions.
 
 
         """
@@ -164,6 +89,21 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_vector_functions(self):
         """
+        Define the vector functions necessary to define the problem
+        specified in the 'config' dictionary. If the material is elastic,
+        displacement and velocity functions are defined. Secondary
+        displacement and velocity functions are defined if the problem is
+        time-dependent to store the previous time step. Functions that are
+        not needed are set to 0. The trial and test functions are also
+        defined by this function. The names of the member data added to
+        the instance of the MechanicsProblem class are:
+
+        - test_vector
+        - trial_vector
+        - displacement
+        - displacement0
+        - velocity
+        - velocity0
 
 
         """
@@ -208,6 +148,17 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_scalar_functions(self):
         """
+        Define the pressure functions necessary to define the problem
+        specified in the 'config' dictionary. If the problem is not
+        specified as incompressible, the scalar functions are set to 0.
+        A secondary pressure function is also added if the problem is
+        time-dependent. The names of the member data added to an instance
+        of the MechanicsProblem class are:
+
+        - test_scalar
+        - trial_scalar
+        - pressure
+        - pressure0
 
 
         """
@@ -238,6 +189,17 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_deformation_tensors(self):
         """
+        Define kinematic tensors needed for constitutive equations. Tensors
+        that are irrelevant to the current problem are set to 0. Secondary
+        tensors are added if the problem is time-dependent. The names of
+        member data added to an instance of the MechanicsProblem class are:
+
+        - deformationGradient
+        - deformationGradient0
+        - velocityGradient
+        - velocityGradient0
+        - jacobian
+        - jacobian0
 
 
         """
@@ -281,6 +243,11 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_material(self):
         """
+        Create an instance of the class that defining the constitutive
+        equation for the current problem and add it as member data under
+        '_material'. All necessary parameters must be included in the
+        'material' subdictionary of 'config'. The specific values necessary
+        depends on the constitutive equation used.
 
 
         """
@@ -317,15 +284,7 @@ class MechanicsProblem(BaseMechanicsProblem):
     def define_dirichlet_bcs(self):
         """
         Define a list of Dirichlet BC objects based on the problem configuration
-        provided by the user.
-
-
-        Parameters
-        ----------
-
-        functionSpace : dolfin.functions.functionspace.FunctionSpace
-            dolfin object representing the discrete function space that
-            will be used to approximate the solution to the weak form.
+        provided by the user, and add it as member data.
 
 
         """
@@ -414,8 +373,9 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_forms(self):
         """
-        Define all of the forms necessary for the problem specified
-        by the user.
+        Define all of the variational forms necessary for the problem specified
+        by the user and add them as member data.
+
 
         """
 
@@ -448,6 +408,9 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_neumann_bcs(self):
         """
+        Define the variational forms for all of the Neumann BCs given
+        in the 'config' dictionary. If the problem is time-dependent,
+        a secondary variational form is defined at the previous time step.
 
 
         """
@@ -492,6 +455,8 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_neumann_bcs_diff(self):
         """
+        Define the derivative(s) of the variational form of the Neumann BCs
+        and add them as member data.
 
 
         """
@@ -549,6 +514,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         term in the weak form. The function exits if it has already
         been defined.
 
+
         """
 
         if hasattr(self, 'ufl_local_inertia_dv'):
@@ -572,6 +538,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         Define the UFL object corresponding to the convective acceleration
         term in the weak form. The function exits if it has already been
         defined.
+
 
         """
 
@@ -609,6 +576,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         the convective acceleration term in the weak form. The function
         exits if it has already been defined.
 
+
         """
 
         if hasattr(self, 'ufl_convec_accel_dv'):
@@ -635,6 +603,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         Define the UFL object corresponding to the stress tensor term
         in the weak form. The function exits if it has already been
         defined.
+
 
         """
 
@@ -677,6 +646,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         the stress tensor term in the weak form. The function exits if it
         has already been defined.
 
+
         """
 
         if hasattr(self, 'ufl_stress_work_diff'):
@@ -687,23 +657,8 @@ class MechanicsProblem(BaseMechanicsProblem):
             self.ufl_stress_work_du = dlf.derivative(self.ufl_stress_work,
                                                      self.displacement,
                                                      self.trial_vector)
-
-        #     # Derivative of stress term w.r.t. to velocity.
-        #     if self.velocity != 0:
-        #         self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
-        #                                                  self.velocity,
-        #                                                  self.trial_vector)
-
-        #     if self.pressure != 0:
-        #         self.ufl_stress_work_dp = dlf.derivative(self.ufl_stress)
-        # else:
-        #     self.ufl_stress_work_du = 0
-        #     self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
-        #                                              self.velocity,
-        #                                              self.trial_vector)
-        #     self.ufl_stress_work_dp = dlf.derivative(self.ufl_stress_work,
-        #                                              self.pressure,
-        #                                              self.trial_scalar)
+        else:
+            self.ufl_stress_work_du = 0
 
         if self.velocity != 0:
             self.ufl_stress_work_dv = dlf.derivative(self.ufl_stress_work,
@@ -726,6 +681,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         """
         Define the UFL object corresponding to the body force term in
         the weak form. The function exits if it has already been defined.
+
 
         """
 
@@ -757,6 +713,10 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations(self):
         """
+        Define all of the variational forms necessary for the problem
+        specified in the 'config' dictionary. This function calls other
+        functions to define the velocity, momentum, and incompressibility
+        equations.
 
 
         """
@@ -770,6 +730,10 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_velocity_equation(self):
         """
+        Define the variational form for the reduction of order equation
+        (equation that relates the velocity and displacement) and add as
+        member data. Note that this is only necessary for time-dependent
+        elastic materials. If this form is not necessary, it is set to 0.
 
 
         """
@@ -797,6 +761,8 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_momentum_equation(self):
         """
+        Define the variational form corresponding to the balance of
+        linear momentum and add as member data.
 
 
         """
@@ -818,7 +784,8 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_incompressibility_equation(self):
         """
-
+        Define the variational form corresponding to the incompressibility
+        constraint and add as member data.
 
         """
 
@@ -845,6 +812,8 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations_diff(self):
         """
+        Differentiate all of the variational forms with respect to appropriate
+        fields variables and add as member data.
 
 
         """
@@ -895,145 +864,160 @@ class MechanicsProblem(BaseMechanicsProblem):
         return None
 
 
-    def update_time(self, t, t0=None):
-        """
-        Update the time parameter in the BCs that depend on time explicitly.
-        Also, the body force expression if necessary.
 
-        """
-
-        if self.dirichlet_bcs:
-            self.update_dirichlet_time(t)
-
-        if self.ufl_neumann_bcs:
-            neumann_updated = self.update_neumann_time(t, t0=t0)
-
-        if self.ufl_body_force:
-            bodyforce_updated = self.update_bodyforce_time(t, t0=t0)
-
-        return None
+    ############################################################
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # TEST THE REMOVAL OF THE FOLLOWING FUNCTIONS FROM THE
+    # MechanicsProblem CLASS.
+    #
+    # THIS SHOULD WORK WITHOUT A PROBLEM SINCE ALL OF THESE
+    # FUNCTIONS ARE ALSO IN BaseMechanicsProblem.
+    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ############################################################
 
 
-    def update_dirichlet_time(self, t):
-        """
-        Update the time parameter in the Dirichlet BCs that depend on time
-        explicitly.
 
-        """
-
-        if self.config['formulation']['bcs']['dirichlet'] is None:
-            print ('No Dirichlet BCs to update!')
-            return None
-
-        expr_list = list()
-
-        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
-            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['displacement'])
-
-        if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
-            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
-
-        for expr in expr_list:
-            if hasattr(expr, 't'):
-                expr.t = t
-
-        return None
+    # def update_time(self, t, t0=None):
+    #     """
+    #     Update the time parameter in the BCs that depend on time explicitly.
+    #     Also, the body force expression if necessary.
 
 
-    def update_neumann_time(self, t, t0=None):
-        """
-        Update the time parameter in the Neumann BCs that depend on time
-        explicitly. The PETSc vector corresponding to this term is assembled
-        again if necessary.
 
-        """
+    #     """
 
-        if self.ufl_neumann_bcs is not None:
-            self.update_form_time(self.ufl_neumann_bcs, t)
+    #     if self.dirichlet_bcs:
+    #         self.update_dirichlet_time(t)
 
-        if self.ufl_neumann_bcs0 and (t0 is not None):
-            self.update_form_time(self.ufl_neumann_bcs0, t0)
+    #     if self.ufl_neumann_bcs:
+    #         neumann_updated = self.update_neumann_time(t, t0=t0)
 
-        return None
+    #     if self.ufl_body_force:
+    #         bodyforce_updated = self.update_bodyforce_time(t, t0=t0)
+
+    #     return None
 
 
-    def update_bodyforce_time(self, t, t0=None):
-        """
-        Update the time parameter in the body force expression if it depends
-        on time explicitly. The PETSc vector corresponding to this term is
-        assembled again if necessary.
+    # def update_dirichlet_time(self, t):
+    #     """
+    #     Update the time parameter in the Dirichlet BCs that depend on time
+    #     explicitly.
 
-        """
+    #     """
 
-        if self.ufl_body_force is not None:
-            self.update_form_time(self.ufl_body_force, t)
+    #     if self.config['formulation']['bcs']['dirichlet'] is None:
+    #         print ('No Dirichlet BCs to update!')
+    #         return None
 
-        if self.ufl_body_force0 and (t0 is not None):
-            self.update_form_time(self.ufl_body_force0, t0)
+    #     expr_list = list()
 
-        return None
+    #     if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
+    #         expr_list.extend(self.config['formulation']['bcs']['dirichlet']['displacement'])
 
+    #     if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
+    #         expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
 
-    @staticmethod
-    def define_ufl_neumann_form(regions, types, values, domain,
-                                mesh, mesh_function, F, J, xi):
-        """
-        Define the UFL object representing the Neumann boundary
-        conditions based on the problem configuration given by
-        the user. The function exits if the object has already
-        been defined.
+    #     for expr in expr_list:
+    #         if hasattr(expr, 't'):
+    #             expr.t = t
 
-
-        """
-
-        # Check if Nanson's formula is necessary
-        if domain == 'lagrangian':
-            if ('pressure' in types) or ('cauchy' in types):
-                Finv = dlf.inv(F)
-                N = dlf.FacetNormal(mesh)
-
-            if 'pressure' in types:
-                n = J*Finv.T*N # Nanson's formula
-
-            if 'cauchy' in types:
-                nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
-        else:
-            if 'pressure' in types:
-                # No need for Nanson's formula in Eulerian coordinates
-                n = dlf.FacetNormal(mesh)
-
-        neumann_form = 0
-        zipped_vals = zip(regions, types, values)
-
-        for region, tt, value in zipped_vals:
-
-            ds_region = dlf.ds(region, domain=mesh,
-                               subdomain_data=mesh_function)
-
-            if tt == 'pressure':
-                val = -dlf.dot(xi, value*n)*ds_region
-            elif tt == 'cauchy' and domain == 'lagrangian':
-                val = nanson_mag*dlf.dot(xi, value)*ds_region
-            elif tt == 'cauchy' and domain == 'eulerian':
-                val = dlf.dot(xi, value)*ds_region
-            else: # piola traction in lagrangian coordinates
-                val = dlf.dot(xi, value)*ds_region
-
-            neumann_form += val
-
-        return neumann_form
+    #     return None
 
 
-    @staticmethod
-    def update_form_time(form, t):
-        """
+    # def update_neumann_time(self, t, t0=None):
+    #     """
+    #     Update the time parameter in the Neumann BCs that depend on time
+    #     explicitly. The PETSc vector corresponding to this term is assembled
+    #     again if necessary.
+
+    #     """
+
+    #     if self.ufl_neumann_bcs is not None:
+    #         self.update_form_time(self.ufl_neumann_bcs, t)
+
+    #     if self.ufl_neumann_bcs0 and (t0 is not None):
+    #         self.update_form_time(self.ufl_neumann_bcs0, t0)
+
+    #     return None
 
 
-        """
+    # def update_bodyforce_time(self, t, t0=None):
+    #     """
+    #     Update the time parameter in the body force expression if it depends
+    #     on time explicitly. The PETSc vector corresponding to this term is
+    #     assembled again if necessary.
 
-        coeffs = form.coefficients()
-        for expr in coeffs:
-            if hasattr(expr, 't'):
-                expr.t = t
+    #     """
 
-        return None
+    #     if self.ufl_body_force is not None:
+    #         self.update_form_time(self.ufl_body_force, t)
+
+    #     if self.ufl_body_force0 and (t0 is not None):
+    #         self.update_form_time(self.ufl_body_force0, t0)
+
+    #     return None
+
+
+    # @staticmethod
+    # def define_ufl_neumann_form(regions, types, values, domain,
+    #                             mesh, mesh_function, F, J, xi):
+    #     """
+    #     Define the UFL object representing the Neumann boundary
+    #     conditions based on the problem configuration given by
+    #     the user. The function exits if the object has already
+    #     been defined.
+
+
+    #     """
+
+    #     # Check if Nanson's formula is necessary
+    #     if domain == 'lagrangian':
+    #         if ('pressure' in types) or ('cauchy' in types):
+    #             Finv = dlf.inv(F)
+    #             N = dlf.FacetNormal(mesh)
+
+    #         if 'pressure' in types:
+    #             n = J*Finv.T*N # Nanson's formula
+
+    #         if 'cauchy' in types:
+    #             nanson_mag = J*dlf.sqrt(dlf.dot(Finv.T*N, Finv.T*N))
+    #     else:
+    #         if 'pressure' in types:
+    #             # No need for Nanson's formula in Eulerian coordinates
+    #             n = dlf.FacetNormal(mesh)
+
+    #     neumann_form = 0
+    #     zipped_vals = zip(regions, types, values)
+
+    #     for region, tt, value in zipped_vals:
+
+    #         ds_region = dlf.ds(region, domain=mesh,
+    #                            subdomain_data=mesh_function)
+
+    #         if tt == 'pressure':
+    #             val = -dlf.dot(xi, value*n)*ds_region
+    #         elif tt == 'cauchy' and domain == 'lagrangian':
+    #             val = nanson_mag*dlf.dot(xi, value)*ds_region
+    #         elif tt == 'cauchy' and domain == 'eulerian':
+    #             val = dlf.dot(xi, value)*ds_region
+    #         else: # piola traction in lagrangian coordinates
+    #             val = dlf.dot(xi, value)*ds_region
+
+    #         neumann_form += val
+
+    #     return neumann_form
+
+
+    # @staticmethod
+    # def update_form_time(form, t):
+    #     """
+
+
+    #     """
+
+    #     coeffs = form.coefficients()
+    #     for expr in coeffs:
+    #         if hasattr(expr, 't'):
+    #             expr.t = t
+
+    #     return None
