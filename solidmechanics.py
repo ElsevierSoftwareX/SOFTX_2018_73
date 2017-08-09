@@ -647,12 +647,39 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
+    This class is derived from the dolfin.NonlinearVariationalSolver to
+    solve problems formulated with SolidMechanicsProblem. It passes the
+    UFL variational forms to the solver, and loops through all time steps
+    if the problem is unsteady. The solvers that are available through
+    this class are the same as those available through dolfin. The user
+    may use the helper function, 'set_parameters' to set the linear solver
+    used, as well as the tolerances for iterative and nonlinear solves, or
+    do it directly through the 'parameters' member.
 
 
     """
 
 
     def __init__(self, problem, fname_disp=None, fname_pressure=None):
+        """
+        Initialize a SolidMechanicsSolver object.
+
+        Parameters
+        ----------
+
+        problem : SolidMechanicsProblem
+            A SolidMechanicsProblem object that contains the necessary UFL
+            forms to define and solve the problem specified in a config
+            dictionary.
+        fname_disp : str (default None)
+            Name of the file series in which the displacement values are
+            to be saved.
+        fname_pressure : str (default None)
+            Name of the file series in which the pressure values are to
+            be saved.
+
+
+        """
 
         self._problem = problem
 
@@ -690,6 +717,32 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                        krylov_reltol=1e-7,
                        krylov_maxIters=50):
         """
+        Set the parameters used by the NonlinearVariationalSolver.
+
+
+        Parameters
+        ----------
+
+        linear_solver : str
+            The name of linear solver to be used.
+        newton_abstol : float (default 1e-10)
+            Absolute tolerance used to terminate Newton's method.
+        newton_reltol : float (default 1e-9)
+            Relative tolerance used to terminate Newton's method.
+        newton_maxIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        krylov_abstol : float (default 1e-8)
+            Absolute tolerance used to terminate Krylov solver methods.
+        krylov_reltol : float (default 1e-7)
+            Relative tolerance used to terminate Krylov solver methods.
+        krylov_maxIters : int (default 50)
+            Maximum number of iterations for Krylov solver methods.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -708,17 +761,33 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
     def full_solve(self, save_freq=1, save_initial=True):
         """
+        Solve the mechanics problem defined by SolidMechanicsProblem. If the
+        problem is unsteady, this function will loop through the entire time
+        interval using the parameters provided for the Newmark integration
+        scheme.
+
+
+        Parameters
+        ----------
+
+        save_freq : int (default 1)
+            The frequency at which the solution is to be saved if the problem is
+            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+            every 10 time steps.
+        save_initial : bool (default True)
+            True if the user wishes to save the initial condition and False otherwise.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
 
         problem = self._problem
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
-
-        # if fname_disp:
-        #     file_disp = dlf.File(fname_disp, 'compressed')
-        # if fname_press:
-        #     file_press = dlf.File(fname_press, 'compressed')
 
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
@@ -787,6 +856,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
     def step(self):
         """
+        Compute the solution for the next time step in the simulation. Note that
+        there is only one "step" if the simulation is steady.
 
 
         """
@@ -797,6 +868,12 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
 
     def update_assign(self):
+        """
+        Update the values of the field variables -- both the current and
+        previous time step in preparation for the next step of the simulation.
+
+
+        """
 
         problem = self._problem
         incompressible = problem.config['material']['incompressible']
@@ -830,6 +907,15 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
 
     def define_function_assigners(self):
+        """
+        Create function assigners to update the current and previous time
+        values of all field variables. This is specific to incompressible
+        simulations since the mixed function space formulation requires the
+        handling of the mixed functions and the copies of its subcomponents
+        in a specific manner.
+
+
+        """
 
         problem = self._problem
         W = problem.functionSpace
@@ -855,6 +941,45 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
     @staticmethod
     def update(u, u0, v0, a0, beta, gamma, dt):
+        """
+        Function to update values of field variables at the current and previous
+        time steps based on the Newmark integration scheme:
+
+        a = 1.0/(beta*dt^2)*(u - u0 - v0*dt) - (1.0/(2.0*beta) - 1.0)*v0
+        v = dt*((1.0 - gamma)*a0 + gamma*a) + v0
+
+        This particular method is to be used when the function objects do not
+        derive from a mixed function space.
+
+
+        Parameters
+        ----------
+
+        u : dolfin.Function
+            Object storing the displacement at the current time step.
+        u0 : dolfin.Function
+            Object storing the displacement at the previous time step.
+        v0 : dolfin.Function
+            Object storing the velocity at the previous time step.
+        a0 : dolfin.Function
+            Object storing the acceleration at the previous time step.
+        beta : float
+            Scalar parameter for the family of Newmark integration schemes.
+            See equation above.
+        gamma : float
+            Scalar parameter for the family of Newmark integration schemes.
+            See equation above.
+        dt : float
+            Time step used to advance through the entire time interval.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
 
         # Get vector references
         u_vec, u0_vec = u.vector(), u0.vector()
