@@ -4,6 +4,8 @@ from ufl import Form
 import block
 from block import iterative
 
+from mpi4py import MPI
+
 import dolfin as dlf
 import numpy as np
 
@@ -11,22 +13,104 @@ __all__ = ['MechanicsSolver']
 
 class MechanicsSolver(object):
     """
-
+    This class assembles the UFL variational forms from a MechanicsProblem
+    object, and calls solvers to solve the resulting (nonlinear) algebraic
+    equations. If the problem is time-dependent, this class loops through
+    the time interval specified in the 'config' dictionary. An LGMRES
+    algorithm from CBC-Block is used for time-dependent problems. For
+    steady problems, the user may choose from the linear solvers available
+    through dolfin. Furthermore, Newton's method is used to solve the
+    resulting algebraic equations.
 
     """
 
-    def __init__(self, mechanics_problem):
+    def __init__(self, mechanics_problem, fname_disp=None,
+                 fname_vel=None, fname_pressure=None):
+        """
+        Initialize a MechanicsSolver object.
+
+
+        Parameters
+        ----------
+
+        mechanics_problem : MechanicsProblem
+            A MechanicsProblem object that contains the necessary UFL
+            forms to define and solve the problem specified in its
+            config dictionary.
+        fname_disp : str (default None)
+            Name of the file series in which the displacement values are
+            to be saved.
+        fname_vel : str (default None)
+            Name of the file series in which the velocity values are to
+            be saved.
+        fname_pressure : str (default None)
+            Name of the file series in which the pressure values are to
+            be saved.
+
+
+        """
 
         # Make the MechanicsProblem object part of the member data.
         self._mp = mechanics_problem
+
+        # Create file objects. This keeps the counter from being reset
+        # each time the solve function is called.
+        if fname_disp is not None:
+            self._file_disp = dlf.File(fname_disp, "compressed")
+        else:
+            self._file_disp = None
+        if fname_vel is not None:
+            self._file_vel = dlf.File(fname_vel, "compressed")
+        else:
+            self._file_vel = None
+        if fname_pressure is not None:
+            self._file_pressure = dlf.File(fname_pressure, "compressed")
+        else:
+            self._file_pressure = None
 
         return None
 
 
     def solve(self, nonlinear_tol=1e-10, iter_tol=1e-8, maxNonlinIters=50,
-              maxLinIters=200, show=0, print_norm=True, fname_disp=None,
-              fname_vel=None, fname_pressure=None, save_freq=1, lin_solver='mumps'):
+              maxLinIters=200, show=0, print_norm=True, save_freq=1,
+              save_initial=True, lin_solver='mumps'):
         """
+        Solve the mechanics problem defined in the MechanicsProblem object.
+
+
+        Parameters
+        ----------
+
+        nonlinear_tol : float (default 1e-10)
+            Tolerance used to terminate Newton's method.
+        iter_tol : float (default 1e-8)
+            Tolerance used to terminate the iterative linear solver.
+        maxNonlinIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        maxLinIters : int (default 200)
+            Maximum number of iterations for iterative linear solver.
+        show : int (default 0)
+            Amount of information for iterative.LGMRES to show. See
+            documentation of this class for different log levels.
+        print_norm : bool (default True)
+            True if user wishes to see the norm at every linear iteration
+            and False otherwise.
+        save_freq : int (default 1)
+            The frequency at which the solution is to be saved if the problem is
+            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+            every 10 time steps.
+        save_initial : bool (default True)
+            True if the user wishes to save the initial condition and False otherwise.
+        lin_solver : str (default "mumps")
+            Name of the linear solver to be used for steady compressible elastic
+            problems. See the dolfin.solve documentation for a list of available
+            linear solvers.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -35,9 +119,9 @@ class MechanicsSolver(object):
             self.time_solve(nonlinear_tol=nonlinear_tol, iter_tol=iter_tol,
                             maxNonlinIters=maxNonlinIters,
                             maxLinIters=maxLinIters, show=show,
-                            print_norm=print_norm, fname_disp=fname_disp,
-                            fname_vel=fname_vel, fname_pressure=fname_pressure,
-                            save_freq=save_freq)
+                            print_norm=print_norm,
+                            save_freq=save_freq,
+                            save_initial=save_initial)
         else:
             lhs, rhs = self.ufl_lhs_rhs()
             bcs = self._mp.dirichlet_bcs.values()
@@ -47,22 +131,60 @@ class MechanicsSolver(object):
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
                                  iter_tol=iter_tol, maxNonlinIters=maxNonlinIters,
                                  maxLinIters=maxLinIters, show=show,
-                                 print_norm=print_norm)
-            if fname_disp:
-                dlf.File(fname_disp, 'compressed') << self._mp.displacement
-            if fname_vel:
-                dlf.File(fname_vel, 'compressed') << self._mp.velocity
-            if fname_pressure:
-                dlf.File(fname_pressure, 'compressed') << self._mp.pressure
+                                 print_norm=print_norm, lin_solver=lin_solver)
+
+            if self._file_disp is not None:
+                self._file_disp << self._mp.displacement
+            if self._file_vel is not None:
+                self._file_vel << self._mp.velocity
+            if self._file_pressure is not None:
+                self._file_pressure << self._mp.pressure
 
         return None
 
 
     def time_solve(self, nonlinear_tol=1e-10, iter_tol=1e-8,
                    maxNonlinIters=50, maxLinIters=200, show=0,
-                   print_norm=True, fname_disp=None, fname_vel=None,
-                   fname_pressure=None, save_freq=1):
+                   print_norm=True, save_freq=1, save_initial=True,
+                   lin_solver="mumps"):
         """
+        Loop through the time interval using the time step specified
+        in the MechanicsProblem config dictionary.
+
+
+        Parameters
+        ----------
+
+        nonlinear_tol : float (default 1e-10)
+            Tolerance used to terminate Newton's method.
+        iter_tol : float (default 1e-8)
+            Tolerance used to terminate the iterative linear solver.
+        maxNonlinIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        maxLinIters : int (default 200)
+            Maximum number of iterations for iterative linear solver.
+        show : int (default 0)
+            Amount of information for iterative.LGMRES to show. See
+            documentation of this class for different log levels.
+        print_norm : bool (default True)
+            True if user wishes to see the norm at every linear iteration
+            and False otherwise.
+        save_freq : int (default int)
+            The frequency at which the solution is to be saved if the problem is
+            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+            every 10 time steps.
+        save_initial : bool (default True)
+            True if the user wishes to save the initial condition and False otherwise.
+        lin_solver : str (default "mumps")
+            Name of the linear solver to be used for steady compressible elastic
+            problems. See the dolfin.solve documentation for a list of available
+            linear solvers.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -72,13 +194,6 @@ class MechanicsSolver(object):
         dt = self._mp.config['formulation']['time']['dt']
         count = 0 # Used to check if file(s) should be saved.
 
-        if fname_disp:
-            file_disp = dlf.File(fname_disp, 'compressed')
-        if fname_vel:
-            file_vel = dlf.File(fname_vel, 'compressed')
-        if fname_pressure:
-            file_pressure = dlf.File(fname_pressure, 'compressed')
-
         lhs, rhs = self.ufl_lhs_rhs()
 
         # Need to be more specific here.
@@ -86,23 +201,24 @@ class MechanicsSolver(object):
 
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
-        while t <= tf:
+        # Save initial condition
+        if save_initial:
+            if self._file_disp is not None:
+                self._file_disp << (self._mp.displacement, t)
+                if not rank:
+                    print('* Displacement saved *')
+            if self._file_vel is not None:
+                self._file_vel << (self._mp.velocity, t)
+                if not rank:
+                    print('* Velocity saved *')
+            if self._file_pressure is not None:
+                self._file_pressure << (self._mp.pressure, t)
+                if not rank:
+                    print('* Pressure saved *')
 
-            # Put this at the beginning so that the initial
-            # condition is saved.
-            if not count % save_freq:
-                if fname_disp:
-                    file_disp << (self._mp.displacement, t)
-                    if not rank:
-                        print('* Displacement saved *')
-                if fname_vel:
-                    file_vel << (self._mp.velocity, t)
-                    if not rank:
-                        print('* Velocity saved *')
-                if fname_pressure:
-                    file_pressure << (self._mp.pressure, t)
-                    if not rank:
-                        print('* Pressure saved *')
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
+        while t < (tf - dt/10.0):
 
             # Set to the next time step
             t += dt
@@ -119,23 +235,79 @@ class MechanicsSolver(object):
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
                                  iter_tol=iter_tol, maxNonlinIters=maxNonlinIters,
                                  maxLinIters=maxLinIters, show=show,
-                                 print_norm=print_norm)
+                                 print_norm=print_norm, lin_solver=lin_solver)
 
             # Prepare for the next time step
             if self._mp.displacement0 != 0:
                 self._mp.displacement0.assign(self._mp.displacement)
             self._mp.velocity0.assign(self._mp.velocity)
+
             t0 = t
             count += 1
+
+            MPI.COMM_WORLD.Barrier()
+
+            # Save current time step.
+            if not count % save_freq:
+                if self._file_disp is not None:
+                    self._file_disp << (self._mp.displacement, t)
+                    if not rank:
+                        print('* Displacement saved *')
+                if self._file_vel is not None:
+                    self._file_vel << (self._mp.velocity, t)
+                    if not rank:
+                        print('* Velocity saved *')
+                if self._file_pressure is not None:
+                    self._file_pressure << (self._mp.pressure, t)
+                    if not rank:
+                        print('* Pressure saved *')
 
         return None
 
 
     def nonlinear_solve(self, lhs, rhs, bcs, nonlinear_tol=1e-10,
                         iter_tol=1e-8, maxNonlinIters=50, maxLinIters=200,
-                        show=0, print_norm=True):
+                        show=0, print_norm=True, lin_solver="mumps"):
         """
+        Solve the nonlinear system of equations using Newton's method.
 
+
+        Parameters
+        ----------
+
+        lhs : ufl.Form, list
+            The definition of the left-hand side of the resulting linear
+            system of equations.
+        rhs : ufl.Form, list
+            The definition of the right-hand side of the resulting linear
+            system of equations.
+        bcs : dolfin.DirichletBC, list
+            Object specifying the Dirichlet boundary conditions of the
+            system.
+        nonlinear_tol : float (default 1e-10)
+            Tolerance used to terminate Newton's method.
+        iter_tol : float (default 1e-8)
+            Tolerance used to terminate the iterative linear solver.
+        maxNonlinIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        maxLinIters : int (default 200)
+            Maximum number of iterations for iterative linear solver.
+        show : int (default 0)
+            Amount of information for iterative.LGMRES to show. See
+            documentation of this class for different log levels.
+        print_norm : bool (default True)
+            True if user wishes to see the norm at every linear iteration
+            and False otherwise.
+        lin_solver : str (default "mumps")
+            Name of the linear solver to be used for steady compressible elastic
+            problems. See the dolfin.solve documentation for a list of available
+            linear solvers.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -168,7 +340,7 @@ class MechanicsSolver(object):
                                         maxiter=maxLinIters)
                 du = Ainv*b
             else:
-                dlf.solve(A, du, b, 'mumps')
+                dlf.solve(A, du, b, lin_solver)
 
             self.update_soln(du)
 
@@ -183,6 +355,22 @@ class MechanicsSolver(object):
 
     def update_soln(self, du):
         """
+        Update the values of the field variables based on the solution
+        to the resulting linear system.
+
+
+        Parameters
+        ----------
+
+        du : block.block_vec, dolfin.Vector
+            The solution to the resulting linear system of the variational
+            problem defined by the MechanicsProblem object.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -217,6 +405,9 @@ class MechanicsSolver(object):
 
     def ufl_lhs_rhs(self):
         """
+        Return the UFL objects that define the left and right hand sides
+        of the resulting linear system for the variational problem defined
+        by the MechanicsProblem object.
 
 
         """

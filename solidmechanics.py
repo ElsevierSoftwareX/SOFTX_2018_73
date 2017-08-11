@@ -7,11 +7,19 @@ from .basemechanicsproblem import BaseMechanicsProblem
 
 from inspect import isclass
 
-__all__ = ['SolidMechanicsProblem']
+__all__ = ['SolidMechanicsProblem', 'SolidMechanicsSolver']
 
 
 class SolidMechanicsProblem(BaseMechanicsProblem):
     """
+    This class represents the variational form of a solid
+    mechanics problem. The specific form and boundary conditions
+    are generated based on definitions provided by the user in a
+    dictionary of sub-dictionaries.
+
+    *** Refer to the documentation of BaseMechanicsProblem ***
+    ***  for details on how to define a problem using the  ***
+    ***                'config' dictionary.                ***
 
 
     """
@@ -36,6 +44,12 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_function_spaces(self):
         """
+        Define the function space based on the degree(s) specified
+        in config['mesh']['element'] and add it as member data. If
+        the problem is specified as incompressible, a mixed function
+        space made up of a vector and scalar function spaces is defined.
+        Note that this differs from MechanicsProblem since there,
+        the vector and scalar function spaces are defined separately.
 
 
         """
@@ -67,6 +81,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_functions(self):
         """
+        Define mixed functions necessary to formulate the problem
+        specified in the 'config' dictionary. The sub-functions are
+        also defined for use in formulating variational forms and saving
+        results separately. Functions that are not needed are set to 0.
 
 
         """
@@ -81,6 +99,36 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_incompressible_functions(self):
         """
+        Define mixed functions necessary to formulate an incompressible
+        solid mechanics problem. The mixed function is also split using
+        dolfin.split (for use in UFL variational forms) and u.split(),
+        where u is a mixed function (for saving solutions separately).
+        The names of the member data added to the instance of the
+        SolidMechanicsProblem class are:
+
+        - sys_u : mixed function
+        - ufl_displacement : sub component corresponding to displacement
+        - displacement : copy of sub component for writing and assigning
+                         values
+        - ufl_pressure : sub component corresponding to pressure
+        - pressure : copy of sub component for writing and assigning values
+        - sys_du : mixed trial function
+        - trial_vector : sub component of mixed trial function
+        - trial_scalar : sub component of mixed trial function
+        - test_vector : sub component of mixed test function
+        - test_scalar : sub component of mixed test function
+
+        If problem is unsteady, the following are also added:
+
+        - ufl_velocity0 : sub component corresponding to velocity
+        - velocity0 : copy of sub component for writing and assigning values
+        - ufl_acceleration0 : sub component corresponding to acceleration
+        - acceleration0 : copy of sub component for writing and assigning values
+        - sys_u0 : mixed function at previous time step
+        - ufl_displacement0 : sub component at previous time step
+        - displacement0 : copy of sub component at previous time step
+        - ufl_pressure0 : sub component at previous time step
+        - pressure0 : copy of sub component at previous time step
 
 
         """
@@ -120,6 +168,21 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_compressible_functions(self):
         """
+        Define functions necessary to formulate a compressible solid
+        mechanics problem. The names of the member data added to the
+        instance of the SolidMechanicsProblem class are:
+
+        - sys_u = ufl_displacement = displacement : all point to the same
+                  displacement function, unlike the incompressible case.
+        - sys_du = trial_vector : trial function for vector function space
+        - test_vector : sub component of mixed test function
+        - ufl_pressure = pressure = None
+
+        If problem is unsteady, the following are also added:
+
+        - sys_v0 = ufl_velocity0 = velocity0
+        - sys_a0 = ufl_acceleration0 = acceleration0
+        - sys_u0 = ufl_displacement0 = displacement0
 
 
         """
@@ -152,7 +215,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_acceleration(self):
         """
-
+        Define the acceleration based on the Newmark integration scheme
+        and add as member data under 'ufl_acceleration'.
 
         """
 
@@ -172,6 +236,15 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_deformation_tensors(self):
         """
+        Define kinematic tensors needed for constitutive equations. Secondary
+        tensors are added with the suffix "0" if the problem is time-dependent.
+        The names of member data added to an instance of the SolidMechanicsProblem
+        class are:
+
+        - deformationGradient
+        - deformationGradient0
+        - jacobian
+        - jacobian0
 
 
         """
@@ -190,6 +263,13 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_material(self):
         """
+        Create an instance of the class that defines the constitutive
+        equation for the current problem and add it as member data under
+        '_material'. All necessary parameters must be included in the
+        'material' subdictionary of 'config'. The specific values necessary
+        depends on the constitutive equation used. Please check the
+        documentation of the material classes provided in
+        'fenicsmechanics.materials' if using a built-in material.
 
 
         """
@@ -223,6 +303,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_dirichlet_bcs(self):
         """
+        Define a list of Dirichlet BC objects based on the problem configuration
+        provided by the user, and add it as member data under 'dirichlet_bcs'. If
+        no Dirichlet BCs are provided, 'dirichlet_bcs' is set to None.
 
 
         """
@@ -242,6 +325,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_compressible_dirichlet_bcs(self):
         """
+        Define Dirichlet BCs for compressible solid mechanics problems.
 
 
         """
@@ -261,6 +345,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_incompressible_dirichlet_bcs(self):
         """
+        Define Dirichlet BCs for incompressible solid mechanics problems.
 
 
         """
@@ -287,6 +372,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_forms(self):
         """
+        Define all of the variational forms necessary for the problem specified
+        by the user and add them as member data. The variational forms are those
+        corresponding to the balance of linear momentum and the incompressibility
+        constraint.
 
 
         """
@@ -312,6 +401,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_local_inertia(self):
         """
+        Define the UFL object corresponding to the local acceleration
+        term in the weak form.
 
 
         """
@@ -333,6 +424,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_stress_work(self):
         """
+        Define the UFL object corresponding to the stress tensor term
+        in the weak form.
 
 
         """
@@ -358,6 +451,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_body_force(self):
         """
+        Define the UFL object corresponding to the body force term in
+        the weak form.
 
 
         """
@@ -384,6 +479,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_neumann_bcs(self):
         """
+        Define the variational forms for all of the Neumann BCs given
+        in the 'config' dictionary under "ufl_neumann_bcs". If the problem
+        is time-dependent, a secondary variational form is defined at the
+        previous time step with the name "ufl_neumann_bcs0".
 
 
         """
@@ -424,6 +523,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations(self):
         """
+        Define all of the variational forms necessary for the problem
+        specified in the 'config' dictionary, as well as the mixed
+        variational form.
 
 
         """
@@ -452,6 +554,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_ufl_equations_diff(self):
         """
+        Differentiate all of the variational forms with respect to appropriate
+        fields variables and add as member data.
 
 
         """
@@ -464,6 +568,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     @staticmethod
     def __define_displacement_bcs(W, dirichlet_dict, mesh_function):
         """
+        Create a dictionary storing the dolfin.DirichletBC objects for
+        each displacement BC specified in the 'dirichlet' subdictionary.
+
+
+        Parameters
+        ----------
+
+        W : dolfin.FunctionSpace
+            The function space for the displacement.
+        dirichlet_dict : dict
+            The 'dirichlet' subdictionary of 'config'. Refer to the
+            documentation for BaseMechanicsProblem for more information.
+        mesh_function : dolfin.MeshFunction
+            The mesh function used to tag different regions of the
+            domain boundary.
+
+
+        Returns
+        -------
+
+        displacement_bcs : dict
+            a dictionary of the form {'displacement': [...]}, where
+            the value is a list of dolfin.DirichletBC objects.
 
 
         """
@@ -481,6 +608,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     @staticmethod
     def __define_pressure_bcs(W, dirichlet_dict, mesh_function):
         """
+        Create a dictionary storing the dolfin.DirichletBC objects for
+        each pressure BC specified in the 'dirichlet' subdictionary.
+
+
+        Parameters
+        ----------
+
+        W : dolfin.FunctionSpace
+            The function space for pressure.
+        dirichlet_dict : dict
+            The 'dirichlet' subdictionary of 'config'. Refer to the
+            documentation for BaseMechanicsProblem for more information.
+        mesh_function : dolfin.MeshFunction
+            The mesh function used to tag different regions of the
+            domain boundary.
+
+
+        Returns
+        -------
+
+        pressure_bcs : dict
+            a dictionary of the form {'pressure': [...]}, where
+            the value is a list of dolfin.DirichletBC objects.
 
 
         """
@@ -497,12 +647,39 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
+    This class is derived from the dolfin.NonlinearVariationalSolver to
+    solve problems formulated with SolidMechanicsProblem. It passes the
+    UFL variational forms to the solver, and loops through all time steps
+    if the problem is unsteady. The solvers that are available through
+    this class are the same as those available through dolfin. The user
+    may use the helper function, 'set_parameters' to set the linear solver
+    used, as well as the tolerances for iterative and nonlinear solves, or
+    do it directly through the 'parameters' member.
 
 
     """
 
 
-    def __init__(self, problem):
+    def __init__(self, problem, fname_disp=None, fname_pressure=None):
+        """
+        Initialize a SolidMechanicsSolver object.
+
+        Parameters
+        ----------
+
+        problem : SolidMechanicsProblem
+            A SolidMechanicsProblem object that contains the necessary UFL
+            forms to define and solve the problem specified in a config
+            dictionary.
+        fname_disp : str (default None)
+            Name of the file series in which the displacement values are
+            to be saved.
+        fname_pressure : str (default None)
+            Name of the file series in which the pressure values are to
+            be saved.
+
+
+        """
 
         self._problem = problem
 
@@ -518,6 +695,17 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         if problem.config['material']['incompressible']:
             self.define_function_assigners()
 
+        # Create file objects. This keeps the counter from being reset
+        # each time the solve function is called.
+        if fname_disp is not None:
+            self._file_disp = dlf.File(fname_disp, "compressed")
+        else:
+            self._file_disp = None
+        if fname_pressure is not None:
+            self._file_pressure = dlf.File(fname_pressure, "compressed")
+        else:
+            self._file_pressure = None
+
         return None
 
 
@@ -529,6 +717,32 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                        krylov_reltol=1e-7,
                        krylov_maxIters=50):
         """
+        Set the parameters used by the NonlinearVariationalSolver.
+
+
+        Parameters
+        ----------
+
+        linear_solver : str
+            The name of linear solver to be used.
+        newton_abstol : float (default 1e-10)
+            Absolute tolerance used to terminate Newton's method.
+        newton_reltol : float (default 1e-9)
+            Relative tolerance used to terminate Newton's method.
+        newton_maxIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        krylov_abstol : float (default 1e-8)
+            Absolute tolerance used to terminate Krylov solver methods.
+        krylov_reltol : float (default 1e-7)
+            Relative tolerance used to terminate Krylov solver methods.
+        krylov_maxIters : int (default 50)
+            Maximum number of iterations for Krylov solver methods.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -545,19 +759,35 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         return None
 
 
-    def full_solve(self, fname_disp=None, fname_press=None, save_freq=1):
+    def full_solve(self, save_freq=1, save_initial=True):
         """
+        Solve the mechanics problem defined by SolidMechanicsProblem. If the
+        problem is unsteady, this function will loop through the entire time
+        interval using the parameters provided for the Newmark integration
+        scheme.
+
+
+        Parameters
+        ----------
+
+        save_freq : int (default 1)
+            The frequency at which the solution is to be saved if the problem is
+            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+            every 10 time steps.
+        save_initial : bool (default True)
+            True if the user wishes to save the initial condition and False otherwise.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
 
         problem = self._problem
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
-
-        if fname_disp:
-            file_disp = dlf.File(fname_disp, 'compressed')
-        if fname_press:
-            file_press = dlf.File(fname_press, 'compressed')
 
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
@@ -566,19 +796,19 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
+            # Save initial condition
+            if save_initial:
+                if self._file_disp is not None:
+                    self._file_disp << (problem.displacement, t)
+                    if not rank:
+                        print('* Displacement saved *')
+                if self._file_pressure is not None:
+                    self._file_pressure << (problem.pressure, t)
+                    if not rank:
+                        print('* Pressure saved *')
+
             # Hack to avoid rounding errors.
             while t < (tf - dt/10.0):
-
-                # Save current time step
-                if not count % save_freq:
-                    if fname_disp:
-                        file_disp << (problem.displacement, t)
-                        if not rank:
-                            print('* Displacement saved *')
-                    if fname_press:
-                        file_press << (problem.pressure, t)
-                        if not rank:
-                            print('* Pressure saved *')
 
                 # Advance the time.
                 t += dt
@@ -600,21 +830,34 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 t0 = t
                 count += 1
 
+                # Save current time step
+                if not count % save_freq:
+                    if self._file_disp is not None:
+                        self._file_disp << (problem.displacement, t)
+                        if not rank:
+                            print('* Displacement saved *')
+                    if self._file_pressure is not None:
+                        self._file_pressure << (problem.pressure, t)
+                        if not rank:
+                            print('* Pressure saved *')
+
         else:
             self.step()
 
             self.update_assign()
 
-            if fname_disp:
-                file_disp << self._problem.displacement
-            if fname_press:
-                file_press << self._problem.pressure
+            if self._file_disp is not None:
+                self._file_disp << self._problem.displacement
+            if self._file_pressure is not None:
+                self._file_pressure << self._problem.pressure
 
         return None
 
 
     def step(self):
         """
+        Compute the solution for the next time step in the simulation. Note that
+        there is only one "step" if the simulation is steady.
 
 
         """
@@ -625,6 +868,12 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
 
     def update_assign(self):
+        """
+        Update the values of the field variables -- both the current and
+        previous time step in preparation for the next step of the simulation.
+
+
+        """
 
         problem = self._problem
         incompressible = problem.config['material']['incompressible']
@@ -658,6 +907,15 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
 
     def define_function_assigners(self):
+        """
+        Create function assigners to update the current and previous time
+        values of all field variables. This is specific to incompressible
+        simulations since the mixed function space formulation requires the
+        handling of the mixed functions and the copies of its subcomponents
+        in a specific manner.
+
+
+        """
 
         problem = self._problem
         W = problem.functionSpace
@@ -683,6 +941,45 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
     @staticmethod
     def update(u, u0, v0, a0, beta, gamma, dt):
+        """
+        Function to update values of field variables at the current and previous
+        time steps based on the Newmark integration scheme:
+
+        a = 1.0/(beta*dt^2)*(u - u0 - v0*dt) - (1.0/(2.0*beta) - 1.0)*v0
+        v = dt*((1.0 - gamma)*a0 + gamma*a) + v0
+
+        This particular method is to be used when the function objects do not
+        derive from a mixed function space.
+
+
+        Parameters
+        ----------
+
+        u : dolfin.Function
+            Object storing the displacement at the current time step.
+        u0 : dolfin.Function
+            Object storing the displacement at the previous time step.
+        v0 : dolfin.Function
+            Object storing the velocity at the previous time step.
+        a0 : dolfin.Function
+            Object storing the acceleration at the previous time step.
+        beta : float
+            Scalar parameter for the family of Newmark integration schemes.
+            See equation above.
+        gamma : float
+            Scalar parameter for the family of Newmark integration schemes.
+            See equation above.
+        dt : float
+            Time step used to advance through the entire time interval.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
 
         # Get vector references
         u_vec, u0_vec = u.vector(), u0.vector()

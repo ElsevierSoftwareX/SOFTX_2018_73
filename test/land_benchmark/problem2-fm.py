@@ -148,5 +148,5 @@ config = {'material': mat_dict,
 
 result_file = args.output_dir + '/ellipsoid-fm.pvd'
 problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem)
-solver.full_solve(save_freq=save_freq, fname_disp=result_file)
+solver = fm.SolidMechanicsSolver(problem, fname_disp=result_file)
+solver.full_solve(save_freq=save_freq)

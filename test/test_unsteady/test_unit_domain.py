@@ -194,8 +194,8 @@ config = {'material': material_dict,
           'formulation': formulation_dict}
 
 problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem)
-solver.full_solve(fname_disp=disp_file, save_freq=save_freq)
+solver = fm.SolidMechanicsSolver(problem, fname_disp=disp_file)
+solver.full_solve(save_freq=save_freq)
 
 # Compute the final volume
 if args.compute_volume:

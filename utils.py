@@ -90,6 +90,7 @@ def __load_mesh_hdf5(mesh_file):
     mesh : dolfin.cpp.mesh.Mesh
         This function returns a dolfin mesh object.
 
+
     """
 
     # Check dolfin for HDF5 support
@@ -127,6 +128,7 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
     mesh_func : dolfin.cpp.mesh.MeshFunctionSizet
         This function returns a dolfin mesh function object.
 
+
     """
 
     # Check dolfin for HDF5 support
@@ -148,6 +150,12 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
 
 
 def petsc_identity(N, dofs=None):
+    """
+    Create an identity matrix using petsc4py. Note: this currently
+    only works in one process.
+
+
+    """
 
     from petsc4py import PETSc
 
@@ -169,6 +177,23 @@ def petsc_identity(N, dofs=None):
 
 
 def duplicate_expressions(*args):
+    """
+    Duplicate dolfin.Expression objects to be used at different time steps.
+
+    Parameters
+    ----------
+
+    A set of dolfin.Expression objects to be duplicated.
+
+
+    Returns
+    -------
+
+    retval : list
+        List containing duplicated dolfin.Expression objects.
+
+
+    """
 
     retval = list()
     import copy
@@ -188,6 +213,12 @@ def duplicate_expressions(*args):
 
 
 def list_implemented_materials():
+    """
+    Print the material types and corresponding constitutive equations that
+    have been implemented in fenicsmechanics.materials.
+
+
+    """
 
     from .__CONSTANTS__ import dict_implemented
 

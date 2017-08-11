@@ -9,7 +9,157 @@ __all__ = ['BaseMechanicsProblem']
 
 
 class BaseMechanicsProblem(object):
+    """
+    This is the base class for mechanics problems. Checking validity of the
+    'config' dictionary provided by users is done at this level since all
+    mechanics problems are derived from this class. The derived classes will
+    then define the variational problem using the FEniCS UFL language.
 
+    The user must provide a python dictionary (referred to as 'config' throughout)
+    with the keys and values listed below. Actions taken when optional values are
+    not provided are listed below.
+
+
+    * 'material'
+       * 'type' : str
+            The class of material that will be used, e.g. elastic, viscous,
+            viscoelastic, etc.
+       * 'const_eqn' : str, class
+            The name of the constitutive equation to be used. User may provide
+            their own class which defines a material instead of using those
+            implemented in fenicsmechanics.materials.
+       * 'incompressible' : bool
+            True if the material is incompressible. An
+            additional weak form for the incompressibility
+            constraint will be added to the problem.
+       * 'density' : float, int
+            Scalar specifying the density of the material.
+
+       *** The additional material parameters depend on the ***
+       ***  constitutive equation being used. Please check  ***
+       ***   the documentation of the specific model used.  ***
+       ***                                                  ***
+       ***     A list of implemented material types and     ***
+       ***       constitutive equations is provided by      ***
+       ***         'list_implemented_materials'.            ***
+
+
+    * 'mesh'
+       * 'mesh_file' : str, dolfin.Mesh
+            Name of the file containing the mesh information of
+            the problem geometry, or a dolfin.Mesh object. Supported
+            file formats are *.xml, *.xml.gz, and *.h5.
+       * 'mesh_function' : str, dolfin.MeshFunction
+            Name of the file containing the mesh function information
+            of the geometry, or a dolfin.MeshFunction object. Supported
+            file formats are *.xml, *.xml.gz, and *.h5. This mesh function
+            will be used to mark different regions of the domain boundary.
+       * 'element' : str
+            Name of the finite element to be used for the discrete
+            function space. Currently, elements of the form 'p<n>-p<m>'
+            are supported, where <n> is the degree used for the vector
+            function space, and <m> is the degree used for the scalar
+            function space. If the material is not incompressible, only the
+            first term should be specified. E.g., 'p2-p1'.
+
+
+    * 'formulation'
+        * 'time' (OPTIONAL)
+            * 'unsteady' : bool
+                True if the problem is time dependent, and False otherwise.
+            * 'dt' : float
+                Time step used for the numerical integrator.
+            * 'interval' : list, tuple
+                A list or tuple of length 2 specifying the time interval,
+                i.e. [t0, tf].
+            * 'theta': float, int
+                The weight given to the current time step and subtracted
+                from the previous, i.e.
+
+                  dy/dt = theta*f(y_{n+1}) + (1 - theta)*f(y_n).
+
+                Note: theta = 1 gives a fully implicit scheme, while
+                theta = 0 gives a fully explicit one.
+            * 'beta' : float, int
+                The beta parameter used in the Newmark integration scheme.
+                Note: the Newmark integration scheme is only used by
+                SolidMechanicsProblem.
+            * 'gamma' : float, int
+                The gamma parameter used in the Newmark integration scheme.
+                Note: the Newmark integration scheme is only used by
+                SolidMechanicsProblem.
+        * 'initial_condition' : dolfin.Coefficient (OPTIONAL)
+            A dolfin.Coefficient object specifying the initial value of the
+            solution to the problem.
+        * 'domain' : str
+            String specifying whether the problem is to be formulated
+            in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
+            ALE is currently not supported. The string must be all lower-case.
+        * 'inverse' : bool
+            True if the problem is an inverse elastostatics problem, and False
+            otherwise. For more information, see Govindjee and Mihalic (1996 &
+            1998).
+        * 'body_force' : dolfin.Coefficient (OPTIONAL)
+            Value of the body force throughout the body.
+        * 'bcs' (OPTIONAL)
+            * 'dirichlet' (OPTIONAL)
+                * 'velocity' : list, tuple
+                    List of velocity values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order must
+                    match the order used in the list of region IDs.
+                * 'displacement' : list, tuple
+                    List of displacement values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order must match
+                    the order used in the list of region IDs.
+                * 'pressure' : list, tuple
+                    List of pressure values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order must match
+                    the order used in the list of pressure region IDs.
+                * 'regions' : list, tuple
+                    List of the region IDs on which Dirichlet boundary conditions for
+                    displacement and velocity are to be imposed. These IDs must match
+                    those used by the mesh function provided. The order must match that
+                    used in the list of values (velocity and displacement).
+                * 'p_regions' : list, tuple
+                    List of the region IDs on which Dirichlet boundary conditions for
+                    pressure are to be imposed. These IDs must match those used by the
+                    mesh function provided. The order must also match that used in the
+                    list of values (pressure).
+            * 'neumann' (OPTIONAL)
+                * 'regions' : list, tuple
+                    List of the region IDs on which Neumann boundary conditions are to
+                    be imposed. These IDs must match those used by the mesh function
+                    provided. The order must match the order used in the list of types
+                    and values.
+                * 'types' : list, tuple
+                    List of strings specifying whether a 'pressure', 'piola',
+                    or 'cauchy' is provided for each region. The order
+                    must match the order used in the list of region IDs
+                    and values.
+                * 'values' : list, tuple
+                    List of values (dolfin.Constant or dolfin.Expression)
+                    for each Dirichlet boundary region specified. The order
+                    must match the order used in the list of region IDs
+                    and types.
+
+
+    Below is a list of actions taken if an optional key/value IS NOT PROVIDED:
+
+    * 'time': the subdictionary {'unsteady': False} is added under this key.
+    * 'initial_condition': the initial condition is assumed to be zero.
+    * 'body_force': the body force is set to zero.
+    * 'bcs': the subdictionary {'dirichlet': None, 'neumann': None} is added
+        under this key. A warning is printed alerting the user that no boundary
+        conditions were specified.
+        * 'dirichlet': if 'bcs' is provided, but 'dirichlet' is not, the value
+            of 'dirichlet' is set to None. A warning is printed alerting the user
+            that no Dirichlet BC was specified.
+        * 'neumann': if 'bcs' is provided, but 'neumann' is not, the value of
+            'neumann' is set to None. A warning is printed alerting the user that
+            not Neumann BC was specified.
+
+
+    """
 
     def __init__(self, user_config):
 
@@ -27,9 +177,11 @@ class BaseMechanicsProblem(object):
     def check_config(self, user_config):
         """
         Check that all parameters provided in 'user_config' are valid
-        based on the current capabilities of the package. If certain
-        keys are not provided, they are added with a value of 'None'.
-        An exception is raised when a parameter is found to be invalid.
+        based on the current capabilities of the package. An exception
+        is raised when a parameter (or combination of parameters) is
+        (are) found to be invalid. Please see the documentation of
+        BaseMechanicsProblem for detailed information on the required
+        values.
 
 
         Parameters
@@ -38,7 +190,7 @@ class BaseMechanicsProblem(object):
         user_config : dict
             Dictionary describing the formulation of the mechanics
             problem to be simulated. Check the documentation of
-            MechanicsProblem to see the format of the dictionary.
+            BaseMechanicsProblem to see the format of the dictionary.
 
 
         Results
@@ -132,7 +284,29 @@ class BaseMechanicsProblem(object):
 
     def check_time_params(self, config):
         """
+        Check the time parameters provided by the user in the config dictionary.
+        Things this function does:
 
+        - If the problem is steady, the theta and dt values are set to 1.
+        - If the problem is unsteady and no value was provided for theta,
+          an exception is raised.
+        - If the problem is unsteady, and a theta outside of the interval
+          [0, 1] is provided, an exception is raised.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -166,7 +340,9 @@ class BaseMechanicsProblem(object):
     def check_material_const_eqn(self, config):
         """
         Check if the material type and the specific constitutive equation
-        specified in the config dictionary are implemented.
+        specified in the config dictionary are implemented, unless a class
+        is provided. An exception is raised if an unknown material type
+        and/or constitutive equation name is provided.
 
 
         Parameters
@@ -175,7 +351,13 @@ class BaseMechanicsProblem(object):
         config : dict
             Dictionary describing the formulation of the mechanics
             problem to be simulated. Check the documentation of
-            MechanicsProblem to see the format of the dictionary.
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -212,7 +394,22 @@ class BaseMechanicsProblem(object):
 
     def check_bcs(self, config):
         """
+        Check the boundary conditions provided by the user in the config dictionary.
 
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -247,7 +444,13 @@ class BaseMechanicsProblem(object):
         config : dict
             Dictionary describing the formulation of the mechanics
             problem to be simulated. Check the documentation of
-            MechanicsProblem to see the format of the dictionary.
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -311,8 +514,13 @@ class BaseMechanicsProblem(object):
         config : dict
             Dictionary describing the formulation of the mechanics
             problem to be simulated. Check the documentation of
-            MechanicsProblem to see the format of the dictionary.
+            BaseMechanicsProblem to see the format of the dictionary.
 
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -337,8 +545,9 @@ class BaseMechanicsProblem(object):
                              + 'and values do not match!')
 
         # Make sure all Neumann BC types are supported with domain specified.
+        # Make sure they're all lower case.
         neumann_types = map(str.lower, config['formulation']['bcs']['neumann']['types'])
-        config['formulation']['bcs']['neumann']['types'] = neumann_types # Make sure they're all lower case.
+        config['formulation']['bcs']['neumann']['types'] = neumann_types
 
         # Check that types are valid
         valid_types = {'pressure', 'cauchy', 'piola'}
@@ -361,6 +570,21 @@ class BaseMechanicsProblem(object):
         Update the time parameter in the BCs that depend on time explicitly.
         Also, the body force expression if necessary.
 
+
+        Parameters
+        ----------
+
+        t : float
+            The value to which the user wishes to update the time to.
+        t0 : float (default None)
+            The previous time value.
+
+
+        Returns
+        -------
+
+        None
+
         """
 
         if self.dirichlet_bcs:
@@ -379,6 +603,20 @@ class BaseMechanicsProblem(object):
         """
         Update the time parameter in the Dirichlet BCs that depend on time
         explicitly.
+
+
+        Parameters
+        ----------
+
+        t : float
+            The value to which the users wishes to update the time to.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -404,8 +642,22 @@ class BaseMechanicsProblem(object):
     def update_neumann_time(self, t, t0=None):
         """
         Update the time parameter in the Neumann BCs that depend on time
-        explicitly. The PETSc vector corresponding to this term is assembled
-        again if necessary.
+        explicitly.
+
+
+        Parameters
+        ----------
+
+        t : float
+            The value to which the user wishes to update the time to.
+        t0 : float (default None)
+            The previous time value.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -421,8 +673,23 @@ class BaseMechanicsProblem(object):
     def update_bodyforce_time(self, t, t0=None):
         """
         Update the time parameter in the body force expression if it depends
-        on time explicitly. The PETSc vector corresponding to this term is
-        assembled again if necessary.
+        on time explicitly.
+
+
+        Parameters
+        ----------
+
+        t : float
+            The value to which the user wishes to update the time to.
+        t0 : float (default None)
+            The previous time value.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -455,11 +722,51 @@ class BaseMechanicsProblem(object):
     def define_ufl_neumann_form(regions, types, values, domain,
                                 mesh, mesh_function, F, J, xi):
         """
-        Define the UFL object representing the Neumann boundary
-        conditions based on the problem configuration given by
-        the user. The function exits if the object has already
-        been defined.
+        Define the UFL object representing the variational form of the
+        Neumann boundary.
 
+
+        Parameters
+        ----------
+
+        regions : list, tuple
+            List of the region IDs on which Neumann boundary conditions are to
+            be imposed. These IDs must match those used by the mesh function
+            provided. The order must match the order used in the list of types
+            and values.
+        types : list, tuple
+            List of strings specifying whether a 'pressure', 'piola',
+            or 'cauchy' is provided for each region. The order
+            must match the order used in the list of region IDs
+            and values.
+        values : list, tuple
+            List of values (dolfin.Constant or dolfin.Expression)
+            for each Dirichlet boundary region specified. The order
+            must match the order used in the list of region IDs
+            and types.
+        domain : str
+            String specifying whether the problem is to be formulated
+            in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
+            ALE is currently not supported.
+        mesh : dolfin.Mesh
+            Mesh object used to define a measure.
+        mesh_function : dolfin.MeshFunction
+            Mesh function used to tag different regions of the domain
+            boundary.
+        F : ufl object
+            Deformation gradient.
+        J : ufl object
+            Determinant of the deformation gradient.
+        xi : dolfin.Argument
+            Test function used in variational formulation.
+
+
+        Returns
+        -------
+
+        neumann_form : ufl.Form
+            The UFL Form object defining the variational term(s) corresponding
+            to the Neumann boundary conditions.
 
         """
 
@@ -507,7 +814,22 @@ class BaseMechanicsProblem(object):
     @staticmethod
     def update_form_time(form, t):
         """
+        Update the time of the coefficient objects that depend on it.
 
+
+        Parameters
+        ----------
+
+        form : ufl.Form
+            Variational form for which the time is to be updated.
+        t : float
+            The value to which the time is to be updated.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
