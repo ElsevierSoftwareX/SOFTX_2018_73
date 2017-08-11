@@ -165,7 +165,7 @@ class NewtonianFluid(Fluid):
 
     T = -p*I + 2*mu*Sym(L),
 
-    where p is the pressure, I is the Identity tensor, mu is the
+    where p is the pressure, I is the identity tensor, mu is the
     dynamic viscosity of the fluid, and L = grad(v), where v is the
     velocity vector field.
 
@@ -230,7 +230,7 @@ class NewtonianFluid(Fluid):
         -------
 
         T :
-            The Cauchy stress tensor for an incompressible Newtonian fluid.
+            The Cauchy stress tensor defined above.
 
 
         """

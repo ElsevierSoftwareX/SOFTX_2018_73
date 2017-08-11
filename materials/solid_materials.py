@@ -52,6 +52,7 @@ class ElasticMaterial(object):
         Return material class, i.e. isotropic, transversely isotropic,
         orthotropic or fully anisotropic.
 
+
         """
 
         return self._material_class
@@ -230,7 +231,7 @@ class ElasticMaterial(object):
 
 class LinearMaterial(ElasticMaterial):
     """
-    Return the Cauchy stress tensor based on the linear elasticity, i.e.
+    Return the Cauchy stress tensor based on linear elasticity, i.e.
     infinitesimal deformations, both compressible and incompressible. The
     stress tensor is given by
 
@@ -245,7 +246,10 @@ class LinearMaterial(ElasticMaterial):
     model. In that case, the only change that must be accounted for is the
     fact that
 
-    e = sym(F^{-1}) - I.
+    e = sym(f^{-1}) - I,
+
+    where f = F^{-1} is the deformation gradient from the current to the
+    reference configuration.
 
     At least two of the material constants from the list below must be provided
     in the 'material' subdictionary of 'config' in addition to the values
@@ -254,14 +258,14 @@ class LinearMaterial(ElasticMaterial):
     * 'la' : float
         The first Lame parameter used as shown in the equations above. Note:
         providing la and inv_la does not qualify as providing two material
-        parameters.
+        constants.
     * 'mu' : float
         The second Lame parameter used as shown in the equations above.
     * 'kappa' : float
-        The bulk modulus of the material
+        The bulk modulus of the material.
     * 'inv_la' : float
         The reciprocal of the first Lame parameter, la. Note: providing la and
-        inv_la does not qualify as providing two material parameters.
+        inv_la does not qualify as providing two material constants.
     * 'E' : float
         The Young's modulus of the material.
     * 'nu' : float
@@ -401,11 +405,11 @@ class NeoHookeMaterial(ElasticMaterial):
 
     W = U(J) + psi(Cbar),
 
-    where Cbar = J^{-2/n}. Furthermore, the pressure scalar field is defined
+    where Cbar = J^{-2/n}*C. Furthermore, the pressure scalar field is defined
     such that p = -dU/dJ. The resulting first Piola-Kirchhoff stress tensor
     is then
 
-    P = [J*(dU/dJ) - (1/n)*mu*J^{-2/n}*tr(C)]*F^{-T} + mu*J^{-2/n}*F.
+    P = -[J*p + (1/n)*mu*J^{-2/n}*tr(C)]*F^{-T} + mu*J^{-2/n}*F.
 
     The inverse elastostatics formulation is also supported for this material
     model. In that case, the Cauchy stress tensor for compressible material is
@@ -431,7 +435,7 @@ class NeoHookeMaterial(ElasticMaterial):
     * 'mu' : float
         The second material parameter used as shown in the equations above.
     * 'kappa' : float
-        The bulk modulus of the material
+        The bulk modulus of the material.
     * 'inv_la' : float
         The reciprocal of the first parameter, la. Note: providing la and inv_la
         does not qualify as providing two material parameters.
@@ -532,6 +536,24 @@ class NeoHookeMaterial(ElasticMaterial):
         Define the strain energy function for the Neo-Hookean material
         based on the forward deformation gradient, dx/dX.
 
+
+        Parameters
+        ----------
+
+        F :
+            The deformation gradient.
+        J :
+            The Jacobian, i.e. determinant of the deformation gradient.
+        p :
+            The pressure for incompressible materials.
+
+
+        Returns
+        -------
+
+        The strain energy for a forward deformation.
+
+
         """
 
         mu = self._parameters['mu']
@@ -561,6 +583,20 @@ class NeoHookeMaterial(ElasticMaterial):
         """
         Define the strain energy function for the Neo-Hookean material
         based on the inverse deformation gradient, dX/dx.
+
+
+        Parameters
+        ----------
+
+        f :
+            The deformation gradient from the current to the reference
+            configuration.
+        j :
+            The Jacobian of the inverse deformation gradient, j = det(f).
+        formulation : str
+            The formulation used for the strain energy due to dilatation
+            of the material.
+
 
         """
 
@@ -614,6 +650,27 @@ class NeoHookeMaterial(ElasticMaterial):
         where f = F^{-1}, j = det(f), c = f^T*f, and n is the geometric dimension.
 
 
+        Parameters
+        ----------
+
+        F :
+            The deformation gradient.
+        J :
+            The Jacobian, i.e. determinant of the deformation gradient.
+        p :
+            The pressure for incompressible materials.
+        formulation : str
+            The formulation used for the strain energy due to dilatation
+            of the material.
+
+        Returns
+        -------
+
+        P :
+            The first Piola-Kirchhoff stress tensor for forward problems and
+            the Cauchy stress tensor for inverse elastostatics problems.
+
+
         """
 
         if self._inverse:
@@ -654,7 +711,7 @@ class NeoHookeMaterial(ElasticMaterial):
         ----------
 
         F :
-            The (forward or inverse) deformation gradient.
+            The deformation gradient.
         J :
             The jacobian, i.e. determinant of the deformation gradient given
             above.
@@ -665,8 +722,8 @@ class NeoHookeMaterial(ElasticMaterial):
             The formulation used for the nearly-incompressible materials.
             The accepted values are:
 
-            * square:     phi(J) = 0.5*kappa*(J - 1)**2
-            * log:        phi(J) = 0.5*kappa*(ln(J))**2
+            * square:     U(J) = 0.5*kappa*(J - 1)**2
+            * log:        U(J) = 0.5*kappa*(ln(J))**2
 
 
         Returns
@@ -708,14 +765,14 @@ class NeoHookeMaterial(ElasticMaterial):
         Return the Cauchy stress tensor for an inverse elastostatics problem.
         The Cauchy stress tensor is given by
 
-        (Compressible)   T = [-j^2*(dU/dj) - mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
-        (Incompressible) T = -[p + mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+        (Compressible)     T = -j^2*(dU/dj)*I + mu*c^{-1}
+        (Incompressible)   T = -[p + mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
 
         where f = F^{-1}, j = det(f), c = f^T*f, and n is the geometric dimension.
 
 
         Parameters
-        -------
+        ----------
 
         f :
             The deformation gradient from the current to the reference
@@ -1097,7 +1154,7 @@ class FiberMaterial(ElasticMaterial):
     def define_fiber_directions(self, fiber_files, fiber_names, function_space=None):
         """
         Load the fiber tangent vector fields from a given list of file names and
-        add the function objects are member data under "_fiber_directions".
+        add the function objects as member data under "_fiber_directions".
 
 
         Parameters
@@ -1185,11 +1242,10 @@ class FungMaterial(FiberMaterial):
         + 2*(d4*E11*E22 + d5*E22*E33 + d6*E11*E33)
         + d7*E12^2 + d8*E23^2 + d9*E13^2,
 
-    and C and di, i = 1,...,9 are material constants.
-
-    The Eij components are the components of the Lagrangian strain tensor,
-    E = 0.5*(F^T*F - I), with respect to the orthonormal set {e1, e2, e3},
-    where e1 and e2 are two fiber directions, and e3 = e1 x e2.
+    and C and di, i = 1,...,9 are material constants. The Eij components are
+    the components of the Lagrangian strain tensor, E = 0.5*(F^T*F - I), with
+    respect to the orthonormal set {e1, e2, e3}, where e1 and e2 are two fiber
+    directions, and e3 = e1 x e2.
 
     The resulting first Piola-Kirchhoff stress tensor is then
 
@@ -1289,7 +1345,30 @@ class FungMaterial(FiberMaterial):
 
     def stress_tensor(self, F, J, p=None, formulation=None):
         """
-        UFL form of the stress tensor.
+        Return the first Piola-Kirchhoff stress tensor for forward problems
+        and the Cauchy stress tensor for inverse elastostatics problems. The
+        constitutive equation is shown in the documentation of FungMaterial.
+
+
+        Parameters
+        ----------
+
+        F :
+            The deformation gradient.
+        J :
+            The Jacobian, i.e. the determinant of the deformation gradient.
+        p : (default, None)
+            The pressure function for incompressible materials.
+        formulation : (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+
+
+        Returns
+        -------
+
+        The stress tensor defined in the FungMaterial documentation.
+
 
         """
 
@@ -1303,6 +1382,28 @@ class FungMaterial(FiberMaterial):
 
     def _forward_stress_tensor(self, F, J, p=None, formulation=None):
         """
+        Return the first Piola-Kirchhoff stress tensor for forward problems.
+        The constitutive equation is shown in the documentation of FungMaterial.
+
+
+        Parameters
+        ----------
+
+        F :
+            The deformation gradient.
+        J :
+            The Jacobian, i.e. the determinant of the deformation gradient.
+        p : (default, None)
+            The pressure function for incompressible materials.
+        formulation : (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+
+
+        Returns
+        -------
+
+        The stress tensor defined in the FungMaterial documentation.
 
 
         """
@@ -1361,6 +1462,29 @@ class FungMaterial(FiberMaterial):
 
     def _inverse_stress_tensor(self, f, j, p=None, formulation=None):
         """
+        Return the Cauchy stress tensor for inverse elastostatics problems.
+        The constitutive equation is shown in the documentation of FungMaterial.
+
+
+        Parameters
+        ----------
+
+        f :
+            The deformation gradient from the current to the reference
+            configuration.
+        j :
+            The determinant of f.
+        p : (default, None)
+            The pressure function for incompressible materials.
+        formulation : (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+
+
+        Returns
+        -------
+
+        The stress tensor defined in the FungMaterial documentation.
 
 
         """
@@ -1467,7 +1591,25 @@ class GuccioneMaterial(FungMaterial):
 
     def strain_energy(self, u, p=None):
         """
-        UFL form of the strain energy.
+        Return the strain energy of Guccione material defined in the
+        documentation of GuccioneMaterial.
+
+
+        Parameters
+        ----------
+
+        u :
+            The displacement of the material.
+        p :
+            The pressure for incompressible materials.
+
+
+        Returns
+        -------
+
+        The strain energy defined in the documentation of GuccioneMaterial.
+
+
         """
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(u)
@@ -1620,6 +1762,30 @@ public:
 
 
 def load_fibers(fname, fiber_names, mesh):
+    """
+    Load the fiber vector fields from a given HDF5 file and create a
+    dolfin.MeshFunction.
+
+
+    Parameters
+    ----------
+
+    fname : str
+        The name of the file.
+    fiber_names : list, tuple, str
+        The names under which each fiber vector field was stored in
+        the given HDF5 file.
+    mesh : dolfin.Mesh
+        Mesh of the computational domain.
+
+
+    Returns
+    -------
+
+    dolfin.MeshFunction object
+
+
+    """
 
     fiber_mesh_functions = list()
     f = dlf.HDF5File(dlf.mpi_comm_world(), fname, 'r')
@@ -1634,6 +1800,32 @@ def load_fibers(fname, fiber_names, mesh):
 
 
 def define_fiber_dir(fname, fiber_names, mesh, degree=0):
+    """
+    Define the fiber directions given the file in which they are stored,
+    their names, and the mesh of the computational domain.
+
+
+    Parameters
+    ----------
+
+    fname : str
+        The name of the file.
+    fiber_names : list, tuple, str
+        The names under which each fiber vector field was stored in
+        the given HDF5 file.
+    mesh : dolfin.Mesh
+        Mesh of the computational domain.
+    degree : int
+        The polynomial degree used to approximate the fiber vector fields.
+
+
+    Returns
+    -------
+
+    dolfin.Coefficient object approximating the fiber vector fields.
+
+
+    """
 
     fibers = load_fibers(fname, fiber_names, mesh)
     c = dlf.Expression(cppcode=__fiber_directions_code__,
