@@ -1,12 +1,13 @@
 import ufl
 import dolfin as dlf
 
-__all__ = ['NewtonianFluid']
+__all__ = ['Fluid', 'NewtonianFluid']
 
 
 class Fluid(object):
     """
     Base class for fluids.
+
     """
 
 
@@ -26,6 +27,20 @@ class Fluid(object):
         """
         Set material name.
 
+
+        Parameters
+        ----------
+
+        material_name : str
+            Name of the constitutive equation used.
+
+
+        Returns
+        -------
+
+        None
+
+
         """
 
         self._material_name = material_name
@@ -36,6 +51,7 @@ class Fluid(object):
         Return material class, i.e. isotropic, transversely isotropic,
         orthotropic, fully anisotropic, viscous fluid, etc.
 
+
         """
 
         return self._material_class
@@ -45,6 +61,20 @@ class Fluid(object):
         """
         Set material class.
 
+
+        Parameters
+        ----------
+
+        material_class : str
+            Name of the type of material.
+
+
+        Returns
+        -------
+
+        None
+
+
         """
 
         self._material_class = material_class
@@ -52,7 +82,8 @@ class Fluid(object):
 
     def is_incompressible(self):
         """
-        Return True if material is incompressible.
+        Return True if material is incompressible and False otherwise.
+
 
         """
 
@@ -61,7 +92,22 @@ class Fluid(object):
 
     def set_incompressible(self, boolIncompressible):
         """
-        Set fluid to incompressible formulation.
+        Set fluid to incompressible formulation. Note that compressible fluids
+        are currently not supported.
+
+
+        Parameters
+        ----------
+
+        boolIncompressible : bool
+            True if the material is incompressible and False otherwise.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -70,7 +116,8 @@ class Fluid(object):
 
     def print_info(self):
         """
-        Print fluid information.
+        Print material parameters, class, and name.
+
 
         """
 
@@ -84,12 +131,13 @@ class Fluid(object):
 
     def incompressibilityCondition(self, v):
         """
-        Return the incompressibility function, f(v), for fluids such that f(v) = 0.
-        The default is
+        Return the incompressibility function, f(v), for fluids such that
+        f(v) = 0. The default is
 
         f(v) = div(v) = 0,
 
-        where v is the velocity vector field.
+        where v is the velocity vector field. This can be redefined by
+        subclasses if a different constraint function is desired.
 
 
         Parameters
@@ -112,7 +160,24 @@ class Fluid(object):
 class NewtonianFluid(Fluid):
     """
     Class defining the stress tensor for an incompressible Newtonian
-    fluid.
+    fluid. Currently, only incompressible fluids are supported. The
+    Cauchy stress tensor is given by
+
+    T = -p*I + 2*mu*Sym(L),
+
+    where p is the pressure, I is the Identity tensor, mu is the
+    dynamic viscosity of the fluid, and L = grad(v), where v is the
+    velocity vector field.
+
+    In addition to the values listed in the documentation of BaseMechanicsProblem
+    for the 'material' 'subdictionary' of 'config', the user must provide at
+    least one of the values listed below:
+
+    * 'mu' : float
+        Dynamic viscosity of the fluid.
+    * 'nu' : float
+        Kinematic viscosity of the fluid.
+
 
     """
 
@@ -160,6 +225,14 @@ class NewtonianFluid(Fluid):
         p :
             The hydrostatic pressure.
 
+
+        Returns
+        -------
+
+        T :
+            The Cauchy stress tensor for an incompressible Newtonian fluid.
+
+
         """
 
         params = self._parameters
@@ -173,6 +246,36 @@ class NewtonianFluid(Fluid):
 
 
 def convert_viscosity(param):
+    """
+    Ensure that the dynamic and kinematic viscosity values are
+    consistent. If the density and kinematic viscosity are both
+    available, the kinematic viscosity is (re)calculated. Note
+    that the three material properties are related by
+
+    mu = rho*nu,
+
+    where mu is the dynamic viscosity, rho is the density, and nu
+    is the kinematic viscosity.
+
+
+    Parameters
+    ----------
+
+    param : dict
+        The material subdictionary in 'config', i.e. the dictionary
+        passed into material classes.
+
+
+    Returns
+    -------
+
+    None
+
+
+    Note: the material parameters are recalculated in-place.
+
+
+    """
 
     # Original parameters
     rho = param['density']

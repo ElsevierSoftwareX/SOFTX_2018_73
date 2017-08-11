@@ -1,10 +1,8 @@
 import dolfin as dlf
 import ufl
 
-__all__ = ['LinearMaterial',
-           'NeoHookeMaterial',
-           'FungMaterial',
-           'GuccioneMaterial']
+__all__ = ['ElasticMaterial', 'LinearMaterial', 'NeoHookeMaterial',
+           'FiberMaterial', 'FungMaterial', 'GuccioneMaterial']
 
 class ElasticMaterial(object):
     """
@@ -22,13 +20,27 @@ class ElasticMaterial(object):
 
 
     @staticmethod
-    def default_parameters() :
+    def default_parameters():
         return {}
 
 
     def set_material_name(self, material_name):
         """
         Set material name.
+
+
+        Parameters
+        ----------
+
+        material_name : str
+            Name of the constitutive equation used.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -50,6 +62,20 @@ class ElasticMaterial(object):
         Set material class, i.e. isotropic, transversely isotropic,
         orthotropic or fully anisotropic.
 
+
+        Parameters
+        ----------
+
+        material_class : str
+            Name of the type of material.
+
+
+        Returns
+        -------
+
+        None
+
+
         """
 
         self._material_class = material_class
@@ -57,7 +83,9 @@ class ElasticMaterial(object):
 
     def is_incompressible(self) :
         """
-        Return True if the material is incompressible.
+        Return True if the material is incompressible and False otherwise.
+
+
         """
 
         return self._incompressible
@@ -67,6 +95,20 @@ class ElasticMaterial(object):
         """
         Set material to incompressible formulation.
 
+
+        Parameters
+        ----------
+
+        boolIncompressible : bool
+            True if the material is incompressible and False otherwise.
+
+
+        Returns
+        -------
+
+        None
+
+
         """
 
         self._incompressible = boolIncompressible
@@ -74,7 +116,21 @@ class ElasticMaterial(object):
 
     def set_inverse(self, boolInverse):
         """
-        Set material to inverse formulation.
+        Set material to inverse elastostatics formulation.
+
+        Parameters
+        ----------
+
+        boolInverse : bool
+            True if the problem is an inverse elastostatics problem and False
+            otherwise.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -83,7 +139,9 @@ class ElasticMaterial(object):
 
     def is_inverse(self):
         """
-        Return True if the material formulation is inverse.
+        Return True if the material is formulated for an inverse elastostatics
+        problem and False otherwise.
+
 
         """
 
@@ -92,7 +150,21 @@ class ElasticMaterial(object):
 
     def set_active(self, boolActive):
         """
-        Set material to inverse formulation.
+        Set material to active formulation.
+
+
+        Parameters
+        ----------
+
+        boolActive : bool
+            True if the material is active and False if it is passive.
+
+
+        Returns
+        -------
+
+        None
+
 
         """
 
@@ -101,14 +173,18 @@ class ElasticMaterial(object):
 
     def is_active(self) :
         """
-        Return True if the material supports active contraction
+        Return True if the material supports active contraction and False
+        otherwise.
+
+
         """
         return self._active
 
 
     def print_info(self) :
         """
-        Print material information.
+        Print material parameters, class, and name.
+
 
         """
 
@@ -154,8 +230,46 @@ class ElasticMaterial(object):
 
 class LinearMaterial(ElasticMaterial):
     """
-    Return the stress tensor based on the linear elasticity, i.e. infinitesimal
-    deformations.
+    Return the Cauchy stress tensor based on the linear elasticity, i.e.
+    infinitesimal deformations, both compressible and incompressible. The
+    stress tensor is given by
+
+    (Compressible)    T = la*tr(e)*I + 2*mu*e,
+    (Incompressible)  T = -p*I + 2*mu*e,
+
+    where la and mu are the Lame material parameters, e = sym(grad(u))
+    where u is the displacement, and p is the pressure in the case of an
+    incompressible material.
+
+    The inverse elastostatics formulation is also supported for this material
+    model. In that case, the only change that must be accounted for is the
+    fact that
+
+    e = sym(F^{-1}) - I.
+
+    At least two of the material constants from the list below must be provided
+    in the 'material' subdictionary of 'config' in addition to the values
+    already listed in the documentation of BaseMechanicsProblem.
+
+    * 'la' : float
+        The first Lame parameter used as shown in the equations above. Note:
+        providing la and inv_la does not qualify as providing two material
+        parameters.
+    * 'mu' : float
+        The second Lame parameter used as shown in the equations above.
+    * 'kappa' : float
+        The bulk modulus of the material
+    * 'inv_la' : float
+        The reciprocal of the first Lame parameter, la. Note: providing la and
+        inv_la does not qualify as providing two material parameters.
+    * 'E' : float
+        The Young's modulus of the material.
+    * 'nu' : float
+        The Poisson's ratio of the material.
+
+    The remaining constants will be computed based on the parameters provided
+    by the user.
+
 
     """
 
@@ -187,7 +301,8 @@ class LinearMaterial(ElasticMaterial):
         """
         Return the Cauchy stress tensor for a linear material, namely
 
-        T = la*tr(e)*I + 2*mu*e,
+        (Compressible)    T = la*tr(e)*I + 2*mu*e,
+        (Incompressible)  T = -p*I + 2*mu*e,
 
         where e = sym(grad(u)), I is the identity tensor, and la & mu are
         the Lame parameters.
@@ -199,7 +314,7 @@ class LinearMaterial(ElasticMaterial):
         F :
             The deformation gradient.
         J :
-            The jacobian, i.e. determinant of the deformation gradient. Note
+            The Jacobian, i.e. determinant of the deformation gradient. Note
             that this is not used for this material. It is solely a place holder
             to conform to the format of other materials.
         p : (default, None)
@@ -260,23 +375,77 @@ class LinearMaterial(ElasticMaterial):
 
 class NeoHookeMaterial(ElasticMaterial):
     """
-    Return the first Piola-Kirchhoff stress tensor based on the strain
-    energy function
+    Return the first Piola-Kirchhoff stress tensor based on variations of the
+    strain energy function
 
-    standard:    psi(C) = mu/2*(tr(C) - 3) - mu*ln(J) + la/2*(ln(J))**2.
-    nearly-inc.: psi(C) = mu/2*(tr(C) - 3) + kappa/2*(ln(J))**2.
+    psi(C) = 0.5*mu*(tr(C) - n),
 
-    Parameters
-    ----------
+    where C = F.T*F, and n is the geometric dimension. For nearly incompressible
+    materials, the total strain energy function is given by
 
-    F :
-        Deformation gradient for the problem.
-    J :
-        Determinant of the deformation gradient.
-    la :
-        First parameter for a neo-Hookean material.
-    mu :
-        Second parameter for a neo-Hookean material.
+    W = U(J) + psi(C),
+
+    where U(J) corresponds to the strain energy in response to dilatation of
+    the material with J = det(F). The two forms of U(J) supported here are
+
+    (square)  U(J) = 0.5*kappa*(J - 1)**2,
+    (log)     U(J) = 0.5*kappa*(ln(J))**2,
+
+    where kappa is the bulk modulus of the material. This results in the first
+    Piola-Kirchhoff stress tensor given by
+
+    P = J*(dU/dJ)*F^{-T} + mu*F.
+
+    In the case of an incompressible material, the total strain energy is
+    assumed to be of the form
+
+    W = U(J) + psi(Cbar),
+
+    where Cbar = J^{-2/n}. Furthermore, the pressure scalar field is defined
+    such that p = -dU/dJ. The resulting first Piola-Kirchhoff stress tensor
+    is then
+
+    P = [J*(dU/dJ) - (1/n)*mu*J^{-2/n}*tr(C)]*F^{-T} + mu*J^{-2/n}*F.
+
+    The inverse elastostatics formulation is also supported for this material
+    model. In that case, the Cauchy stress tensor for compressible material is
+
+    T = -j^2*(dU/dj)*I + mu*c^{-1},
+
+    and
+
+    T = -[p + (1/n)*mu*j^{-1/n}*i2]*I + mu*j^{5/n}*c^{-1},
+
+    for incompressible material where j = det(f) = det(F^{-1}) = 1/J, c = f^T*f,
+    i2 is the second invariant of c, and p is the pressure in the latter case.
+    Note that f is the deformation gradient from the current configuration to
+    the reference configuration.
+
+    At least two of the material constants from the list below must be provided
+    in the 'material' subdictionary of 'config' in addition to the values
+    already listed in the documentation of BaseMechanicsProblem.
+
+    * 'la' : float
+        The first parameter used as shown in the equations above. Note: providing
+        la and inv_la does not qualify as providing two material parameters.
+    * 'mu' : float
+        The second material parameter used as shown in the equations above.
+    * 'kappa' : float
+        The bulk modulus of the material
+    * 'inv_la' : float
+        The reciprocal of the first parameter, la. Note: providing la and inv_la
+        does not qualify as providing two material parameters.
+    * 'E' : float
+        The Young's modulus of the material. Note: this is not entirely consistent
+        with the neo-Hookean formulation, but la and mu will be computed based
+        on the relation between the Young's modulus and the Lame parameters if
+        E is given.
+    * 'nu' : float
+        The Poisson's ratio of the material. Note: this is not entirely consistent
+        with the neo-Hookean formulation, but la and mu will be computed based
+        on the relation between the Poisson's ratio and the Lame parameters if
+        nu is given.
+
 
     """
 
@@ -429,6 +598,20 @@ class NeoHookeMaterial(ElasticMaterial):
 
     def stress_tensor(self, F, J, p=None, formulation=None):
         """
+        Return the first Piola-Kirchhoff stress tensor for a neo-Hookean
+        material. The stress tensor is given by
+
+        (Compressible)    P = J*(dU/dJ)*F^{-T} + mu*F,
+        (Incompressible)  P = [-J*p - mu*J^(-2/n)/n*tr(C)]*F^{-T} + mu*J^{-2/n}*F,
+
+        where F is the deformation gradient, J = det(F), C = F^T*F, and mu is
+        a material constant. If the problem is an inverse elastostatics problem,
+        the Cauchy stress tensor is given by
+
+        (Compressible)   T = [-j^2*(dU/dj) - mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+        (Incompressible) T = -[p + mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+
+        where f = F^{-1}, j = det(f), c = f^T*f, and n is the geometric dimension.
 
 
         """
@@ -489,7 +672,7 @@ class NeoHookeMaterial(ElasticMaterial):
         Returns
         -------
 
-        The strain energy, W, defined above.
+        The stress tensor, P, defined above.
 
 
         """
@@ -522,6 +705,27 @@ class NeoHookeMaterial(ElasticMaterial):
 
     def _inverse_stress_tensor(self, f, j, p=None, formulation=None):
         """
+        Return the Cauchy stress tensor for an inverse elastostatics problem.
+        The Cauchy stress tensor is given by
+
+        (Compressible)   T = [-j^2*(dU/dj) - mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+        (Incompressible) T = -[p + mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+
+        where f = F^{-1}, j = det(f), c = f^T*f, and n is the geometric dimension.
+
+
+        Parameters
+        -------
+
+        f :
+            The deformation gradient from the current to the reference
+            configuration.
+        j :
+            The determinant of f.
+        p :
+            The pressure field variable.
+        formulation : str (default None)
+            Choose between quadratic and log formulations.
 
 
         """
@@ -618,6 +822,9 @@ class NeoHookeMaterial(ElasticMaterial):
     @staticmethod
     def _compressible_strain_energy_diff(J, la, mu):
         """
+        The derivative of the isochoric component of the strain energy,
+
+        dU/dJ = (la*dlf.ln(J) - mu)/J.
 
 
         """
@@ -669,6 +876,27 @@ class NeoHookeMaterial(ElasticMaterial):
     @staticmethod
     def _volumetric_strain_energy_diff(J, kappa, formulation='square'):
         """
+        Return the derivative of the volumetric component of strain energy,
+
+        (Square)  dU/dJ = kappa*(J - 1.0),
+        (Log)     dU/dJ = kappa*ln(J)/J.
+
+
+        Parameters
+        ----------
+
+        J :
+            Determinant of the deformation gradient.
+        kappa :
+            Bulk modulus.
+        formulation : str (default "square")
+            Choose between square and log formulation above.
+
+
+        Returns
+        -------
+
+        dU/dJ
 
 
         """
@@ -800,6 +1028,31 @@ class NeoHookeMaterial(ElasticMaterial):
 
 
 class FiberMaterial(ElasticMaterial):
+    """
+    Base class for fiber reinforced materials. This base class contains
+    methods for loading and saving vector fields that represent the directions
+    tangent to the fibers throughout the domain. Note that this class does
+    not provide any constitutive equation and is merely a utility for common
+    operations with fiber reinforced materials.
+
+    In addition to the values listed in the documentation of BaseMechanicsProblem
+    for the 'material' subdictionary of 'config', the user must provide a
+    subdictionary within 'material' named 'fibers' with the following values:
+
+    * 'fiber_files' : str, list, tuple, dolfin.Coefficient
+        The name(s) of the files containing the vector field functions, or
+        dolfin.Coefficient objects approximating the vector field.
+    * 'fiber_names' : str, list, tuple
+        A name, or list of names, of all of the fiber direction fields.
+    * 'function_space' : dolfin.FunctionSpace
+        The function space used to approximate the vector fields tangent
+        to the fiber directions.
+
+    Note: all classes that are derived from this one require the 'fibers'
+    subdictionary.
+
+
+    """
 
 
     def __init__(self, fiber_dict, mesh):
@@ -842,6 +1095,31 @@ class FiberMaterial(ElasticMaterial):
 
 
     def define_fiber_directions(self, fiber_files, fiber_names, function_space=None):
+        """
+        Load the fiber tangent vector fields from a given list of file names and
+        add the function objects are member data under "_fiber_directions".
+
+
+        Parameters
+        ----------
+
+        fiber_files : str, list, tuple, dolfin.Coefficient
+            The name(s) of the file(s) containing the vector field functions, or
+            dolfin.Coefficient objects approximating the vector field.
+        fiber_names : str, list, tuple
+            A name, or list of names, of all of the fiber direction fields.
+        function_space : dolfin.FunctionSpace
+            The function space used to approximate the vector fields tangent
+            to the fiber directions.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
 
         self._fiber_directions = dict()
         key = 'e%i'
@@ -895,6 +1173,76 @@ class FiberMaterial(ElasticMaterial):
 
 
 class FungMaterial(FiberMaterial):
+    """
+    This class defines the stress tensor for Fung type materials which are
+    based on the strain energy function given by
+
+    W = C*exp(Q),
+
+    where
+
+    Q = d1*E11^2 + d2*E22^2 + d3*E33^2
+        + 2*(d4*E11*E22 + d5*E22*E33 + d6*E11*E33)
+        + d7*E12^2 + d8*E23^2 + d9*E13^2,
+
+    and C and di, i = 1,...,9 are material constants.
+
+    The Eij components are the components of the Lagrangian strain tensor,
+    E = 0.5*(F^T*F - I), with respect to the orthonormal set {e1, e2, e3},
+    where e1 and e2 are two fiber directions, and e3 = e1 x e2.
+
+    The resulting first Piola-Kirchhoff stress tensor is then
+
+    P = P_vol + P_iso
+
+    with
+
+    P_iso = J^{-2/n}*F*S_ - (1/n)*J^{-2/n}*tr(C*S_)*F^{-T},
+
+    and
+
+    S_ = C*exp(Q)*((d1*E11 + d4*E22 + d6*E33)*outer(e1, e1)
+                 + (d4*E11 + d2*E22 + d5*E33)*outer(e2, e2)
+                 + (d6*E11 + d5*E22 + d3*E33)*outer(e3, e3)
+                 + d7*E12*(outer(e1, e2) + outer(e2, e1))
+                 + d9*E13*(outer(e1, e3) + outer(e3, e1))
+                 + d8*E23*(outer(e2, e3) + outer(e3, e2))).
+
+    For compressible materials,
+
+    P_vol = 2*J*kappa*(J - 1/J)*F^{-T},
+
+    and
+
+    P_vol = -J*p*F^{-T}
+
+    for incompressible, where kappa is the bulk modulus, and p is the pressure.
+
+    The inverse elastostatics formulation for this material is supported. The
+    constitutive equation remains the same, but the Lagrangian strain is
+    defined in terms of the f = F^{-1}, i.e.
+
+    E = 0.5*((f*f^T)^{-1} - I).
+
+    Furthermore, F = f^{-1} is substituted, and the stress tensor returned
+    is the Cauchy stress tensor given by T = j*P*f^{-T}, where j = det(f).
+
+    In addition to the values listed in the documentation for BaseMechanicsProblem
+    for the 'material' subdictionary of 'config', the user must provide the
+    following values:
+
+    * 'fibers': dict
+        See FiberMaterial for details.
+    * 'C' : float
+        Material constant that can be thought of as "stiffness" in some
+        limiting cases.
+    * 'd' : list, tuple
+        A list containing the coefficients in the exponent, Q, defined above.
+    * 'kappa' : float
+        The bulk modulus of the material.
+
+
+    """
 
 
     def __init__(self, mesh, inverse=False, **params):
@@ -1072,6 +1420,39 @@ class FungMaterial(FiberMaterial):
 
 
 class GuccioneMaterial(FungMaterial):
+    """
+    This class defines the stress tensor for Guccione type materials, which are
+    a subclass of Fung-type materials. The constitutive equation is the same
+    as that found in the FungMaterial documentation, but with
+
+    Q = bf*E11^2 + bt*(E22^2 + E33^2 + 2*E23^2)
+        + 2*bfs*(E12^2 + E13^2),
+
+    where bf, bt, and bfs are the material parameters. The relation between
+    these material constants and the di, i = 1,...,9 can be obtained in a
+    straight-forward manner.
+
+    Note that the inverse elastostatics formulation is also supported since
+    this class is derived from FungMaterial.
+
+    In addition to the values listed in the documentation for BaseMechanicsProblem
+    for the 'material' subdictionary of 'config', the user must provide the
+    following values:
+
+    * 'fibers' : dict
+        See FiberMaterial for details.
+    * 'C' : float
+        Material constant that can be thought of as "stiffness" in some
+        limiting cases.
+    * 'bf' : float
+        Material "stiffness" in the fiber direction.
+    * 'bt' : float
+        Material "stiffness" in transverse directions.
+    * 'bfs' : float
+        Material rigidity under shear.
+
+
+    """
 
 
     def __init__(self, mesh, inverse=False, **params):
