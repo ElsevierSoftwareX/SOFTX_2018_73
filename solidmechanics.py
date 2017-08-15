@@ -163,6 +163,18 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
             self.define_ufl_acceleration()
 
+        initial_condition = self.config['formulation']['initial_condition']
+        if initial_condition['displacement'] is not None:
+            init_disp = initial_condition['displacement']
+            self.apply_initial_conditions(init_disp,
+                                          self.displacement,
+                                          self.displacement0)
+        if initial_condition['pressure'] is not None:
+            init_pressure = initial_condition['pressure']
+            self.apply_initial_conditions(init_pressure,
+                                          self.pressure,
+                                          self.pressure0)
+
         return None
 
 
@@ -190,8 +202,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.sys_u = self.ufl_displacement \
                      = self.displacement = dlf.Function(self.functionSpace)
         self.displacement.rename('u', 'displacement')
-        self.ufl_pressure = self.pressure = None
-        self.ufl_pressure0 = self.pressure0 = None
+        self.ufl_pressure = self.pressure = 0
+        self.ufl_pressure0 = self.pressure0 = 0
         self.test_vector = dlf.TestFunction(self.functionSpace)
         self.trial_vector = self.sys_du = dlf.TrialFunction(self.functionSpace)
 
@@ -209,6 +221,17 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.acceleration0.rename('a0', 'acceleration0')
 
             self.define_ufl_acceleration()
+        else:
+            self.sys_u0 = self.ufl_displacement0 = self.displacement0 = 0
+            self.sys_v0 = self.ufl_velocity0 = self.velocity0 = 0
+            self.sys_a0 = self.ufl_acceleration0 = self.acceleration0 = 0
+
+        initial_condition = self.config['formulation']['initial_condition']
+        if initial_condition['displacement'] is not None:
+            init_disp = initial_condition['displacement']
+            self.apply_initial_conditions(init_disp,
+                                          self.displacement,
+                                          self.displacement0)
 
         return None
 
@@ -813,6 +836,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Advance the time.
                 t += dt
 
+                # Assign and update all vectors.
+                self.update_assign()
+
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
 
@@ -823,9 +849,6 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Solver current time step.
                 self.step()
-
-                # Assign and update all vectors.
-                self.update_assign()
 
                 t0 = t
                 count += 1

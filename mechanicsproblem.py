@@ -147,6 +147,19 @@ class MechanicsProblem(BaseMechanicsProblem):
             self.velocity = dlf.Function(self.vectorSpace, name="v")
             self.velocity0 = 0
 
+        # Apply initial conditions if provided
+        initial_condition = self.config['formulation']['initial_condition']
+        if initial_condition['displacement'] is not None:
+            init_disp = initial_condition['displacement']
+            self.apply_initial_conditions(init_disp,
+                                          self.displacement,
+                                          self.displacement0)
+        if initial_condition['velocity'] is not None:
+            init_vel = initial_condition['velocity']
+            self.apply_initial_conditions(init_vel,
+                                          self.velocity,
+                                          self.velocity0)
+
         return None
 
 
@@ -188,6 +201,14 @@ class MechanicsProblem(BaseMechanicsProblem):
             self.pressure0 = 0
             self.test_scalar = None
             self.trial_scalar = None
+
+        # Apply initial conditions if provided
+        initial_condition = self.config['formulation']['initial_condition']
+        if initial_condition['pressure'] is not None:
+            init_pressure = initial_condition['pressure']
+            self.apply_initial_conditions(init_pressure,
+                                          self.pressure,
+                                          self.pressure0)
 
         return None
 
