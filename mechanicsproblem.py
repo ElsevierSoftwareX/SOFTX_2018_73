@@ -149,17 +149,16 @@ class MechanicsProblem(BaseMechanicsProblem):
 
         # Apply initial conditions if provided
         initial_condition = self.config['formulation']['initial_condition']
-        if initial_condition is not None:
-            if 'displacement' in initial_condition:
-                init_disp = initial_condition['displacement']
-                self.apply_initial_conditions(init_disp,
-                                              self.displacement,
-                                              self.displacement0)
-            if 'velocity' in initial_condition:
-                init_vel = initial_condition['velocity']
-                self.apply_initial_conditions(init_vel,
-                                              self.velocity,
-                                              self.velocity0)
+        if initial_condition['displacement'] is not None:
+            init_disp = initial_condition['displacement']
+            self.apply_initial_conditions(init_disp,
+                                          self.displacement,
+                                          self.displacement0)
+        if initial_condition['velocity'] is not None:
+            init_vel = initial_condition['velocity']
+            self.apply_initial_conditions(init_vel,
+                                          self.velocity,
+                                          self.velocity0)
 
         return None
 
@@ -205,12 +204,11 @@ class MechanicsProblem(BaseMechanicsProblem):
 
         # Apply initial conditions if provided
         initial_condition = self.config['formulation']['initial_condition']
-        if initial_condition is not None:
-            if 'pressure' in initial_condition:
-                init_pressure = initial_condition['pressure']
-                self.apply_initial_conditions(init_pressure,
-                                              self.pressure,
-                                              self.pressure0)
+        if initial_condition['pressure'] is not None:
+            init_pressure = initial_condition['pressure']
+            self.apply_initial_conditions(init_pressure,
+                                          self.pressure,
+                                          self.pressure0)
 
         return None
 

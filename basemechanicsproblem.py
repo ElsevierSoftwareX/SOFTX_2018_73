@@ -88,9 +88,16 @@ class BaseMechanicsProblem(object):
                 The gamma parameter used in the Newmark integration scheme.
                 Note: the Newmark integration scheme is only used by
                 SolidMechanicsProblem.
-        * 'initial_condition' : dolfin.Coefficient (OPTIONAL)
-            A dolfin.Coefficient object specifying the initial value of the
-            solution to the problem.
+        * 'initial_condition' (OPTIONAL)
+            * 'displacement' : dolfin.Coefficient (OPTIONAL)
+                A dolfin.Coefficient object specifying the initial value for
+                the displacement.
+            * 'velocity' : dolfin.Coefficient (OPTIONAL)
+                A dolfin.Coefficient object specifying the initial value for
+                the velocity.
+            * 'pressure' : dolfin.Coefficient (OPTIONAL)
+                A dolfin.Coefficient object specifying the initial value for
+                the pressure.
         * 'domain' : str
             String specifying whether the problem is to be formulated
             in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
@@ -146,7 +153,8 @@ class BaseMechanicsProblem(object):
     Below is a list of actions taken if an optional key/value IS NOT PROVIDED:
 
     * 'time': the subdictionary {'unsteady': False} is added under this key.
-    * 'initial_condition': the initial condition is assumed to be zero.
+    * 'initial_condition': the initial condition is assumed to be zero for any
+        values that are not provided.
     * 'body_force': the body force is set to zero.
     * 'bcs': the subdictionary {'dirichlet': None, 'neumann': None} is added
         under this key. A warning is printed alerting the user that no boundary
@@ -278,6 +286,8 @@ class BaseMechanicsProblem(object):
         else:
             config['formulation']['time'] = dict()
             config['formulation']['time']['unsteady'] = False
+
+        self.check_initial_condition(config)
 
         return config
 
@@ -561,6 +571,49 @@ class BaseMechanicsProblem(object):
         if domain == 'eulerian' and 'piola' in neumann_types:
             s1 = 'Piola traction in an Eulerian formulation is not supported.'
             raise NotImplementedError(s1)
+
+        return None
+
+
+    def check_initial_condition(self, config):
+        """
+        Check if initial condition values were provided. Insert 'None' for the
+        values that were not provided.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        if ('initial_condition' not in config['formulation']) \
+           or (config['formulation']['initial_condition'] is None):
+            config['formulation']['initial_condition'] = {
+                'displacement': None,
+                'velocity': None,
+                'pressure': None
+            }
+            return None
+
+        initial_condition = config['formulation']['initial_condition']
+        if 'displacement' not in initial_condition:
+            initial_condition['initial_condition'] = None
+        if 'velocity' not in initial_condition:
+            initial_condition['velocity'] = None
+        if 'pressure' not in initial_condition:
+            initial_condition['pressure'] = None
 
         return None
 
