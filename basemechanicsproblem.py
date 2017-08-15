@@ -839,3 +839,36 @@ class BaseMechanicsProblem(object):
                 expr.t = t
 
         return None
+
+
+    @staticmethod
+    def apply_initial_conditions(init_value, function, function0=0):
+        """
+        Assign the initial values to field variables.
+
+
+        Parameters
+        ----------
+
+        init_value : dolfin.Coefficient, dolfin.Expression
+            A function/expression that approximates the initial condition.
+        function : dolfin.Function
+            The function approximating a field variable in a mechanics problem.
+        function0 : dolfin.Function
+            The function approximatinga field variable at the previous time
+            step in a mechanics problem.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        function.assign(init_value)
+        if function0 != 0:
+            function0.assign(init_value)
+
+        return None
