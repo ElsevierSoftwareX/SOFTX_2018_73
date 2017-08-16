@@ -133,9 +133,28 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
+        init = self.config['formulation']['initial_condition']
+
         self.sys_u = dlf.Function(self.functionSpace)
         self.ufl_displacement, self.ufl_pressure = dlf.split(self.sys_u)
-        self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
+
+        if init['displacement'] is not None \
+           and init['pressure'] is not None:
+            self.displacement = dlf.project(init['displacement'],
+                                            self.functionSpace.sub(0).collapse())
+            self.pressure = dlf.project(init['pressure'],
+                                        self.functionSpace.sub(1).collapse())
+        elif init['displacement'] is not None:
+            _, self.pressure = self.sys_u.split(deepcopy=True)
+            self.displacement = dlf.project(init['displacement'],
+                                            self.functionSpace.sub(0).collapse())
+        elif init['pressure'] is not None:
+            self.displacement, _ = self.sys_u.split(deepcopy=True)
+            self.pressure = dlf.project(init['pressure'],
+                                        self.functionSpace.sub(1).collapse())
+        else:
+            self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
+
         self.displacement.rename('u', 'displacement')
         self.pressure.rename('p', 'pressure')
 
@@ -145,7 +164,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.test_vector, self.test_scalar = dlf.TestFunctions(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
-            self.sys_u0 = dlf.Function(self.functionSpace)
+            self.sys_u0 = self.sys_u.copy(deepcopy=True)
+
             self.ufl_displacement0, self.ufl_pressure0 = dlf.split(self.sys_u0)
             self.displacement0, self.pressure0 = self.sys_u0.split(deepcopy=True)
             self.displacement0.rename('u0', 'displacement0')
@@ -163,17 +183,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
             self.define_ufl_acceleration()
 
-        initial_condition = self.config['formulation']['initial_condition']
-        if initial_condition['displacement'] is not None:
-            init_disp = initial_condition['displacement']
-            self.apply_initial_conditions(init_disp,
-                                          self.displacement,
-                                          self.displacement0)
-        if initial_condition['pressure'] is not None:
-            init_pressure = initial_condition['pressure']
-            self.apply_initial_conditions(init_pressure,
-                                          self.pressure,
-                                          self.pressure0)
+        self.define_function_assigners()
+        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
+                                                self.pressure])
 
         return None
 
@@ -199,17 +211,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        self.sys_u = self.ufl_displacement \
-                     = self.displacement = dlf.Function(self.functionSpace)
-        self.displacement.rename('u', 'displacement')
+        init = self.config['formulation']['initial_condition']
+        if init['displacement'] is not None:
+            disp = init['displacement']
+            self.sys_u = self.ufl_displacement = self.displacement \
+                         = dlf.project(disp, self.functionSpace)
+        else:
+            self.sys_u = self.ufl_displacement = self.displacement \
+                         = dlf.Function(self.functionSpace)
+        self.displacement.rename("u", "displacement")
+
         self.ufl_pressure = self.pressure = 0
         self.ufl_pressure0 = self.pressure0 = 0
+
         self.test_vector = dlf.TestFunction(self.functionSpace)
         self.trial_vector = self.sys_du = dlf.TrialFunction(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
-            self.sys_u0 = self.ufl_displacement0 \
-                          = self.displacement0 = dlf.Function(self.functionSpace)
+            if init['displacement'] is not None:
+                self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
+                              = dlf.project(disp, self.functionSpace)
+            else:
+                self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
+                              = dlf.Function(self.functionSpace)
             self.displacement0.rename('u0', 'displacement0')
 
             self.sys_v0 = self.ufl_velocity0 \
@@ -225,13 +249,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.sys_u0 = self.ufl_displacement0 = self.displacement0 = 0
             self.sys_v0 = self.ufl_velocity0 = self.velocity0 = 0
             self.sys_a0 = self.ufl_acceleration0 = self.acceleration0 = 0
-
-        initial_condition = self.config['formulation']['initial_condition']
-        if initial_condition['displacement'] is not None:
-            init_disp = initial_condition['displacement']
-            self.apply_initial_conditions(init_disp,
-                                          self.displacement,
-                                          self.displacement0)
 
         return None
 
@@ -628,6 +645,42 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         return displacement_bcs
 
 
+    def define_function_assigners(self):
+        """
+        Create function assigners to update the current and previous time
+        values of all field variables. This is specific to incompressible
+        simulations since the mixed function space formulation requires the
+        handling of the mixed functions and the copies of its subcomponents
+        in a specific manner.
+
+
+        """
+
+        W = self.functionSpace
+        u = self.displacement
+        p = self.pressure
+
+        self.assigner_sys2u = dlf.FunctionAssigner([u.function_space(),
+                                                    p.function_space()], W)
+        self.assigner_u2sys = dlf.FunctionAssigner(W, [u.function_space(),
+                                                       p.function_space()])
+
+        if self.config['formulation']['time']['unsteady']:
+            u0 = self.displacement0
+            p0 = self.pressure0
+            v0 = self.velocity0
+            a0 = self.acceleration0
+
+            self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
+                                                            p0.function_space()])
+            self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0),
+                                                        v0.function_space())
+            self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0),
+                                                        a0.function_space())
+
+        return None
+
+
     @staticmethod
     def __define_pressure_bcs(W, dirichlet_dict, mesh_function):
         """
@@ -714,9 +767,6 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                                                       bcs, J=problem.dG)
 
         dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
-
-        if problem.config['material']['incompressible']:
-            self.define_function_assigners()
 
         # Create file objects. This keeps the counter from being reset
         # each time the solve function is called.
@@ -915,49 +965,16 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         if incompressible:
             p = problem.pressure
-            self.assigner_sys2u.assign([u, p], problem.sys_u)
+            problem.assigner_sys2u.assign([u, p], problem.sys_u)
 
         if unsteady:
             self.update(u, u0, v0, a0, beta, gamma, dt)
 
         if incompressible and unsteady:
             p0 = problem.pressure0
-            self.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
-            self.assigner_v02sys.assign(problem.sys_v0.sub(0), v0)
-            self.assigner_a02sys.assign(problem.sys_a0.sub(0), a0)
-
-        return None
-
-
-    def define_function_assigners(self):
-        """
-        Create function assigners to update the current and previous time
-        values of all field variables. This is specific to incompressible
-        simulations since the mixed function space formulation requires the
-        handling of the mixed functions and the copies of its subcomponents
-        in a specific manner.
-
-
-        """
-
-        problem = self._problem
-        W = problem.functionSpace
-        u = problem.displacement
-        p = problem.pressure
-
-        self.assigner_sys2u = dlf.FunctionAssigner([u.function_space(),
-                                                    p.function_space()], W)
-
-        if problem.config['formulation']['time']['unsteady']:
-            u0 = problem.displacement0
-            p0 = problem.pressure0
-            v0 = problem.velocity0
-            a0 = problem.acceleration0
-
-            self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
-                                                            p0.function_space()])
-            self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0), v0.function_space())
-            self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0), a0.function_space())
+            problem.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
+            problem.assigner_v02sys.assign(problem.sys_v0.sub(0), v0)
+            problem.assigner_a02sys.assign(problem.sys_a0.sub(0), a0)
 
         return None
 

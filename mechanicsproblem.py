@@ -122,43 +122,92 @@ class MechanicsProblem(BaseMechanicsProblem):
         lin_elastic = self.config['material']['const_eqn'] == 'lin_elastic'
         elastic = self.config['material']['type'] == 'elastic'
 
+        init = self.config['formulation']['initial_condition']
+
         # Trial and test functions
         self.test_vector = dlf.TestFunction(self.vectorSpace)
         self.trial_vector = dlf.TrialFunction(self.vectorSpace)
 
         if elastic and unsteady:
-            self.displacement = dlf.Function(self.vectorSpace, name="u")
-            self.displacement0 = dlf.Function(self.vectorSpace, name="u0")
-            self.velocity = dlf.Function(self.vectorSpace, name="v")
-            self.velocity0 = dlf.Function(self.vectorSpace, name="v0")
+            if init['displacement'] is not None:
+                disp = init['displacement']
+                self.displacement = dlf.project(disp, self.vectorSpace)
+                self.displacement0 = self.displacement.copy(deepcopy=True)
+            else:
+                self.displacement = dlf.Function(self.vectorSpace)
+                self.displacement0 = dlf.Function(self.vectorSpace)
+            self.displacement.rename("u", "displacement")
+            self.displacement0.rename("u0", "displacement")
+
+            if init['velocity'] is not None:
+                vel = init['velocity']
+                self.velocity = dlf.project(vel, self.vectorSpace)
+                self.velocity0 = self.velocity.copy(deepcopy=True)
+            else:
+                self.velocity = dlf.Function(self.vectorSpace)
+                self.velocity0 = dlf.Function(self.vectorSpace)
+            self.velocity.rename("v", "velocity")
+            self.velocity0.rename("v0", "velocity")
         elif unsteady: # Unsteady viscous material.
             self.displacement = 0
             self.displacement0 = 0
-            self.velocity = dlf.Function(self.vectorSpace, name="v")
-            self.velocity0 = dlf.Function(self.vectorSpace, name="v0")
+
+            if init['velocity'] is not None:
+                vel = init['velocity']
+                self.velocity = dlf.project(vel, self.vectorSpace)
+                self.velocity0 = self.velocity.copy(deepcopy=True)
+            else:
+                self.velocity = dlf.Function(self.vectorSpace)
+                self.velocity0 = dlf.Function(self.vectorSpace)
+            self.velocity.rename("v", "velocity")
+            self.velocity0.rename("v0", "velocity")
+
+            # self.velocity = dlf.Function(self.vectorSpace, name="v")
+            # self.velocity0 = dlf.Function(self.vectorSpace, name="v0")
         elif elastic: # Steady elastic material.
-            self.displacement = dlf.Function(self.vectorSpace, name="u")
+            if init['displacement'] is not None:
+                disp = init['displacement']
+                self.displacement = dlf.project(disp, self.vectorSpace)
+                # self.displacement0 = self.displacement.copy(deepcopy=True)
+            else:
+                self.displacement = dlf.Function(self.vectorSpace)
+                # self.displacement0 = dlf.Function(self.vectorSpace)
+            self.displacement.rename("u", "displacement")
+            # self.displacement0.rename("u0", "displacement")
+
+            # self.displacement = dlf.Function(self.vectorSpace, name="u")
             self.displacement0 = 0
             self.velocity = 0
             self.velocity0 = 0
         else: # Steady viscous material
             self.displacement = 0
             self.displacement0 = 0
-            self.velocity = dlf.Function(self.vectorSpace, name="v")
+
+            if init['velocity'] is not None:
+                vel = init['velocity']
+                self.velocity = dlf.project(vel, self.vectorSpace)
+                # self.velocity0 = self.velocity.copy(deepcopy=True)
+            else:
+                self.velocity = dlf.Function(self.vectorSpace)
+                # self.velocity0 = dlf.Function(self.vectorSpace)
+            self.velocity.rename("v", "velocity")
+            # self.velocity0.rename("v0", "velocity")
+
+            # self.velocity = dlf.Function(self.vectorSpace, name="v")
             self.velocity0 = 0
 
-        # Apply initial conditions if provided
-        initial_condition = self.config['formulation']['initial_condition']
-        if initial_condition['displacement'] is not None:
-            init_disp = initial_condition['displacement']
-            self.apply_initial_conditions(init_disp,
-                                          self.displacement,
-                                          self.displacement0)
-        if initial_condition['velocity'] is not None:
-            init_vel = initial_condition['velocity']
-            self.apply_initial_conditions(init_vel,
-                                          self.velocity,
-                                          self.velocity0)
+        # # Apply initial conditions if provided
+        # initial_condition = self.config['formulation']['initial_condition']
+        # if initial_condition['displacement'] is not None:
+        #     init_disp = initial_condition['displacement']
+        #     self.apply_initial_conditions(init_disp,
+        #                                   self.displacement,
+        #                                   self.displacement0)
+        # if initial_condition['velocity'] is not None:
+        #     init_vel = initial_condition['velocity']
+        #     self.apply_initial_conditions(init_vel,
+        #                                   self.velocity,
+        #                                   self.velocity0)
 
         return None
 

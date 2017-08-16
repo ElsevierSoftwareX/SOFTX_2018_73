@@ -484,14 +484,15 @@ class BaseMechanicsProblem(object):
         if config['formulation']['time']['unsteady'] \
            and config['material']['type'] == 'elastic':
             if (vel not in subconfig) or (disp not in subconfig):
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + 'both velocity and displacement when the problem is ' \
-                     + 'unsteady. Only %s BCs were provided.'
-                if vel not in subconfig:
-                    s1 = s1 % disp
-                else:
-                    s1 = s1 % vel
-                raise ValueError(s1)
+                pass
+                # s1 = 'Dirichlet boundary conditions must be specified for ' \
+                #      + 'both velocity and displacement when the problem is ' \
+                #      + 'unsteady. Only %s BCs were provided.'
+                # if vel not in subconfig:
+                #     s1 = s1 % disp
+                # else:
+                #     s1 = s1 % vel
+                # raise ValueError(s1)
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
