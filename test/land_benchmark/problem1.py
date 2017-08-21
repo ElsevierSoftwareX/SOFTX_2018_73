@@ -267,7 +267,7 @@ else:
 
 if args.incompressible:
     B  = mat.incompressibilityCondition(u)
-    G += B*q*df.dx - inv_kappa*p*q*df.dx
+    G += B*q*df.dx + inv_kappa*p*q*df.dx
 
 if args.inverse or args.material == "linear":
     G += df.inner(normal, v) * ds

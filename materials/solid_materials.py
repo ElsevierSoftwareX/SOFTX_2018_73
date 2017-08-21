@@ -169,7 +169,7 @@ class ElasticMaterial(object):
 
         """
 
-        self._inverse = boolActive
+        self._active = boolActive
 
 
     def is_active(self) :

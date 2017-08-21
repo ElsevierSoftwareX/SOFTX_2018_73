@@ -44,7 +44,7 @@ parser.add_argument("-kappa", "--bulk_modulus",
                     type=float)
 parser.add_argument("-mu", "--shear_modulus",
                     help="shear modulus",
-                    default=100.,
+                    default=30.,
                     type=float)
 parser.add_argument("-ls", "--loading_steps",
                     help="number of loading steps",
@@ -200,7 +200,8 @@ if (args.material == "linear"):
     mat = materials.solid_materials.LinearMaterial
 if (args.material == "neo-hooke"):
     mat = materials.solid_materials.NeoHookeMaterial(mu=args.shear_modulus,
-                   kappa=args.bulk_modulus, incompressible=args.incompressible)
+                   kappa=args.bulk_modulus, incompressible=args.incompressible,
+                   inverse=args.inverse)
 elif (args.material == "guccione"):
     mat = materials.solid_materials.GuccioneMaterial
     params = mat.default_parameters()
@@ -218,6 +219,7 @@ else: # fung
     mat = materials.solid_materials.FungMaterial
     params = mat.default_parameters()
     params['incompressible'] = args.incompressible
+    params['inverse'] = args.inverse
     params['C'] = 10.0
     params['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
     params['kappa'] = args.bulk_modulus
@@ -240,10 +242,10 @@ else:
 
 if args.incompressible:
     B  = mat.incompressibilityCondition(u)
-    G += B*q*df.dx - inv_kappa*p*q*df.dx
+    G += B*q*df.dx + inv_kappa*p*q*df.dx
 
 if args.inverse or args.material == "linear":
-    G += df.inner(normal, v) * ds
+    G += pressure*df.inner(normal, v) * ds
 else:
     G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
 
@@ -331,11 +333,19 @@ if rank == 0:
 
 # Move the mesh according to solution
 df.ALE.move(mesh,u_func)
+#move fiber directions
+F     = I + df.grad(u)
 if not args.inverse:
-  out_filename ="%s/forward-cylinder.h5" % output_dir
+  out_filename ="%s/forward-ellipsoid.h5" % output_dir
   Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
   Hdf.write(mesh, "mesh")
-  Hdf.write(boundaries, "subdomains")
+  Hdf.write(boundaries, "boundaries")
+  Hdf.write(fib1, "fib1")
+  Hdf.write(fib2, "fib2")
+  Hdf.write(fib3, "fib3")
+  Hdf.write(she1, "she1")
+  Hdf.write(she2, "she2")
+  Hdf.write(she3, "she3")
   Hdf.close()
 
 # Compute the volume of each cell
