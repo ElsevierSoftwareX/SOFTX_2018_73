@@ -30,6 +30,9 @@ parser.add_argument("-pd", "--polynomial_degree",
 parser.add_argument("-ic","--incompressible",
                     help="block formulation for incompressible materials",
                     action='store_true')
+parser.add_argument("-ai","--anisotropic",
+                    help="anisotropic material properties",
+                    action='store_true')
 parser.add_argument("--pressure",
                     help="target pressure of inflation test in kPA",
                     default=10,
@@ -206,10 +209,16 @@ elif (args.material == "guccione"):
     mat = materials.solid_materials.GuccioneMaterial
     params = mat.default_parameters()
     params['incompressible'] = args.incompressible
-    params['C']     = 10.0
-    params['bf']    = 1.0
-    params['bt']    = 1.0
-    params['bfs']   = 1.0
+    if args.anisotropic:
+        params['C']     = 2.0
+        params['bf']    = 8.0
+        params['bt']    = 2.0
+        params['bfs']   = 4.0
+    else:
+        params['C']     = 10.0
+        params['bf']    = 1.0
+        params['bt']    = 1.0
+        params['bfs']   = 1.0
     params['kappa'] = args.bulk_modulus
     params['fibers'] = {'fiber_files': [cf, cs],
                         'fiber_names': ['e1', 'e2'],
