@@ -556,8 +556,8 @@ class BaseMechanicsProblem(object):
                              + 'and values do not match!')
 
         # Make sure all Neumann BC types are supported with domain specified.
-        # Make sure they're all lower case.
-        neumann_types = map(str.lower, config['formulation']['bcs']['neumann']['types'])
+        # Make sure they're all lower case. (python 3 does not return a list object here)
+        neumann_types = list(map(str.lower, config['formulation']['bcs']['neumann']['types']))
         config['formulation']['bcs']['neumann']['types'] = neumann_types
 
         # Check that types are valid
