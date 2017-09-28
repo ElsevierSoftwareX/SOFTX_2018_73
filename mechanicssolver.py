@@ -1,4 +1,4 @@
-from .utils import petsc_identity # This might not be necessary
+from .utils import _create_file_objects, _write_objects # This might not be necessary
 from ufl import Form
 
 import block
@@ -25,7 +25,8 @@ class MechanicsSolver(object):
     """
 
     def __init__(self, mechanics_problem, fname_disp=None,
-                 fname_vel=None, fname_pressure=None):
+                 fname_vel=None, fname_pressure=None,
+                 fname_hdf5=None, fname_xdmf=None):
         """
         Initialize a MechanicsSolver object.
 
@@ -55,18 +56,10 @@ class MechanicsSolver(object):
 
         # Create file objects. This keeps the counter from being reset
         # each time the solve function is called.
-        if fname_disp is not None:
-            self._file_disp = dlf.File(fname_disp, "compressed")
-        else:
-            self._file_disp = None
-        if fname_vel is not None:
-            self._file_vel = dlf.File(fname_vel, "compressed")
-        else:
-            self._file_vel = None
-        if fname_pressure is not None:
-            self._file_pressure = dlf.File(fname_pressure, "compressed")
-        else:
-            self._file_pressure = None
+        self._file_disp, self._file_vel, self._file_pressure, \
+            self._file_hdf5, self._file_xdmf \
+            = _create_file_objects(fname_disp, fname_vel, fname_pressure,
+                                   fname_hdf5, fname_xdmf)
 
         return None
 
@@ -133,12 +126,16 @@ class MechanicsSolver(object):
                                  maxLinIters=maxLinIters, show=show,
                                  print_norm=print_norm, lin_solver=lin_solver)
 
-            if self._file_disp is not None:
-                self._file_disp << self._mp.displacement
-            if self._file_vel is not None:
-                self._file_vel << self._mp.velocity
-            if self._file_pressure is not None:
-                self._file_pressure << self._mp.pressure
+            u = self._mp.displacement
+            v = self._mp.velocity
+            p = self._mp.pressure
+            f_objs = [self._file_disp, self._file_vel, self._file_pressure]
+
+            _write_objects(f_objs, t=None, close=False, u=u, v=v, p=p)
+            if self._file_hdf5 is not None:
+                _write_objects(self._file_hdf5, t=t, close=False, u=u, p=p)
+            if self._file_xdmf is not None:
+                _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
 
         return None
 
@@ -201,20 +198,18 @@ class MechanicsSolver(object):
 
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
+        p = self._mp.pressure
+        u = self._mp.displacement
+        v = self._mp.velocity
+        f_objs = [self._file_pressure, self._file_disp, self._file_vel]
+
         # Save initial condition
         if save_initial:
-            if self._file_disp is not None:
-                self._file_disp << (self._mp.displacement, t)
-                if not rank:
-                    print('* Displacement saved *')
-            if self._file_vel is not None:
-                self._file_vel << (self._mp.velocity, t)
-                if not rank:
-                    print('* Velocity saved *')
-            if self._file_pressure is not None:
-                self._file_pressure << (self._mp.pressure, t)
-                if not rank:
-                    print('* Pressure saved *')
+            _write_objects(f_objs, t=t, close=False, u=u, v=v, p=p)
+            if self._file_hdf5 is not None:
+                _write_objects(self._file_hdf5, t=t, close=False, u=u, p=p)
+            if self._file_xdmf is not None:
+                _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
 
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
@@ -247,20 +242,12 @@ class MechanicsSolver(object):
 
             MPI.COMM_WORLD.Barrier()
 
-            # Save current time step.
             if not count % save_freq:
-                if self._file_disp is not None:
-                    self._file_disp << (self._mp.displacement, t)
-                    if not rank:
-                        print('* Displacement saved *')
-                if self._file_vel is not None:
-                    self._file_vel << (self._mp.velocity, t)
-                    if not rank:
-                        print('* Velocity saved *')
-                if self._file_pressure is not None:
-                    self._file_pressure << (self._mp.pressure, t)
-                    if not rank:
-                        print('* Pressure saved *')
+                _write_objects(f_objs, t=t, close=False, u=u, v=v, p=p)
+                if self._file_hdf5 is not None:
+                    _write_objects(self._file_hdf5, t=t, close=False, u=u, p=p)
+                if self._file_xdmf is not None:
+                    _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
 
         return None
 

@@ -35,6 +35,9 @@ parser.add_argument('-s','--save',
 parser.add_argument('-v', '--compute-volume',
                     help='compute deformed volume',
                     action='store_true')
+parser.add_argument('-ms', '--mechanics-solver',
+                    help="Use MechanicsSolver",
+                    action='store_true')
 args = parser.parse_args()
 
 # Mesh file names based on arguments given
@@ -53,12 +56,27 @@ if args.save:
     if args.inverse:
         disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
         vel_file = 'results/inverse-vel-%s-%s.pvd' % name_dims
+        hdf5_file = 'results/inverse-hdf5-%s-%s.h5' % name_dims
+        xdmf_file = 'results/inverse-xdmf-%s-%s.xdmf' % name_dims
+        if args.incompressible:
+            p_file = 'results/inverse-pressure-%s-%s.pvd' % name_dims
+        else:
+            p_file = None
     else:
         disp_file = 'results/forward-disp-%s-%s.pvd' % name_dims
         vel_file = 'results/forward-vel-%s-%s.pvd' % name_dims
+        hdf5_file = 'results/forward-hdf5-%s-%s.h5' % name_dims
+        xdmf_file = 'results/forward-xdmf-%s-%s.xdmf' % name_dims
+        if args.incompressible:
+            p_file = 'results/forward-pressure-%s-%s.pvd' % name_dims
+        else:
+            p_file = None
 else:
     disp_file = None
     vel_file = None
+    hdf5_file = None
+    xdmf_file = None
+    p_file = None
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
 mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
@@ -193,9 +211,18 @@ config = {'material': material_dict,
           'mesh': mesh_dict,
           'formulation': formulation_dict}
 
-problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem, fname_disp=disp_file)
-solver.full_solve(save_freq=save_freq)
+if args.mechanics_solver:
+    problem = fm.MechanicsProblem(config)
+    solver = fm.MechanicsSolver(problem, fname_disp=disp_file, fname_vel=vel_file,
+                                fname_pressure=p_file, fname_hdf5=hdf5_file,
+                                fname_xdmf=xdmf_file)
+    solver.solve(save_freq=save_freq)
+else:
+    problem = fm.SolidMechanicsProblem(config)
+    solver = fm.SolidMechanicsSolver(problem, fname_disp=disp_file,
+                                     fname_pressure=p_file, fname_hdf5=hdf5_file,
+                                     fname_xdmf=xdmf_file)
+    solver.full_solve(save_freq=save_freq)
 
 # Compute the final volume
 if args.compute_volume:

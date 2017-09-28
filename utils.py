@@ -238,3 +238,181 @@ def list_implemented_materials():
                 print (string_template.format("", dict_implemented['materials'][mat_type][i]))
 
     return None
+
+
+def _write_objects(f_objects, t=None, close=False, **kwargs):
+    """
+
+
+    """
+
+    rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
+    if isinstance(f_objects, dlf.HDF5File):
+        # Save all objects to same HDF5 file if only one file object is given.
+        _read_write_hdf5("a", f_objects, t=t, close=close, **kwargs)
+    elif isinstance(f_objects, dlf.XDMFFile):
+        # Save all objects to same XDMF file if only one file object is given.
+        _write_xdmf(f_objects, kwargs.values(), tspan=t)
+    elif isinstance(f_objects, dlf.File):
+        # Save through the dolfin.File class. Only one object can be saved.
+        if len(kwargs) != 1:
+            raise ValueError("A 'dolfin.File' object can only store one object.")
+
+        a = kwargs.values()[0]
+        if t is not None:
+            f_objects << (a, t)
+        else:
+            f_objects << a
+    elif hasattr(f_objects, "__iter__") \
+         and hasattr(t, "__iter__"):
+        # Save each object to its own separate file and using its own time stamp.
+
+        if len(f_objects) != len(kwargs) != len(t):
+            raise ValueError("The length of 'f_objects', " \
+                             + "'kwargs', and 't' must be the same.")
+
+        for tval,f,key in zip(t, f_objects, sorted(kwargs.keys())):
+            val = kwargs[key]
+            if (f is not None) and (val is not None):
+                _write_objects(f, t=tval, close=close, key=val)
+                if rank == 0:
+                    print "* '%s' saved *" % key
+    elif hasattr(f_objects, "__iter__"):
+        # Save each object to its own separate file using the same time stamp.
+        if len(f_objects) != len(kwargs):
+            raise ValueError("The length of 'f_objects' and " \
+                             + "'kwargs' must be the same.")
+
+        for f,key in zip(f_objects, sorted(kwargs.keys())):
+            val = kwargs[key]
+            if (f is not None) and (val != 0):
+                _write_objects(f, t=t, close=close, key=val)
+                if rank == 0:
+                    print "* '%s' saved *" % key
+
+    else:
+        raise ValueError("'f_objects' must be a file object.")
+
+    return None
+
+
+def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
+    """
+
+
+    """
+
+
+    if isinstance(fname, str):
+        f = dlf.HDF5File(dlf.mpi_comm_world(), fname, mode)
+    elif isinstance(fname, dlf.HDF5File):
+        f = fname
+    else:
+        raise ValueError("'fname' provided is not a valid type.")
+
+    if mode == "r":
+        func = f.read
+    else:
+        func = f.write
+
+    for key,val in kwargs.iteritems():
+        if (val == 0) or (val is None):
+            continue # Nothing to write
+
+        if key == "mesh":
+            func(val, key, False)
+        elif key in ["mesh_function", "facet_function"]:
+            func(val, key)
+        elif t is not None:
+            func(val, key, t)
+        else:
+            func(val, key)
+
+    if close:
+        f.close()
+
+    return None
+
+
+def _write_xdmf(fname, args, tspan=None):
+    """
+
+
+    """
+
+    if isinstance(fname, str):
+        f = dlf.XDMFFile(dlf.mpi_comm_world(), fname)
+    elif isinstance(fname, dlf.XDMFFile):
+        f = fname
+    else:
+        raise ValueError("'fname' provided is not a valid type.")
+
+    if tspan is not None:
+        if isinstance(tspan, (float, int, long)):
+            len_tspan = 1
+        else:
+            len_tspan = len(tspan)
+
+        if (len_tspan > 1) and (len_tspan != len(args)):
+            raise ValueError("Number of time stamps and objects given to save must be the same.")
+        elif len_tspan == 1:
+            tspan = [tspan]*len(args)
+
+        for t,a in zip(tspan, args):
+            if (a == 0) or (a is None):
+                continue # Nothing to write
+            f.write(a, t)
+
+    else:
+        for a in args:
+            f.write(a)
+
+    return None
+
+
+def _create_file_objects(*fnames):
+    """
+
+
+    """
+
+    splits = map(_splitext, fnames)
+    exts = [a[-1] for a in splits]
+
+    dlf_file_objs = [".bin", ".raw", ".svg", ".xd3", ".xml", ".xyz", ".pvd"]
+
+    f_objects = list()
+    for name, ext in zip(fnames, exts):
+        if ext in dlf_file_objs:
+            f = dlf.File(name)
+        elif ext == ".h5":
+            # Try "append" mode in case file already exists.
+            try:
+                f = dlf.HDF5File(dlf.mpi_comm_world(), name, "a")
+            except RuntimeError:
+                f = dlf.HDF5File(dlf.mpi_comm_world(), name, "w")
+        elif ext == ".xdmf":
+            f = dlf.XDMFFile(dlf.mpi_comm_world(), name)
+        elif ext is None:
+            f = None
+        else:
+            raise ValueError("Files with extension '%s' are not supported." % ext)
+        f_objects.append(f)
+
+    return f_objects
+
+
+def _splitext(p):
+    """
+
+
+    """
+
+    from os.path import splitext
+    try:
+        s = splitext(p)
+    except AttributeError:
+        s = (None, None)
+
+    return s
