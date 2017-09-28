@@ -2,7 +2,7 @@ import ufl
 import dolfin as dlf
 
 from . import materials
-from .utils import duplicate_expressions
+from .utils import duplicate_expressions, _create_file_objects, _write_objects
 from .basemechanicsproblem import BaseMechanicsProblem
 
 from inspect import isclass
@@ -736,7 +736,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
 
 
-    def __init__(self, problem, fname_disp=None, fname_pressure=None):
+    def __init__(self, problem, fname_disp=None,
+                 fname_pressure=None, fname_hdf5=None, fname_xdmf=None):
         """
         Initialize a SolidMechanicsSolver object.
 
@@ -770,14 +771,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         # Create file objects. This keeps the counter from being reset
         # each time the solve function is called.
-        if fname_disp is not None:
-            self._file_disp = dlf.File(fname_disp, "compressed")
-        else:
-            self._file_disp = None
-        if fname_pressure is not None:
-            self._file_pressure = dlf.File(fname_pressure, "compressed")
-        else:
-            self._file_pressure = None
+        self._file_disp, self._file_pressure, self._file_hdf5, self._file_xdmf \
+            = _create_file_objects(fname_disp, fname_pressure,
+                                   fname_hdf5, fname_xdmf)
 
         return None
 
@@ -862,6 +858,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         problem = self._problem
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
+        p = problem.pressure
+        u = problem.displacement
+        f_objs = [self._file_pressure, self._file_disp]
+
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
             t0 = t
@@ -871,14 +871,13 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
             # Save initial condition
             if save_initial:
-                if self._file_disp is not None:
-                    self._file_disp << (problem.displacement, t)
-                    if not rank:
-                        print('* Displacement saved *')
-                if self._file_pressure is not None:
-                    self._file_pressure << (problem.pressure, t)
-                    if not rank:
-                        print('* Pressure saved *')
+                _write_objects(f_objs, t=t, close=False, u=u, p=p)
+                if self._file_hdf5 is not None:
+                    _write_objects(self._file_hdf5, t=t,
+                                   close=False, u=u, p=p)
+                if self._file_xdmf is not None:
+                    _write_objects(self._file_xdmf, t=t,
+                                   close=False, u=u, p=p)
 
             # Hack to avoid rounding errors.
             while t < (tf - dt/10.0):
@@ -905,24 +904,20 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Save current time step
                 if not count % save_freq:
-                    if self._file_disp is not None:
-                        self._file_disp << (problem.displacement, t)
-                        if not rank:
-                            print('* Displacement saved *')
-                    if self._file_pressure is not None:
-                        self._file_pressure << (problem.pressure, t)
-                        if not rank:
-                            print('* Pressure saved *')
+                    _write_objects(f_objs, t=t, close=False, u=u, p=p)
+                    if self._file_hdf5 is not None:
+                        _write_objects(self._file_hdf5, t=t,
+                                       close=False, u=u, p=p)
+                    if self._file_xdmf is not None:
+                        _write_objects(self._file_xdmf, t=t,
+                                       close=False, u=u, p=p)
 
         else:
             self.step()
 
             self.update_assign()
 
-            if self._file_disp is not None:
-                self._file_disp << self._problem.displacement
-            if self._file_pressure is not None:
-                self._file_pressure << self._problem.pressure
+            _write_objects(f_objs, t=t, close=False, u=u, p=p)
 
         return None
 
