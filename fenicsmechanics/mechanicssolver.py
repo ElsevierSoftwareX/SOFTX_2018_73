@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from .utils import _create_file_objects, _write_objects # This might not be necessary
 from ufl import Form
 
@@ -223,8 +225,8 @@ class MechanicsBlockSolver(object):
 
             # Print the current time
             if not rank:
-                print ('*'*30)
-                print ('t = %3.5f' % t)
+                print('*'*30)
+                print('t = %3.5f' % t)
 
             # Solve the nonlinear equation(s) at current time step.
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
@@ -333,7 +335,7 @@ class MechanicsBlockSolver(object):
 
             norm = du.norm('l2')
             if not rank and print_norm:
-                print ('(iter %2i) norm %.3e' % (count, norm))
+                print('(iter %2i) norm %.3e' % (count, norm))
 
             count += 1
 

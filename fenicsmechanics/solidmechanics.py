@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import ufl
 import dolfin as dlf
 
