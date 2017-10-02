@@ -180,8 +180,8 @@ class BaseMechanicsProblem(object):
         if (mesh_file == mesh_function) and mesh_file[-3:] == ".h5":
             self.mesh = dlf.Mesh()
             self.mesh_function = dlf.MeshFunction("size_t", self.mesh)
-            read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                            mesh_function=self.mesh_function)
+            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
+                             mesh_function=self.mesh_function)
         else:
             self.mesh = load_mesh(mesh_file)
             self.mesh_function = load_mesh_function(mesh_function, self.mesh)
