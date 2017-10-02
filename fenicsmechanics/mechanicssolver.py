@@ -9,9 +9,9 @@ from mpi4py import MPI
 import dolfin as dlf
 import numpy as np
 
-__all__ = ['MechanicsSolver']
+__all__ = ['MechanicsBlockSolver']
 
-class MechanicsSolver(object):
+class MechanicsBlockSolver(object):
     """
     This class assembles the UFL variational forms from a MechanicsProblem
     object, and calls solvers to solve the resulting (nonlinear) algebraic
@@ -28,7 +28,7 @@ class MechanicsSolver(object):
                  fname_vel=None, fname_pressure=None,
                  fname_hdf5=None, fname_xdmf=None):
         """
-        Initialize a MechanicsSolver object.
+        Initialize a MechanicsBlockSolver object.
 
 
         Parameters

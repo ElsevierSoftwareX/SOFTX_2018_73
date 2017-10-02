@@ -7,13 +7,13 @@ from .utils import *
 import sys as _sys
 if _sys.version_info[0] < 3:
     from .mechanicsproblem import MechanicsProblem
-    from .mechanicssolver import MechanicsSolver
+    from .mechanicssolver import MechanicsBlockSolver
 else:
     s = """
-    ***********************************************************
-    *                        WARNING:                         *
-    * The CBC-Block FEniCS App, which MechanicsSolver depends *
-    *           on, is not compatible with python 3.          *
-    ***********************************************************
+    **********************************************************
+    *                        WARNING:                        *
+    *  The CBC-Block FEniCS App, which MechanicsBlockSolver  *
+    *      depends on, is not compatible with python 3.      *
+    **********************************************************
     """
     print(s)

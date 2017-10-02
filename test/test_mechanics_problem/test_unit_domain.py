@@ -176,11 +176,10 @@ solver = fm.SolidMechanicsSolver(problem, fname_disp=disp_file)
 solver.full_solve()
 
 # problem = fm.MechanicsProblem(config)
-# my_solver = fm.MechanicsSolver(problem)
+# my_solver = fm.MechanicsBlockSolver(problem, fname_disp=disp_file)
 # my_solver.solve(print_norm=True,
 #                 iter_tol=1e-6,
 #                 maxLinIters=50,
-#                 fname_disp=disp_file,
 #                 show=2)
 
 # Plot solution if running on one process.
