@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import re
 import dolfin as dlf
 
@@ -180,8 +182,8 @@ class BaseMechanicsProblem(object):
         if (mesh_file == mesh_function) and mesh_file[-3:] == ".h5":
             self.mesh = dlf.Mesh()
             self.mesh_function = dlf.MeshFunction("size_t", self.mesh)
-            read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                            mesh_function=self.mesh_function)
+            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
+                             mesh_function=self.mesh_function)
         else:
             self.mesh = load_mesh(mesh_file)
             self.mesh_function = load_mesh_function(mesh_function, self.mesh)
@@ -439,7 +441,7 @@ class BaseMechanicsProblem(object):
         if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
-            print ('*** No BCs (Neumann and Dirichlet) were specified. ***')
+            print('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
 
         self.check_dirichlet(config)
@@ -476,7 +478,7 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['dirichlet'] = None
 
         if config['formulation']['bcs']['dirichlet'] is None:
-            print ('*** No Dirichlet BCs were specified. ***')
+            print('*** No Dirichlet BCs were specified. ***')
             return None
 
         vel = 'velocity'
@@ -548,7 +550,7 @@ class BaseMechanicsProblem(object):
 
         # Exit if Neumann BCs were not specified.
         if config['formulation']['bcs']['neumann'] is None:
-            print ('*** No Neumann BCs were specified. ***')
+            print('*** No Neumann BCs were specified. ***')
             return None
 
         # Make sure that a list for all keys was provided (types, regions, values).
@@ -682,7 +684,7 @@ class BaseMechanicsProblem(object):
         """
 
         if self.config['formulation']['bcs']['dirichlet'] is None:
-            print ('No Dirichlet BCs to update!')
+            print('No Dirichlet BCs to update!')
             return None
 
         expr_list = list()

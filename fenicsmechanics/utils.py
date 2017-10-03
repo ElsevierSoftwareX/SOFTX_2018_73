@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import dolfin as dlf
 
 def load_mesh(mesh_file):
@@ -226,16 +228,16 @@ def list_implemented_materials():
     header = string_template.format("Type", "Constitutive Equation")
     string_length = len(header)
 
-    print ("\n", header)
-    print ("-"*string_length)
+    print("\n", header)
+    print("-"*string_length)
 
     for mat_type in dict_implemented['materials']:
         n = len(dict_implemented['materials'][mat_type])
         for i in range(n):
             if i == 0:
-                print (string_template.format(mat_type, dict_implemented['materials'][mat_type][i]))
+                print(string_template.format(mat_type, dict_implemented['materials'][mat_type][i]))
             else:
-                print (string_template.format("", dict_implemented['materials'][mat_type][i]))
+                print(string_template.format("", dict_implemented['materials'][mat_type][i]))
 
     return None
 
@@ -277,7 +279,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
             if (f is not None) and (val is not None):
                 _write_objects(f, t=tval, close=close, key=val)
                 if rank == 0:
-                    print "* '%s' saved *" % key
+                    print("* '%s' saved *" % key)
     elif hasattr(f_objects, "__iter__"):
         # Save each object to its own separate file using the same time stamp.
         if len(f_objects) != len(kwargs):
@@ -289,7 +291,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
             if (f is not None) and (val != 0):
                 _write_objects(f, t=t, close=close, key=val)
                 if rank == 0:
-                    print "* '%s' saved *" % key
+                    print("* '%s' saved *" % key)
 
     else:
         raise ValueError("'f_objects' must be a file object.")

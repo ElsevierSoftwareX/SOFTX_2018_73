@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from .utils import _create_file_objects, _write_objects # This might not be necessary
 from ufl import Form
 
@@ -9,9 +11,9 @@ from mpi4py import MPI
 import dolfin as dlf
 import numpy as np
 
-__all__ = ['MechanicsSolver']
+__all__ = ['MechanicsBlockSolver']
 
-class MechanicsSolver(object):
+class MechanicsBlockSolver(object):
     """
     This class assembles the UFL variational forms from a MechanicsProblem
     object, and calls solvers to solve the resulting (nonlinear) algebraic
@@ -28,7 +30,7 @@ class MechanicsSolver(object):
                  fname_vel=None, fname_pressure=None,
                  fname_hdf5=None, fname_xdmf=None):
         """
-        Initialize a MechanicsSolver object.
+        Initialize a MechanicsBlockSolver object.
 
 
         Parameters
@@ -223,8 +225,8 @@ class MechanicsSolver(object):
 
             # Print the current time
             if not rank:
-                print ('*'*30)
-                print ('t = %3.5f' % t)
+                print('*'*30)
+                print('t = %3.5f' % t)
 
             # Solve the nonlinear equation(s) at current time step.
             self.nonlinear_solve(lhs, rhs, bcs, nonlinear_tol=nonlinear_tol,
@@ -333,7 +335,7 @@ class MechanicsSolver(object):
 
             norm = du.norm('l2')
             if not rank and print_norm:
-                print ('(iter %2i) norm %.3e' % (count, norm))
+                print('(iter %2i) norm %.3e' % (count, norm))
 
             count += 1
 

@@ -35,8 +35,8 @@ parser.add_argument('-s','--save',
 parser.add_argument('-v', '--compute-volume',
                     help='compute deformed volume',
                     action='store_true')
-parser.add_argument('-ms', '--mechanics-solver',
-                    help="Use MechanicsSolver",
+parser.add_argument('-bs', '--block-solver',
+                    help="Use MechanicsBlockSolver",
                     action='store_true')
 args = parser.parse_args()
 
@@ -211,11 +211,11 @@ config = {'material': material_dict,
           'mesh': mesh_dict,
           'formulation': formulation_dict}
 
-if args.mechanics_solver:
+if args.block_solver:
     problem = fm.MechanicsProblem(config)
-    solver = fm.MechanicsSolver(problem, fname_disp=disp_file, fname_vel=vel_file,
-                                fname_pressure=p_file, fname_hdf5=hdf5_file,
-                                fname_xdmf=xdmf_file)
+    solver = fm.MechanicsBlockSolver(problem, fname_disp=disp_file, fname_vel=vel_file,
+                                     fname_pressure=p_file, fname_hdf5=hdf5_file,
+                                     fname_xdmf=xdmf_file)
     solver.solve(save_freq=save_freq)
 else:
     problem = fm.SolidMechanicsProblem(config)
