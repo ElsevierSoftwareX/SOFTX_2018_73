@@ -1675,12 +1675,14 @@ def convert_elastic_moduli(param, tol=1e8):
         inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
 
         inf = float('inf')
-        if (kappa > 0) and (mu > 0):
+        if (kappa is not None and kappa > 0) \
+           and (mu is not None and mu > 0):
             E = 9.*kappa*mu / (3.*kappa + mu)
             nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
             la = kappa - 2.*mu/3.
             inv_la = 1.0/la
-        elif (la == inf or inv_la == 0.0) and (mu > 0):
+        elif (la == inf or inv_la == 0.0) \
+             and (mu is not None and mu > 0):
             kappa = inf
             E = 3.0*mu
             nu = 0.5
@@ -1688,22 +1690,26 @@ def convert_elastic_moduli(param, tol=1e8):
                 inv_la = 0.0
             else:
                 la = inf
-        elif (la > 0) and (mu > 0):
+        elif (la is not None and la > 0) \
+             and (mu is not None and mu > 0):
             E = mu*(3.*la + 2.*mu) / (la + mu)
             kappa = la + 2.*mu / 3.
             nu = la / (2.*(la + mu))
             inv_la = 1.0/la
-        elif (inv_la > 0) and (mu > 0):
+        elif (inv_la is not None and inv_la > 0) \
+             and (mu is not None and mu > 0):
             E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
             kappa = 1.0/inv_la + 2.0*mu/3.0
             nu = 1.0/(2.0*(1.0 + mu*inv_la))
             la = 1.0/inv_la
-        elif (0 < nu < 0.5) and (E > 0):
+        elif (nu is not None and 0 < nu < 0.5) \
+             and (E is not None and E > 0):
             kappa = E / (3.*(1 - 2.*nu))
             mu = E / (2.*(1. + nu))
             la = E*nu / ((1. + nu)*(1. - 2.*nu))
             inv_la = 1.0/la
-        elif (nu == 0.5) and (E > 0):
+        elif (nu is not None and nu == 0.5) \
+             and (E is not None and E > 0):
             kappa = inf
             mu = E/3.0
             la = inf
