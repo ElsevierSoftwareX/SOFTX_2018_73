@@ -781,6 +781,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
 
     def set_parameters(self, linear_solver='default',
+                       preconditioner='default',
                        newton_abstol=1e-10,
                        newton_reltol=1e-9,
                        newton_maxIters=50,
@@ -820,6 +821,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         param = self.parameters
         param['newton_solver']['linear_solver'] = linear_solver
+        param['newton_solver']['preconditioner'] = preconditioner
         param['newton_solver']['absolute_tolerance'] = newton_abstol
         param['newton_solver']['relative_tolerance'] = newton_reltol
         param['newton_solver']['maximum_iterations'] = newton_maxIters
