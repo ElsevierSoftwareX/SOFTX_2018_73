@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import ufl
 import dolfin as dlf
 
 from . import materials
@@ -9,12 +8,12 @@ from .basemechanicsproblem import BaseMechanicsProblem
 
 from inspect import isclass
 
-__all__ = ['SolidMechanicsProblem', 'SolidMechanicsSolver']
+__all__ = ['FluidMechanicsProblem', 'FluidMechanicsSolver']
 
 
-class SolidMechanicsProblem(BaseMechanicsProblem):
+class FluidMechanicsProblem(BaseMechanicsProblem):
     """
-    This class represents the variational form of a solid
+    This class represents the variational form of a fluid
     mechanics problem. The specific form and boundary conditions
     are generated based on definitions provided by the user in a
     dictionary of sub-dictionaries.
@@ -25,7 +24,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 
     """
-
 
     def __init__(self, user_config):
 
@@ -59,18 +57,17 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         cell = self.mesh.ufl_cell()
         vec_degree = int(self.config['mesh']['element'][0][-1])
         if vec_degree == 0:
-            vec_family = 'DG'
+            vec_family = "DG"
         else:
-            vec_family = 'CG'
-
+            vec_family = "CG"
         vec_element = dlf.VectorElement(vec_family, cell, vec_degree)
 
         if self.config['material']['incompressible']:
             scalar_degree = int(self.config['mesh']['element'][1][-1])
             if scalar_degree == 0:
-                scalar_family = 'DG'
+                scalar_family = "DG"
             else:
-                scalar_family = 'CG'
+                scalar_family = "CG"
             scalar_element = dlf.FiniteElement(scalar_family, cell, scalar_degree)
             element = vec_element*scalar_element
         else:
@@ -83,10 +80,11 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_functions(self):
         """
-        Define mixed functions necessary to formulate the problem
-        specified in the 'config' dictionary. The sub-functions are
-        also defined for use in formulating variational forms and saving
-        results separately. Functions that are not needed are set to 0.
+        Define the vector and scalar functions necessary to define the
+        problem specified in the 'config' dictionary. Functions that are
+        not needed are set to 0. This method calls one of two methods to
+        define these functions based depending on whether the fluid is
+        incompressible or not.
 
 
         """
@@ -102,16 +100,16 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     def define_incompressible_functions(self):
         """
         Define mixed functions necessary to formulate an incompressible
-        solid mechanics problem. The mixed function is also split using
+        fluid mechanics problem. The mixed function is also split using
         dolfin.split (for use in UFL variational forms) and u.split(),
         where u is a mixed function (for saving solutions separately).
         The names of the member data added to the instance of the
         SolidMechanicsProblem class are:
 
-        - sys_u : mixed function
-        - ufl_displacement : sub component corresponding to displacement
-        - displacement : copy of sub component for writing and assigning
-                         values
+        - sys_v : mixed function
+        - ufl_velocity : sub component corresponding to velocity
+        - velocity : copy of sub component for writing and assigning
+                     values
         - ufl_pressure : sub component corresponding to pressure
         - pressure : copy of sub component for writing and assigning values
         - sys_du : mixed trial function
@@ -122,71 +120,56 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         If problem is unsteady, the following are also added:
 
+        - sys_v0 : mixed function at previous time step
         - ufl_velocity0 : sub component corresponding to velocity
         - velocity0 : copy of sub component for writing and assigning values
-        - ufl_acceleration0 : sub component corresponding to acceleration
-        - acceleration0 : copy of sub component for writing and assigning values
-        - sys_u0 : mixed function at previous time step
-        - ufl_displacement0 : sub component at previous time step
-        - displacement0 : copy of sub component at previous time step
         - ufl_pressure0 : sub component at previous time step
         - pressure0 : copy of sub component at previous time step
 
 
         """
 
+        self.sys_v = dlf.Function(self.functionSpace)
+        self.ufl_velocity, self.ufl_pressure = dlf.split(self.sys_v)
+
         init = self.config['formulation']['initial_condition']
-
-        self.sys_u = dlf.Function(self.functionSpace)
-        self.ufl_displacement, self.ufl_pressure = dlf.split(self.sys_u)
-
-        if init['displacement'] is not None \
+        if init['velocity'] is not None \
            and init['pressure'] is not None:
-            self.displacement = dlf.project(init['displacement'],
+            self.velocity = dlf.project(init['velocity'],
                                             self.functionSpace.sub(0).collapse())
             self.pressure = dlf.project(init['pressure'],
                                         self.functionSpace.sub(1).collapse())
-        elif init['displacement'] is not None:
-            _, self.pressure = self.sys_u.split(deepcopy=True)
-            self.displacement = dlf.project(init['displacement'],
-                                            self.functionSpace.sub(0).collapse())
+        elif init['velocity'] is not None:
+            _, self.pressure = self.sys_v.split(deepcopy=True)
+            self.velocity = dlf.project(init['velocity'],
+                                        self.functionSpace.sub(0).collapse())
         elif init['pressure'] is not None:
-            self.displacement, _ = self.sys_u.split(deepcopy=True)
+            self.velocity, _ = self.sys_v.split(deepcopy=True)
             self.pressure = dlf.project(init['pressure'],
                                         self.functionSpace.sub(1).collapse())
         else:
-            self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
+            print("No initial conditions were provided")
+            self.velocity, self.pressure = self.sys_v.split(deepcopy=True)
 
-        self.displacement.rename('u', 'displacement')
-        self.pressure.rename('p', 'pressure')
+        self.velocity.rename("v", "velocity")
+        self.pressure.rename("p", "pressure")
 
-        self.sys_du = dlf.TrialFunction(self.functionSpace)
-        self.trial_vector, self.trial_scalar = dlf.split(self.sys_du)
-
+        self.sys_dv = dlf.TrialFunction(self.functionSpace)
+        self.trial_vector, self.trial_scalar = dlf.split(self.sys_dv)
         self.test_vector, self.test_scalar = dlf.TestFunctions(self.functionSpace)
 
         if self.config['formulation']['time']['unsteady']:
-            self.sys_u0 = self.sys_u.copy(deepcopy=True)
+            self.sys_v0 = self.sys_v.copy(deepcopy=True)
 
-            self.ufl_displacement0, self.ufl_pressure0 = dlf.split(self.sys_u0)
-            self.displacement0, self.pressure0 = self.sys_u0.split(deepcopy=True)
-            self.displacement0.rename('u0', 'displacement0')
-            self.pressure0.rename('p0', 'pressure0')
-
-            self.sys_v0 = dlf.Function(self.functionSpace)
-            self.ufl_velocity0, _ = dlf.split(self.sys_v0)
-            self.velocity0, _ = self.sys_v0.split(deepcopy=True)
-            self.velocity0.rename('v0', 'velocity0')
-
-            self.sys_a0 = dlf.Function(self.functionSpace)
-            self.ufl_acceleration0, _ = dlf.split(self.sys_a0)
-            self.acceleration0, _ = self.sys_a0.split(deepcopy=True)
-            self.acceleration0.rename('a0', 'acceleration0')
+            self.ufl_velocity0, self.ufl_pressure0 = dlf.split(self.sys_v0)
+            self.velocity0, self.pressure0 = self.sys_v0.split(deepcopy=True)
+            self.velocity0.rename("v0", "velocity0")
+            self.pressure0.rename("p0", "pressure0")
 
             self.define_ufl_acceleration()
 
         self.define_function_assigners()
-        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
+        self.assigner_v2sys.assign(self.sys_v, [self.velocity,
                                                 self.pressure])
 
         return None
@@ -194,84 +177,33 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def define_compressible_functions(self):
         """
-        Define functions necessary to formulate a compressible solid
-        mechanics problem. The names of the member data added to the
-        instance of the SolidMechanicsProblem class are:
-
-        - sys_u = ufl_displacement = displacement : all point to the same
-                  displacement function, unlike the incompressible case.
-        - sys_du = trial_vector : trial function for vector function space
-        - test_vector : sub component of mixed test function
-        - ufl_pressure = pressure = None
-
-        If problem is unsteady, the following are also added:
-
-        - sys_v0 = ufl_velocity0 = velocity0
-        - sys_a0 = ufl_acceleration0 = acceleration0
-        - sys_u0 = ufl_displacement0 = displacement0
+        COMPRESSIBLE FLUIDS ARE CURRENTLY NOT SUPPORTED.
 
 
         """
 
-        init = self.config['formulation']['initial_condition']
-        if init['displacement'] is not None:
-            disp = init['displacement']
-            self.sys_u = self.ufl_displacement = self.displacement \
-                         = dlf.project(disp, self.functionSpace)
-        else:
-            self.sys_u = self.ufl_displacement = self.displacement \
-                         = dlf.Function(self.functionSpace)
-        self.displacement.rename("u", "displacement")
-
-        self.ufl_pressure = self.pressure = 0
-        self.ufl_pressure0 = self.pressure0 = 0
-
-        self.test_vector = dlf.TestFunction(self.functionSpace)
-        self.trial_vector = self.sys_du = dlf.TrialFunction(self.functionSpace)
-
-        if self.config['formulation']['time']['unsteady']:
-            if init['displacement'] is not None:
-                self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
-                              = dlf.project(disp, self.functionSpace)
-            else:
-                self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
-                              = dlf.Function(self.functionSpace)
-            self.displacement0.rename('u0', 'displacement0')
-
-            self.sys_v0 = self.ufl_velocity0 \
-                          = self.velocity0 = dlf.Function(self.functionSpace)
-            self.velocity0.rename('v0', 'velocity0')
-
-            self.sys_a0 = self.ufl_acceleration0 \
-                          = self.acceleration0 = dlf.Function(self.functionSpace)
-            self.acceleration0.rename('a0', 'acceleration0')
-
-            self.define_ufl_acceleration()
-        else:
-            self.sys_u0 = self.ufl_displacement0 = self.displacement0 = 0
-            self.sys_v0 = self.ufl_velocity0 = self.velocity0 = 0
-            self.sys_a0 = self.ufl_acceleration0 = self.acceleration0 = 0
+        raise ValueError("Compressible fluids are not yet supported.")
 
         return None
 
 
     def define_ufl_acceleration(self):
         """
-        Define the acceleration based on the Newmark integration scheme
+        Define the acceleration based on a single step finite difference
         and add as member data under 'ufl_acceleration'.
+
+        ufl_acceleration = (ufl_velocity - ufl_velocity0)/dt,
+
+        where dt is the size of the time step.
+
 
         """
 
+        # Should add option to use a different finite
+        # difference schemes.
         dt = self.config['formulation']['time']['dt']
-        beta = self.config['formulation']['time']['beta']
-
-        u = self.ufl_displacement
-        u0 = self.ufl_displacement0
-        v0 = self.ufl_velocity0
-        a0 = self.ufl_acceleration0
-
-        self.ufl_acceleration = 1.0/(beta*dt**2)*(u - u0 - dt*v0) \
-                                - (1.0/(2.0*beta) - 1.0)*a0
+        v, v0 = self.ufl_velocity, self.ufl_velocity0
+        self.ufl_acceleration = (v - v0)/dt
 
         return None
 
@@ -280,25 +212,24 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
         Define kinematic tensors needed for constitutive equations. Secondary
         tensors are added with the suffix "0" if the problem is time-dependent.
-        The names of member data added to an instance of the SolidMechanicsProblem
+        The names of member data added to an instance of FluidMechanicsProblem
         class are:
 
-        - deformationGradient
-        - deformationGradient0
-        - jacobian
-        - jacobian0
+        - velocityGradient
+        - velocityGradient0
 
 
         """
 
-        dim = self.mesh.geometry().dim()
-        I = dlf.Identity(dim)
-        self.deformationGradient = I + dlf.grad(self.ufl_displacement)
-        self.jacobian = dlf.det(self.deformationGradient)
+        # Exit function if tensors have already been defined
+        if hasattr(self, "velocityGradient"):
+            return None
 
+        self.velocityGradient = dlf.grad(self.ufl_velocity)
         if self.config['formulation']['time']['unsteady']:
-            self.deformationGradient0 = I + dlf.grad(self.ufl_displacement0)
-            self.jacobian0 = dlf.det(self.deformationGradient0)
+            self.velocityGradient0 = dlf.grad(self.ufl_velocity0)
+        else:
+            self.velocityGradient0 = 0
 
         return None
 
@@ -316,29 +247,18 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        if isclass(self.config['material']['const_eqn']):
+        # Only one fluid material right now.
+        const_eqn = self.config['material']['const_eqn']
+        if isclass(const_eqn):
             mat_class = self.config['material']['const_eqn']
-        elif self.config['material']['const_eqn'] == 'lin_elastic':
-            mat_class = materials.solid_materials.LinearIsoMaterial
-        elif self.config['material']['const_eqn'] == 'neo_hookean':
-            mat_class = materials.solid_materials.NeoHookeMaterial
-        elif self.config['material']['const_eqn'] == 'fung':
-            mat_class = materials.solid_materials.FungMaterial
-        elif self.config['material']['const_eqn'] == 'guccione':
-            mat_class = materials.solid_materials.GuccioneMaterial
+        elif const_eqn in ["newtonian", "stokes"]:
+            mat_class = materials.fluids.NewtonianFluid
         else:
             s = "The material '%s' has not been implemented. A class for such" \
                 + " material must be provided."
-            raise ValueError(s % self.config['material']['const_eqn'])
+            raise ValueError(s % const_eqn)
 
-        try:
-            fiber_file = self.config['mesh']['fiber_file']
-        except KeyError:
-            fiber_file = None
-        self._material = mat_class(mesh=self.mesh,
-                                   fiber_file=fiber_file,
-                                   inverse=self.config['formulation']['inverse'],
-                                   **self.config['material'])
+        self._material = mat_class(**self.config['material'])
 
         return None
 
@@ -367,17 +287,19 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_compressible_dirichlet_bcs(self):
         """
-        Define Dirichlet BCs for compressible solid mechanics problems.
+        Define Dirichlet BCs for compressible fluid mechanics problems.
+
+        THIS TYPE OF PROBLEM IS CURRENTLY NOT SUPPORTED.
 
 
         """
 
-        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
+        dirichlet_dict = self.config['formulation']['bcs']['dirichlet']
+        if 'velocity' is dirichlet_dict:
             self.dirichlet_bcs = dict()
-            dirichlet_dict = self.config['formulation']['bcs']['dirichlet']
-            dirichlet_bcs = self.__define_displacement_bcs(self.functionSpace,
-                                                           dirichlet_dict,
-                                                           self.mesh_function)
+            dirichlet_bcs = self.__define_velocity_bcs(self.functionSpace,
+                                                       dirichlet_dict,
+                                                       self.mesh_function)
             self.dirichlet_bcs.update(dirichlet_bcs)
         else:
             self.dirichlet_bcs = None
@@ -387,27 +309,24 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def _define_incompressible_dirichlet_bcs(self):
         """
-        Define Dirichlet BCs for incompressible solid mechanics problems.
+        Define Dirichlet BCs for incompressible fluid mechanics problems.
 
 
         """
 
         self.dirichlet_bcs = dict()
         dirichlet_dict = self.config['formulation']['bcs']['dirichlet']
-        if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
-            displacement_bcs = self.__define_displacement_bcs(self.functionSpace.sub(0),
-                                                           dirichlet_dict,
-                                                           self.mesh_function)
-            self.dirichlet_bcs.update(displacement_bcs)
+        if 'velocity' in dirichlet_dict:
+            vel_bcs = self.__define_velocity_bcs(self.functionSpace.sub(0),
+                                                 dirichlet_dict,
+                                                 self.mesh_function)
+            self.dirichlet_bcs.update(vel_bcs)
 
-        if 'pressure' in self.config['formulation']['bcs']['dirichlet']:
+        if 'pressure' in dirichlet_dict:
             pressure_bcs = self.__define_pressure_bcs(self.functionSpace.sub(1),
                                                       dirichlet_dict,
                                                       self.mesh_function)
             self.dirichlet_bcs.update(pressure_bcs)
-
-        if not self.dirichlet_bcs:
-            self.dirichlet_bcs = None
 
         return None
 
@@ -416,8 +335,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
         Define all of the variational forms necessary for the problem specified
         by the user and add them as member data. The variational forms are those
-        corresponding to the balance of linear momentum and the incompressibility
-        constraint.
+        corresponding to the order reduction of the time derivative (for unsteady
+        solid material simulations), the balance of linear momentum, and the
+        incompressibility constraint.
 
 
         """
@@ -425,6 +345,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         # Define UFL objects corresponding to the local acceleration
         # if problem is unsteady.
         self.define_ufl_local_inertia()
+
+        # Define UFL objects corresponding to the convective acceleration
+        # if problem is formulated with respect to Eulerian coordinates
+        self.define_ufl_convec_accel()
 
         # Define UFL objects corresponding to the stress tensor term.
         # This should always be non-zero for deformable bodies.
@@ -455,11 +379,38 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             return None
 
         xi = self.test_vector
-        rho = dlf.Constant(self.config['material']['density'])
+        rho = self.config['material']['density']
 
-        # Will need both of these terms if problem is unsteady
-        self.ufl_local_inertia = dlf.dot(xi, rho*self.ufl_acceleration)
-        self.ufl_local_inertia *= dlf.dx
+        self.ufl_local_inertia = dlf.dot(xi, rho*self.ufl_acceleration)*dlf.dx
+
+        return None
+
+
+    def define_ufl_convec_accel(self):
+        """
+        Define the UFL object corresponding to the convective acceleration
+        term in the weak form.
+
+
+        """
+
+        # Check if modeling Stokes flow, and set convective acceleration
+        # to 0 if we are.
+        stokes = self.config['material']['const_eqn'] == 'stokes'
+        if stokes:
+            self.ufl_convec_accel = 0
+            self.ufl_convec_accel0 = 0
+        else:
+            xi = self.test_vector
+            rho = self.config['material']['density']
+            a_c = rho*dlf.grad(self.ufl_velocity)*self.ufl_velocity
+            self.ufl_convec_accel = dlf.dot(xi, a_c)*dlf.dx
+
+            if self.config['formulation']['time']['unsteady']:
+                a_c0 = rho*dlf.grad(self.ufl_velocity0)*self.ufl_velocity0
+                self.ufl_convec_accel0 = dlf.dot(xi, a_c0)*dlf.dx
+            else:
+                self.ufl_convec_accel0 = 0
 
         return None
 
@@ -472,19 +423,17 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        stress_func = self._material.stress_tensor
-        stress_tensor = stress_func(self.deformationGradient,
-                                    self.jacobian,
-                                    self.ufl_pressure)
+        stress_tensor = self._material.stress_tensor(self.velocityGradient,
+                                                     self.ufl_pressure)
+
         xi = self.test_vector
-        self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)
-        self.ufl_stress_work *= dlf.dx
+        self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
+
+        # Define the stress work term for the previous time step.
         if self.config['formulation']['time']['unsteady']:
-            stress_tensor0 = stress_func(self.deformationGradient0,
-                                         self.jacobian0,
-                                         self.ufl_pressure0)
-            self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)
-            self.ufl_stress_work0 *= dlf.dx
+            stress_tensor0 = self._material.stress_tensor(self.velocityGradient0,
+                                                          self.ufl_pressure0)
+            self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx
         else:
             self.ufl_stress_work0 = 0
 
@@ -499,6 +448,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
+        # Set to 0 and exit if key is not in config dictionary.
         if self.config['formulation']['body_force'] is None:
             self.ufl_body_force = 0
             self.ufl_body_force0 = 0
@@ -507,12 +457,15 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         rho = self.config['material']['density']
         b = self.config['formulation']['body_force']
         xi = self.test_vector
+
         self.ufl_body_force = dlf.dot(xi, rho*b)*dlf.dx
 
         # Create a copy of the body force term to use at a different time step.
-        if self.config['formulation']['time']['unsteady']:
-            b0, = duplicate_expressions(b)
+        if self.config['formulation']['time']['unsteady'] and hasattr(b,'t'):
+            b0 = duplicate_expressions(b)
             self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
+        elif self.config['formulation']['time']['unsteady']:
+            self.ufl_body_force0 = dlf.dot(xi, rho*b)*dlf.dx
         else:
             self.ufl_body_force0 = 0
 
@@ -529,11 +482,13 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
+        # Exit function if no Neumann BCs were provided.
         if self.config['formulation']['bcs']['neumann'] is None:
             self.ufl_neumann_bcs = 0
             self.ufl_neumann_bcs0 = 0
             return None
 
+        # Get handles to the different lists and the domain.
         regions = self.config['formulation']['bcs']['neumann']['regions']
         types = self.config['formulation']['bcs']['neumann']['types']
         values = self.config['formulation']['bcs']['neumann']['values']
@@ -545,17 +500,18 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
                                                   values, domain,
                                                   self.mesh,
                                                   self.mesh_function,
-                                                  self.deformationGradient,
-                                                  self.jacobian,
+                                                  0, # Deformation gradient
+                                                  0, # Jacobian
                                                   self.test_vector)
+
         if self.config['formulation']['time']['unsteady']:
             values0 = duplicate_expressions(*values)
             self.ufl_neumann_bcs0 = define_ufl_neumann(regions, types,
                                                        values0, domain,
                                                        self.mesh,
                                                        self.mesh_function,
-                                                       self.deformationGradient0,
-                                                       self.jacobian0,
+                                                       0, # Deformation gradient
+                                                       0, # Jacobian
                                                        self.test_vector)
         else:
             self.ufl_neumann_bcs0 = 0
@@ -574,24 +530,40 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         theta = self.config['formulation']['time']['theta']
 
+        # Momentum
         self.G1 = self.ufl_local_inertia \
-                  + theta*(self.ufl_stress_work \
+                  + theta*(self.ufl_convec_accel \
+                           + self.ufl_stress_work \
                            - self.ufl_body_force \
                            - self.ufl_neumann_bcs) \
-                  + (1.0 - theta)*(self.ufl_stress_work0 \
+                  + (1.0 - theta)*(self.ufl_convec_accel0 \
+                                   + self.ufl_stress_work0 \
                                    - self.ufl_body_force0 \
                                    - self.ufl_neumann_bcs0)
 
-        if self.config['material']['incompressible']:
-            q = self.test_scalar
-            kappa = self._material._parameters['kappa']
-            bvol = self._material.incompressibilityCondition(self.ufl_displacement)
-            self.G2 = q*(kappa*bvol - self.ufl_pressure)*dlf.dx
-        else:
-            self.G2 = 0
+        # Incompressibility
+        q = self.test_scalar
+        bvol = self._material.incompressibilityCondition(self.ufl_velocity)
+        self.G2 = q*bvol*dlf.dx
+
+        # Mixed variational form
         self.G = self.G1 + self.G2
 
         return None
+
+
+    def _define_incompressibility_constraint(self):
+        """
+        THIS SHOULD BE SUPPLIED BY THE CONSTITUTIVE EQUATION CLASS.
+
+        """
+
+        q = self.test_scalar
+        n = dlf.FacetNormal(self.mesh)
+        G2 = q*dlf.dot(self.ufl_velocity, n)*dlf.ds \
+             - dlf.dot(dlf.grad(q), self.ufl_velocity)*dlf.dx
+
+        return G2
 
 
     def define_ufl_equations_diff(self):
@@ -602,13 +574,45 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        self.dG = dlf.derivative(self.G, self.sys_u, self.sys_du)
+        self.dG = dlf.derivative(self.G, self.sys_v, self.sys_dv)
+
+        return None
+
+
+    def define_function_assigners(self):
+        """
+        Create function assigners to update the current and previous time
+        values of all field variables. This is specific to incompressible
+        simulations since the mixed function space formulation requires the
+        handling of the mixed functions and the copies of its subcomponents
+        in a specific manner.
+
+
+        """
+
+        W = self.functionSpace
+        v = self.velocity
+        p = self.pressure
+
+        self.assigner_sys2v = dlf.FunctionAssigner([v.function_space(),
+                                                    p.function_space()], W)
+        self.assigner_v2sys = dlf.FunctionAssigner(W, [v.function_space(),
+                                                       p.function_space()])
+
+        if self.config['formulation']['time']['unsteady']:
+            v0 = self.velocity0
+            p0 = self.pressure0
+
+            self.assigner_v02sys = dlf.FunctionAssigner(W, [v0.function_space(),
+                                                            p0.function_space()])
+            self.assigner_sys2v0 = dlf.FunctionAssigner([v0.function_space(),
+                                                         p0.function_space()], W)
 
         return None
 
 
     @staticmethod
-    def __define_displacement_bcs(W, dirichlet_dict, mesh_function):
+    def __define_velocity_bcs(W, dirichlet_dict, mesh_function):
         """
         Create a dictionary storing the dolfin.DirichletBC objects for
         each displacement BC specified in the 'dirichlet' subdictionary.
@@ -637,50 +641,14 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        displacement_bcs = {'displacement': list()}
-        disp_vals = dirichlet_dict['displacement']
+        velocity_bcs = {'velocity': list()}
+        vel_vals = dirichlet_dict['velocity']
         regions = dirichlet_dict['regions']
-        for region, value in zip(regions, disp_vals):
+        for region, value in zip(regions, vel_vals):
             bc = dlf.DirichletBC(W, value, mesh_function, region)
-            displacement_bcs['displacement'].append(bc)
+            velocity_bcs['velocity'].append(bc)
 
-        return displacement_bcs
-
-
-    def define_function_assigners(self):
-        """
-        Create function assigners to update the current and previous time
-        values of all field variables. This is specific to incompressible
-        simulations since the mixed function space formulation requires the
-        handling of the mixed functions and the copies of its subcomponents
-        in a specific manner.
-
-
-        """
-
-        W = self.functionSpace
-        u = self.displacement
-        p = self.pressure
-
-        self.assigner_sys2u = dlf.FunctionAssigner([u.function_space(),
-                                                    p.function_space()], W)
-        self.assigner_u2sys = dlf.FunctionAssigner(W, [u.function_space(),
-                                                       p.function_space()])
-
-        if self.config['formulation']['time']['unsteady']:
-            u0 = self.displacement0
-            p0 = self.pressure0
-            v0 = self.velocity0
-            a0 = self.acceleration0
-
-            self.assigner_u02sys = dlf.FunctionAssigner(W, [u0.function_space(),
-                                                            p0.function_space()])
-            self.assigner_v02sys = dlf.FunctionAssigner(W.sub(0),
-                                                        v0.function_space())
-            self.assigner_a02sys = dlf.FunctionAssigner(W.sub(0),
-                                                        a0.function_space())
-
-        return None
+        return velocity_bcs
 
 
     @staticmethod
@@ -723,10 +691,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         return pressure_bcs
 
 
-class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
+class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
     This class is derived from the dolfin.NonlinearVariationalSolver to
-    solve problems formulated with SolidMechanicsProblem. It passes the
+    solve problems formulated with FluidMechanicsProblem. It passes the
     UFL variational forms to the solver, and loops through all time steps
     if the problem is unsteady. The solvers that are available through
     this class are the same as those available through dolfin. The user
@@ -738,7 +706,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
     """
 
 
-    def __init__(self, problem, fname_disp=None,
+    def __init__(self, problem, fname_vel=None,
                  fname_pressure=None, fname_hdf5=None, fname_xdmf=None):
         """
         Initialize a SolidMechanicsSolver object.
@@ -750,8 +718,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             A SolidMechanicsProblem object that contains the necessary UFL
             forms to define and solve the problem specified in a config
             dictionary.
-        fname_disp : str (default None)
-            Name of the file series in which the displacement values are
+        fname_vel : str (default None)
+            Name of the file series in which the velocity values are
             to be saved.
         fname_pressure : str (default None)
             Name of the file series in which the pressure values are to
@@ -766,15 +734,15 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         for val in problem.dirichlet_bcs.values():
             bcs.extend(val)
 
-        dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
+        dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_v,
                                                       bcs, J=problem.dG)
 
         dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
 
         # Create file objects. This keeps the counter from being reset
         # each time the solve function is called.
-        self._file_disp, self._file_pressure, self._file_hdf5, self._file_xdmf \
-            = _create_file_objects(fname_disp, fname_pressure,
+        self._file_vel, self._file_pressure, self._file_hdf5, self._file_xdmf \
+            = _create_file_objects(fname_vel, fname_pressure,
                                    fname_hdf5, fname_xdmf)
 
         return None
@@ -834,10 +802,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
     def full_solve(self, save_freq=1, save_initial=True):
         """
-        Solve the mechanics problem defined by SolidMechanicsProblem. If the
+        Solve the mechanics problem defined by FluidMechanicsProblem. If the
         problem is unsteady, this function will loop through the entire time
-        interval using the parameters provided for the Newmark integration
-        scheme.
+        interval using a single step finite difference scheme.
 
 
         Parameters
@@ -863,8 +830,8 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         p = problem.pressure
-        u = problem.displacement
-        f_objs = [self._file_pressure, self._file_disp]
+        v = problem.velocity
+        f_objs = [self._file_pressure, self._file_vel]
 
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
@@ -875,13 +842,13 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
             # Save initial condition
             if save_initial:
-                _write_objects(f_objs, t=t, close=False, u=u, p=p)
+                _write_objects(f_objs, t=t, close=False, v=v, p=p)
                 if self._file_hdf5 is not None:
                     _write_objects(self._file_hdf5, t=t,
-                                   close=False, u=u, p=p)
+                                   close=False, v=v, p=p)
                 if self._file_xdmf is not None:
                     _write_objects(self._file_xdmf, t=t,
-                                   close=False, u=u, p=p)
+                                   close=False, v=v, p=p)
 
             # Hack to avoid rounding errors.
             while t < (tf - dt/10.0):
@@ -908,20 +875,20 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Save current time step
                 if not count % save_freq:
-                    _write_objects(f_objs, t=t, close=False, u=u, p=p)
+                    _write_objects(f_objs, t=t, close=False, v=v, p=p)
                     if self._file_hdf5 is not None:
                         _write_objects(self._file_hdf5, t=t,
-                                       close=False, u=u, p=p)
+                                       close=False, v=v, p=p)
                     if self._file_xdmf is not None:
                         _write_objects(self._file_xdmf, t=t,
-                                       close=False, u=u, p=p)
+                                       close=False, v=v, p=p)
 
         else:
             self.step()
 
             self.update_assign()
 
-            _write_objects(f_objs, t=None, close=False, u=u, p=p)
+            _write_objects(f_objs, t=None, close=False, v=v, p=p)
 
         return None
 
@@ -948,88 +915,20 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         """
 
         problem = self._problem
-        incompressible = problem.config['material']['incompressible']
         unsteady = problem.config['formulation']['time']['unsteady']
 
-        u = problem.displacement
+        v = problem.velocity
+        p = problem.pressure
 
         if unsteady:
-            u0 = problem.displacement0
-            v0 = problem.velocity0
-            a0 = problem.acceleration0
+            # Assign current solution to previous time step.
+            problem.sys_v0.assign(problem.sys_v)
 
-            beta = problem.config['formulation']['time']['beta']
-            gamma = problem.config['formulation']['time']['gamma']
-            dt = problem.config['formulation']['time']['dt']
+            # Assign the mixed function values to the split functions.
+            problem.assigner_sys2v0.assign([problem.velocity0,
+                                           problem.pressure0], problem.sys_v0)
 
-        if incompressible:
-            p = problem.pressure
-            problem.assigner_sys2u.assign([u, p], problem.sys_u)
-
-        if unsteady:
-            self.update(u, u0, v0, a0, beta, gamma, dt)
-
-        if incompressible and unsteady:
-            p0 = problem.pressure0
-            problem.assigner_u02sys.assign(problem.sys_u0, [u0, p0])
-            problem.assigner_v02sys.assign(problem.sys_v0.sub(0), v0)
-            problem.assigner_a02sys.assign(problem.sys_a0.sub(0), a0)
-
-        return None
-
-
-    @staticmethod
-    def update(u, u0, v0, a0, beta, gamma, dt):
-        """
-        Function to update values of field variables at the current and previous
-        time steps based on the Newmark integration scheme:
-
-        a = 1.0/(beta*dt^2)*(u - u0 - v0*dt) - (1.0/(2.0*beta) - 1.0)*v0
-        v = dt*((1.0 - gamma)*a0 + gamma*a) + v0
-
-        This particular method is to be used when the function objects do not
-        derive from a mixed function space.
-
-
-        Parameters
-        ----------
-
-        u : dolfin.Function
-            Object storing the displacement at the current time step.
-        u0 : dolfin.Function
-            Object storing the displacement at the previous time step.
-        v0 : dolfin.Function
-            Object storing the velocity at the previous time step.
-        a0 : dolfin.Function
-            Object storing the acceleration at the previous time step.
-        beta : float
-            Scalar parameter for the family of Newmark integration schemes.
-            See equation above.
-        gamma : float
-            Scalar parameter for the family of Newmark integration schemes.
-            See equation above.
-        dt : float
-            Time step used to advance through the entire time interval.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        # Get vector references
-        u_vec, u0_vec = u.vector(), u0.vector()
-        v0_vec, a0_vec = v0.vector(), a0.vector()
-
-        # Update acceleration and velocity
-        a_vec = 1.0/(beta*dt**2)*(u_vec - u0_vec - v0_vec*dt) \
-                                  - (1.0/(2.0*beta) - 1.0)*a0_vec
-        v_vec = dt*((1.0 - gamma)*a0_vec + gamma*a_vec) + v0_vec
-
-        v0.vector()[:], a0.vector()[:] = v_vec, a_vec
-        u0.vector()[:] = u_vec
+        # Assign the mixed function values to the split functions.
+        problem.assigner_sys2v.assign([v, p], problem.sys_v)
 
         return None

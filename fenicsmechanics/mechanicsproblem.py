@@ -336,7 +336,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         if isclass(const_eqn):
             mat_class = self.config['material']['const_eqn']
         elif const_eqn == 'lin_elastic':
-            mat_class = materials.solid_materials.LinearMaterial
+            mat_class = materials.solid_materials.LinearIsoMaterial
         elif const_eqn == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
         elif const_eqn == 'fung':

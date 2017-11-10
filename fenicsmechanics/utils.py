@@ -261,7 +261,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         if len(kwargs) != 1:
             raise ValueError("A 'dolfin.File' object can only store one object.")
 
-        a = kwargs.values()[0]
+        a = list(kwargs.values())[0]
         if t is not None:
             f_objects << (a, t)
         else:
@@ -318,15 +318,19 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
     else:
         func = f.write
 
-    for key,val in kwargs.iteritems():
-        if (val == 0) or (val is None):
-            continue # Nothing to write
+    # Read/write mesh if in kwargs. This prevents errors when
+    # other values in kwargs depend on mesh, e.g. mesh functions.
+    try:
+        mesh = kwargs.pop("mesh")
+        func(mesh, "mesh", False)
+    except KeyError:
+        pass
 
-        if key == "mesh":
-            func(val, key, False)
-        elif key in ["mesh_function", "facet_function"]:
-            func(val, key)
-        elif t is not None:
+    for key,val in kwargs.items():
+        if (val == 0) or (val is None):
+            continue # Nothing to read/write
+
+        if t is not None:
             func(val, key, t)
         else:
             func(val, key)
@@ -351,7 +355,7 @@ def _write_xdmf(fname, args, tspan=None):
         raise ValueError("'fname' provided is not a valid type.")
 
     if tspan is not None:
-        if isinstance(tspan, (float, int, long)):
+        if isinstance(tspan, (float, int)):
             len_tspan = 1
         else:
             len_tspan = len(tspan)
@@ -414,7 +418,7 @@ def _splitext(p):
     from os.path import splitext
     try:
         s = splitext(p)
-    except AttributeError:
+    except (AttributeError, TypeError): # Added TypeError for python>=3.6
         s = (None, None)
 
     return s

@@ -104,8 +104,8 @@ if args.material in ['fung', 'guccione']:
         mat_dict['bf'] = 1.0
         mat_dict['bfs'] = 1.0
     mat_dict['C'] = 10.0
-    mat_dict['fibers'] = {'fiber_files': ['../meshfiles/ellipsoid/fibers/n1-p0.xml.gz',
-                                          '../meshfiles/ellipsoid/fibers/n2-p0.xml.gz'],
+    mat_dict['fibers'] = {'fiber_files': ['../meshfiles/ellipsoid/fibers/n1-p0-1000um.xml.gz',
+                                          '../meshfiles/ellipsoid/fibers/n2-p0-1000um.xml.gz'],
                           'fiber_names': ['e1', 'e2'],
                           'element': 'p0'}
 else:

@@ -200,7 +200,7 @@ invF  = df.inv(F)
 J     = df.det(F)
 
 if (args.material == "linear"):
-    mat = materials.solid_materials.LinearMaterial
+    mat = materials.solid_materials.LinearIsoMaterial
 if (args.material == "neo-hooke"):
     mat = materials.solid_materials.NeoHookeMaterial(mu=args.shear_modulus,
                    kappa=args.bulk_modulus, incompressible=args.incompressible,
