@@ -1,8 +1,8 @@
 import dolfin as dlf
 import ufl
 
-__all__ = ['ElasticMaterial', 'LinearMaterial', 'NeoHookeMaterial',
-           'FiberMaterial', 'FungMaterial', 'GuccioneMaterial']
+__all__ = ['ElasticMaterial', 'LinearIsoMaterial', 'NeoHookeMaterial',
+           'AnisotropicMaterial', 'FungMaterial', 'GuccioneMaterial']
 
 class ElasticMaterial(object):
     """
@@ -229,7 +229,22 @@ class ElasticMaterial(object):
         return Bvol
 
 
-class LinearMaterial(ElasticMaterial):
+class IsotropicMaterial(ElasticMaterial):
+    """
+    Base class for isotropic materials. This provides methods common to all
+    isotropic materials.
+
+
+    """
+
+
+    def __init__(self):
+        ElasticMaterial.__init__(self)
+        ElasticMaterial.set_material_class(self, "isotropic")
+        return None
+
+
+class LinearIsoMaterial(IsotropicMaterial):
     """
     Return the Cauchy stress tensor based on linear elasticity, i.e.
     infinitesimal deformations, both compressible and incompressible. The
@@ -279,11 +294,10 @@ class LinearMaterial(ElasticMaterial):
 
 
     def __init__(self, inverse=False, **params):
-        ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class(self, 'isotropic')
-        ElasticMaterial.set_material_name(self, 'Linear material')
-        ElasticMaterial.set_inverse(self, inverse)
-        ElasticMaterial.set_incompressible(self, params['incompressible'])
+        IsotropicMaterial.__init__(self)
+        IsotropicMaterial.set_material_name(self, 'Linear material')
+        IsotropicMaterial.set_inverse(self, inverse)
+        IsotropicMaterial.set_incompressible(self, params['incompressible'])
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
@@ -377,7 +391,7 @@ class LinearMaterial(ElasticMaterial):
         return dlf.div(u)
 
 
-class NeoHookeMaterial(ElasticMaterial):
+class NeoHookeMaterial(IsotropicMaterial):
     """
     Return the first Piola-Kirchhoff stress tensor based on variations of the
     strain energy function
@@ -455,11 +469,11 @@ class NeoHookeMaterial(ElasticMaterial):
 
 
     def __init__(self, inverse=False, **params):
-        ElasticMaterial.__init__(self)
-        ElasticMaterial.set_material_class(self, 'isotropic')
-        ElasticMaterial.set_material_name(self, 'Neo-Hooke material')
-        ElasticMaterial.set_inverse(self, inverse)
-        ElasticMaterial.set_incompressible(self, params['incompressible'])
+        IsotropicMaterial.__init__(self)
+        IsotropicMaterial.set_material_class(self, 'isotropic')
+        IsotropicMaterial.set_material_name(self, 'Neo-Hooke material')
+        IsotropicMaterial.set_inverse(self, inverse)
+        IsotropicMaterial.set_incompressible(self, params['incompressible'])
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
@@ -1084,7 +1098,7 @@ class NeoHookeMaterial(ElasticMaterial):
         return kappa*g*Finv.T
 
 
-class FiberMaterial(ElasticMaterial):
+class AnisotropicMaterial(ElasticMaterial):
     """
     Base class for fiber reinforced materials. This base class contains
     methods for loading and saving vector fields that represent the directions
@@ -1229,7 +1243,7 @@ class FiberMaterial(ElasticMaterial):
         return fiber_directions
 
 
-class FungMaterial(FiberMaterial):
+class FungMaterial(AnisotropicMaterial):
     """
     This class defines the stress tensor for Fung type materials which are
     based on the strain energy function given by
@@ -1288,7 +1302,7 @@ class FungMaterial(FiberMaterial):
     following values:
 
     * 'fibers': dict
-        See FiberMaterial for details.
+        See AnisotropicMaterial for details.
     * 'C' : float
         Material constant that can be thought of as "stiffness" in some
         limiting cases.
@@ -1306,11 +1320,11 @@ class FungMaterial(FiberMaterial):
         fiber_dict = params_cp.pop('fibers')
 
         self._fiber_directions = self.default_fiber_directions()
-        FiberMaterial.__init__(self, fiber_dict, mesh)
+        AnisotropicMaterial.__init__(self, fiber_dict, mesh)
 
-        FiberMaterial.set_material_name(self, 'Fung material')
-        FiberMaterial.set_inverse(self, inverse)
-        FiberMaterial.set_incompressible(self, params['incompressible'])
+        AnisotropicMaterial.set_material_name(self, 'Fung material')
+        AnisotropicMaterial.set_inverse(self, inverse)
+        AnisotropicMaterial.set_incompressible(self, params['incompressible'])
 
         self._parameters = self.default_parameters()
         self._parameters.update(params_cp)
@@ -1319,7 +1333,7 @@ class FungMaterial(FiberMaterial):
         d = list(self._parameters['d'])
         d_iso = [1.0]*3 + [0.0]*3 + [2.0]*3
         if d == d_iso:
-            FiberMaterial.set_material_class(self, 'isotropic')
+            AnisotropicMaterial.set_material_class(self, 'isotropic')
 
 
     @staticmethod
@@ -1564,7 +1578,7 @@ class GuccioneMaterial(FungMaterial):
     following values:
 
     * 'fibers' : dict
-        See FiberMaterial for details.
+        See AnisotropicMaterial for details.
     * 'C' : float
         Material constant that can be thought of as "stiffness" in some
         limiting cases.

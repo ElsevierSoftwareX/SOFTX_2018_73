@@ -28,9 +28,9 @@ fiber_dict1 = {'fiber_files': fiber_files,
                'fiber_names': fiber_names,
                'element': 'p%i' % pd}
 
-from fenicsmechanics.materials.solid_materials import FiberMaterial, FungMaterial
+from fenicsmechanics.materials.solid_materials import AnisotropicMaterial, FungMaterial
 
-mat1 = FiberMaterial(fiber_dict1, mesh)
+mat1 = AnisotropicMaterial(fiber_dict1, mesh)
 
 hdf5_name = "fibers/n_all.h5"
 f = dlf.HDF5File(dlf.mpi_comm_world(), hdf5_name, 'w')
@@ -42,7 +42,7 @@ fiber_dict2 = {'fiber_files': hdf5_name,
                'fiber_names': fiber_names[:2],
                'element': 'p%i' % pd}
 
-mat2 = FiberMaterial(fiber_dict2, mesh)
+mat2 = AnisotropicMaterial(fiber_dict2, mesh)
 
 material_dict = {'kappa': 1e4,
                  'fibers': fiber_dict2}

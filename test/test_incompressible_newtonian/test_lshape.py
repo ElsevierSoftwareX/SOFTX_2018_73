@@ -6,6 +6,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-s', '--save',
                     help='save solution',
                     action='store_true')
+parser.add_argument('-bs', '--block-solver',
+                    help='Use MechanicsBlockSolver',
+                    action='store_true')
 args = parser.parse_args()
 
 mesh_dir = '../meshfiles/lshape/'
@@ -46,7 +49,7 @@ formulation_dict = {
         'theta': 1.0
     },
     'domain': 'eulerian',
-    'body_force': dlf.Constant([0.]*2),
+    'body_force': dlf.Constant([0., 0.]),
     'bcs': {
         'dirichlet': {
             'velocity': [dlf.Constant([0.]*2)],
@@ -67,13 +70,25 @@ config = {
 }
 
 if args.save:
-    vel_file = 'results/lshape-unsteady-velocity.pvd'
-    pressure_file = 'results/lshape-unsteady-pressure.pvd'
+    vel_file = 'results/lshape-%s-unsteady-velocity.pvd'
+    pressure_file = 'results/lshape-%s-unsteady-pressure.pvd'
+    if args.block_solver:
+        vel_file = vel_file % "bs"
+        pressure_file = pressure_file % "bs"
+    else:
+        vel_file = vel_file % "mixed"
+        pressure_file = pressure_file % "mixed"
 else:
     vel_file = None
     pressure_file = None
 
-problem = fm.MechanicsProblem(config)
-solver = fm.MechanicsBlockSolver(problem, fname_vel=vel_file,
-                                 fname_pressure=pressure_file)
-solver.solve()
+if args.block_solver:
+    problem = fm.MechanicsProblem(config)
+    solver = fm.MechanicsBlockSolver(problem, fname_vel=vel_file,
+                                     fname_pressure=pressure_file)
+    solver.solve()
+else:
+    problem = fm.FluidMechanicsProblem(config)
+    solver = fm.FluidMechanicsSolver(problem, fname_vel=vel_file,
+                                     fname_pressure=pressure_file)
+    solver.full_solve()
