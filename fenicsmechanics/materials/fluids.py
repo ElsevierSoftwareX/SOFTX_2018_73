@@ -282,12 +282,27 @@ def convert_viscosity(param):
     mu = param['mu'] # Dynamic viscosity
     nu = param['nu'] # Kinematic viscosity
 
-    if (rho > 0) and (mu > 0):
-        nu = mu/rho
-    elif (rho > 0) and (nu > 0):
-        mu = rho*nu
-    elif (mu > 0) and (nu > 0):
-        rho = mu/nu
+    if (rho is not None) and (mu is not None):
+        if (rho > 0) and (mu > 0):
+            nu = mu/rho
+        elif rho > 0:
+            raise ValueError("A positive value must be provided for 'mu'.")
+        else:
+            raise ValueError("A positive value must be provided for the density.")
+    elif (rho is not None) and (nu is not None):
+        if (rho > 0) and (nu > 0):
+            mu = rho*nu
+        elif (rho > 0):
+            raise ValueError("A positive value must be provided for 'nu'.")
+        else:
+            raise ValueError("A positive value must be provided for the density.")
+    elif (mu is not None) and (nu is not None):
+        if (mu > 0) and (nu > 0):
+            rho = mu/nu
+        elif mu > 0:
+            raise ValueError("A positive value must be provided for 'nu'.")
+        else:
+            raise ValueError("A positive value must be provided for 'mu'.")
     else:
         raise ValueError('Two material parameters must be specified.')
 

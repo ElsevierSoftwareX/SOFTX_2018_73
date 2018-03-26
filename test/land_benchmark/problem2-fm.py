@@ -15,9 +15,10 @@ parser.add_argument("-m", "--material",
 parser.add_argument("--output_dir",
                     help="output directory",
                     default='problem_2')
+default_mesh = '../meshfiles/ellipsoid/ellipsoid-mesh_fibers_boundaries-1000um.h5'
 parser.add_argument("--meshname",
                     help="mesh file",
-                    default='../meshfiles/ellipsoid/new-ellipsoid_1000um.h5')
+                    default=default_mesh)
 parser.add_argument("-i","--inverse",
                     help="activate inverse elasticity",
                     action='store_true')
@@ -94,8 +95,8 @@ pressure = dlf.Expression('%f*t' % args.pressure, degree=2, t=t0)
 mat_dict = {'const_eqn': args.material,
             'type': 'elastic',
             'incompressible': args.incompressible,
-            'density': 0.0,
-            'kappa': args.bulk_modulus}
+            'density': 0.0}# ,
+            # 'kappa': args.bulk_modulus}
 if args.material in ['fung', 'guccione']:
     if args.material == 'fung':
         mat_dict['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
@@ -107,38 +108,34 @@ if args.material in ['fung', 'guccione']:
     mat_dict['fibers'] = {'fiber_files': ['../meshfiles/ellipsoid/fibers/n1-p0-1000um.xml.gz',
                                           '../meshfiles/ellipsoid/fibers/n2-p0-1000um.xml.gz'],
                           'fiber_names': ['e1', 'e2'],
-                          'element': 'p0'}
+                          'element-wise': True}
 else:
     mat_dict['nu'] = args.poissons_ratio
     mat_dict['mu'] = args.shear_modulus
 
 # Mesh subdictionary
 mesh_dict = {'mesh_file': args.meshname,
-             'mesh_function': args.meshname,
-             'element': element_type}
+             'boundaries': args.meshname}
 
 # Formulation subdictionary
 formulation_dict = {'time':
                     {
-                        'unsteady': True,
-                        'theta': theta,
-                        'beta': beta,
-                        'gamma': gamma,
                         'dt': dt,
                         'interval': tspan
                     },
+                    'element': element_type,
                     'domain': 'lagrangian',
                     'inverse': args.inverse,
                     'bcs':{
                         'dirichlet': {
-                            'displacement': [dlf.Constant([0.]*3)],
+                            'displacement': [[0.]*3],
                             'regions': [HDBC],
-                            'velocity': [dlf.Constant([0.]*3)]
                         },
                         'neumann': {
                             'regions': [INBC],
                             'types': ['pressure'],
-                            'values': [pressure]
+                            # 'values': [pressure]
+                            'values': ["%f*t" % args.pressure]
                         }}}
 
 # Overall configuration
@@ -149,4 +146,5 @@ config = {'material': mat_dict,
 result_file = args.output_dir + '/ellipsoid-fm.pvd'
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=result_file)
+solver.set_parameters(linear_solver="superlu_dist")
 solver.full_solve(save_freq=save_freq)

@@ -307,7 +307,7 @@ class LinearIsoMaterial(IsotropicMaterial):
     @staticmethod
     def default_parameters():
         params = { 'mu': None,
-                   'kappa': None,
+                   'kappa': 1e6,
                    'la': None,
                    'inv_la': None,
                    'E': None,
@@ -477,13 +477,46 @@ class NeoHookeMaterial(IsotropicMaterial):
         params = params or {}
         self._parameters = self.default_parameters()
         self._parameters.update(params)
-        convert_elastic_moduli(self._parameters)
+        self.__check_la(self._parameters)
+
+        return None
+
+
+    @staticmethod
+    def __check_la(params):
+
+        la = params['la']
+        inv_la = params['inv_la']
+
+        # Exit if these are already dolfin objects
+        if isinstance(la, dlf.Coefficient) or isinstance(inv_la, dlf.Coefficient):
+            return None
+
+        inf = float("inf")
+        if la is not None:
+            if la == inf:
+                inv_la = 0.0
+            else:
+                inv_la = 1.0/la
+        elif inv_la is not None:
+            if inv_la == 0.0:
+                la = inf
+            else:
+                la = 1.0/inv_la
+        else:
+            convert_elastic_moduli(params)
+
+        if (la is not None) or (inv_la is not None):
+            params['la'] = dlf.Constant(la)
+            params['inv_la'] = dlf.Constant(inv_la)
+
+        return None
 
 
     @staticmethod
     def default_parameters():
         params = {'mu': None,
-                  'kappa': None,
+                  'kappa': 1e6,
                   'la': None,
                   'inv_la': None,
                   'E': None,
@@ -1146,12 +1179,20 @@ class AnisotropicMaterial(ElasticMaterial):
             err.args += (s % 'fiber_names',)
             raise
 
-        try:
+        if 'element' in fiber_dict:
             element_type = fiber_dict['element']
-        except KeyError as err:
-            err.args += (s % 'element',)
-            raise
+        elif 'element-wise' in fiber_dict:
+            # Check if fibers are given element-wise (p0) or
+            # node-wise (p1).
+            if fiber_dict['element-wise']:
+                element_type = 'p0'
+            else:
+                element_type = 'p1'
+        else:
+            raise KeyError(s % '{element-wise,element}')
 
+        # Element type should only be None if dolfin.Coefficient objects
+        # were already provided.
         if element_type is not None:
             pd = int(element_type[-1])
             if pd == 0:
@@ -1341,7 +1382,7 @@ class FungMaterial(AnisotropicMaterial):
         param = {'C': 2.0,
                  'd': [1.0]*3 + [0.0]*3 + [0.5]*3,
                  'mu': None,
-                 'kappa': 1000.0,
+                 'kappa': 1e6,
                  'la': None,
                  'inv_la': None,
                  'E': None,
@@ -1657,7 +1698,7 @@ class GuccioneMaterial(FungMaterial):
                     e2 = dlf.Constant((0.0,1.0,0.0))
                     e3 = dlf.Constant((0.0,0.0,1.0))
             else:
-                e3 = dlf.cross(e1,e2) #params['e3'] #
+                e3 = dlf.cross(e1,e2)
 
             E11,E12,E13 = dlf.inner(E*e1,e1), dlf.inner(E*e1,e2), dlf.inner(E*e1,e3)
             E21,E22,E23 = dlf.inner(E*e2,e1), dlf.inner(E*e2,e2), dlf.inner(E*e2,e3)

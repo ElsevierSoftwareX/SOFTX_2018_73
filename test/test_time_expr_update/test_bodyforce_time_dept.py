@@ -3,7 +3,7 @@ import dolfin as dlf
 import fenicsmechanics.mechanicsproblem as mprob
 
 mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
-mesh_function = '../meshfiles/unit_domain/unit_domain-mesh_function-2x2.xml.gz'
+boundaries = '../meshfiles/unit_domain/unit_domain-boundaries-2x2.xml.gz'
 
 body_force = dlf.Expression(['log(1.0+t)', 'exp(t)'],
                             t=0.0, degree=2)
@@ -24,12 +24,10 @@ config = {'material' : {
               },
           'mesh' : {
               'mesh_file' : mesh_file,
-              'mesh_function' : mesh_function,
-              'element' : 'p2'
+              'boundaries' : boundaries
               },
           'formulation' : {
-              'time': {'unsteady': False},
-              # 'unsteady' : False,
+              'element' : 'p2',
               'domain' : 'lagrangian',
               'inverse' : False,
               'body_force' : body_force,

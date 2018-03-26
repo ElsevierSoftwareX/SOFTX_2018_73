@@ -13,7 +13,7 @@ args = parser.parse_args()
 
 mesh_dir = '../meshfiles/lshape/'
 mesh_file = mesh_dir + 'lshape-mesh.xml.gz'
-mesh_function = mesh_dir + 'lshape-mesh_function.xml.gz'
+boundaries = mesh_dir + 'lshape-boundaries.xml.gz'
 
 # Region IDs
 ALL_ELSE = 0
@@ -36,18 +36,17 @@ mat_dict = {
 # Mesh subdictionary
 mesh_dict = {
     'mesh_file': mesh_file,
-    'mesh_function': mesh_function,
-    'element': 'p2-p1'
+    'boundaries': boundaries
 }
 
 # Formulation subdictionary
 formulation_dict = {
     'time': {
-        'unsteady': True,
         'dt': 0.01,
         'interval': [0., 3.],
         'theta': 1.0
     },
+    'element': 'p2-p1',
     'domain': 'eulerian',
     'body_force': dlf.Constant([0., 0.]),
     'bcs': {

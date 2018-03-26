@@ -14,7 +14,7 @@ dlf.parameters['form_compiler']['quadrature_degree'] = 3
 # Mesh files
 mesh_dir = '../meshfiles/unit_domain/'
 mesh_file = mesh_dir + 'unit_domain-mesh-24x16x16.xml.gz'
-mesh_function = mesh_dir + 'unit_domain-mesh_function-24x16x16.xml.gz'
+boundaries = mesh_dir + 'unit_domain-boundaries-24x16x16.xml.gz'
 
 # Region IDs
 ALL_ELSE = 0
@@ -43,12 +43,11 @@ config = {'material':
           'mesh':
           {
               'mesh_file': mesh_file,
-              'mesh_function': mesh_function,
-              'element': 'p1'
+              'boundaries': boundaries
           },
           'formulation':
           {
-              'time': {'unsteady': False},
+              'element': 'p1',
               'domain': 'lagrangian',
               'inverse': False,
               'body_force': body_force,
