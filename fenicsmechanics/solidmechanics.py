@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import ufl
 import dolfin as dlf
 
 from . import materials
@@ -29,6 +28,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
     def __init__(self, user_config):
 
+        BaseMechanicsProblem.class_name = "SolidMechanicsProblem"
         BaseMechanicsProblem.__init__(self, user_config)
 
         # Define necessary member data
@@ -47,8 +47,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     def define_function_spaces(self):
         """
         Define the function space based on the degree(s) specified
-        in config['mesh']['element'] and add it as member data. If
-        the problem is specified as incompressible, a mixed function
+        in config['formulation']['element'] and add it as member data.
+        If the problem is specified as incompressible, a mixed function
         space made up of a vector and scalar function spaces is defined.
         Note that this differs from MechanicsProblem since there,
         the vector and scalar function spaces are defined separately.
@@ -57,7 +57,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
 
         cell = self.mesh.ufl_cell()
-        vec_degree = int(self.config['mesh']['element'][0][-1])
+        vec_degree = int(self.config['formulation']['element'][0][-1])
         if vec_degree == 0:
             vec_family = 'DG'
         else:
@@ -66,7 +66,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         vec_element = dlf.VectorElement(vec_family, cell, vec_degree)
 
         if self.config['material']['incompressible']:
-            scalar_degree = int(self.config['mesh']['element'][1][-1])
+            scalar_degree = int(self.config['formulation']['element'][1][-1])
             if scalar_degree == 0:
                 scalar_family = 'DG'
             else:
@@ -377,7 +377,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             dirichlet_dict = self.config['formulation']['bcs']['dirichlet']
             dirichlet_bcs = self.__define_displacement_bcs(self.functionSpace,
                                                            dirichlet_dict,
-                                                           self.mesh_function)
+                                                           self.boundaries)
             self.dirichlet_bcs.update(dirichlet_bcs)
         else:
             self.dirichlet_bcs = None
@@ -396,14 +396,14 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         dirichlet_dict = self.config['formulation']['bcs']['dirichlet']
         if 'displacement' in self.config['formulation']['bcs']['dirichlet']:
             displacement_bcs = self.__define_displacement_bcs(self.functionSpace.sub(0),
-                                                           dirichlet_dict,
-                                                           self.mesh_function)
+                                                              dirichlet_dict,
+                                                              self.boundaries)
             self.dirichlet_bcs.update(displacement_bcs)
 
         if 'pressure' in self.config['formulation']['bcs']['dirichlet']:
             pressure_bcs = self.__define_pressure_bcs(self.functionSpace.sub(1),
                                                       dirichlet_dict,
-                                                      self.mesh_function)
+                                                      self.boundaries)
             self.dirichlet_bcs.update(pressure_bcs)
 
         if not self.dirichlet_bcs:
@@ -544,7 +544,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.ufl_neumann_bcs = define_ufl_neumann(regions, types,
                                                   values, domain,
                                                   self.mesh,
-                                                  self.mesh_function,
+                                                  self.boundaries,
                                                   self.deformationGradient,
                                                   self.jacobian,
                                                   self.test_vector)
@@ -553,7 +553,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.ufl_neumann_bcs0 = define_ufl_neumann(regions, types,
                                                        values0, domain,
                                                        self.mesh,
-                                                       self.mesh_function,
+                                                       self.boundaries,
                                                        self.deformationGradient0,
                                                        self.jacobian0,
                                                        self.test_vector)
@@ -586,7 +586,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             q = self.test_scalar
             kappa = self._material._parameters['kappa']
             bvol = self._material.incompressibilityCondition(self.ufl_displacement)
-            self.G2 = q*(kappa*bvol - self.ufl_pressure)*dlf.dx
+            self.G2 = q*(bvol - (1.0/kappa)*self.ufl_pressure)*dlf.dx
         else:
             self.G2 = 0
         self.G = self.G1 + self.G2
@@ -608,7 +608,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 
     @staticmethod
-    def __define_displacement_bcs(W, dirichlet_dict, mesh_function):
+    def __define_displacement_bcs(W, dirichlet_dict, boundaries):
         """
         Create a dictionary storing the dolfin.DirichletBC objects for
         each displacement BC specified in the 'dirichlet' subdictionary.
@@ -622,7 +622,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         dirichlet_dict : dict
             The 'dirichlet' subdictionary of 'config'. Refer to the
             documentation for BaseMechanicsProblem for more information.
-        mesh_function : dolfin.MeshFunction
+        boundaries : dolfin.MeshFunction
             The mesh function used to tag different regions of the
             domain boundary.
 
@@ -641,7 +641,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         disp_vals = dirichlet_dict['displacement']
         regions = dirichlet_dict['regions']
         for region, value in zip(regions, disp_vals):
-            bc = dlf.DirichletBC(W, value, mesh_function, region)
+            bc = dlf.DirichletBC(W, value, boundaries, region)
             displacement_bcs['displacement'].append(bc)
 
         return displacement_bcs
@@ -684,7 +684,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
 
     @staticmethod
-    def __define_pressure_bcs(W, dirichlet_dict, mesh_function):
+    def __define_pressure_bcs(W, dirichlet_dict, boundaries):
         """
         Create a dictionary storing the dolfin.DirichletBC objects for
         each pressure BC specified in the 'dirichlet' subdictionary.
@@ -698,7 +698,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         dirichlet_dict : dict
             The 'dirichlet' subdictionary of 'config'. Refer to the
             documentation for BaseMechanicsProblem for more information.
-        mesh_function : dolfin.MeshFunction
+        boundaries : dolfin.MeshFunction
             The mesh function used to tag different regions of the
             domain boundary.
 
@@ -717,7 +717,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         p_vals = dirichlet_bcs['pressure']
         p_regions = dirichlet_dict['p_regions']
         for region, value in zip(p_regions, p_vals):
-            bc = dlf.DirichletBC(W, value, mesh_function, region)
+            bc = dlf.DirichletBC(W, value, boundaries, region)
             pressure_bcs['pressure'].append(bc)
 
         return pressure_bcs

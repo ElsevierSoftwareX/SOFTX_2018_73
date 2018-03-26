@@ -79,13 +79,13 @@ else:
     p_file = None
 
 mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
-mesh_function = mesh_dir + 'unit_domain-mesh_function-%s' % dim_str
+boundaries = mesh_dir + 'unit_domain-boundaries-%s' % dim_str
 if args.hdf5:
     mesh_file += '.h5'
-    mesh_function += '.h5'
+    boundaries += '.h5'
 else:
     mesh_file += '.xml.gz'
-    mesh_function += '.xml.gz'
+    boundaries += '.xml.gz'
 
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):
@@ -94,8 +94,8 @@ if not os.path.isfile(mesh_file):
                     + 'with the same arguments first.')
 
 # Check if the mesh function file exists
-if not os.path.isfile(mesh_function):
-    raise Exception('The mesh function file, \'%s\', does not exist. ' % mesh_function
+if not os.path.isfile(boundaries):
+    raise Exception('The mesh function file, \'%s\', does not exist. ' % boundaries
                     + 'Please run the script \'generate_mesh_files.py\''
                     + 'with the same arguments first.')
 
@@ -176,19 +176,18 @@ else:
 
 # Mesh subdictionary
 mesh_dict = {'mesh_file': mesh_file,
-             'mesh_function': mesh_function,
-             'element': element_type}
+             'boundaries': boundaries}
 
 # Formulation subdictionary
 formulation_dict = {
     'time' : {
-        'unsteady' : True,
         'theta' : theta,
         'beta': beta,
         'gamma': gamma,
         'dt' : dt,
         'interval' : tspan
     },
+    'element': element_type,
     'domain' : 'lagrangian',
     'inverse' : args.inverse,
     'body_force' : dlf.Constant([0.]*args.dim),
@@ -196,7 +195,6 @@ formulation_dict = {
         'dirichlet' : {
             'displacement' : [dlf.Constant([0.]*args.dim)],
             'regions' : [CLIP],
-            'velocity' : [dlf.Constant([0.]*args.dim)]
         },
         'neumann' : {
             'regions' : [TRACTION],
@@ -212,6 +210,7 @@ config = {'material': material_dict,
           'formulation': formulation_dict}
 
 if args.block_solver:
+    config['formulation']['bcs']['dirichlet']['velocity'] = [dlf.Constant([0.]*args.dim)]
     problem = fm.MechanicsProblem(config)
     solver = fm.MechanicsBlockSolver(problem, fname_disp=disp_file, fname_vel=vel_file,
                                      fname_pressure=p_file, fname_hdf5=hdf5_file,
@@ -231,7 +230,7 @@ if args.compute_volume:
     du1 = dlf.TrialFunction(W1)
     u_move = dlf.Function(W1)
     move_bcs = dlf.DirichletBC(W1, dlf.Constant([0.0]*args.dim),
-                               problem.mesh_function, CLIP)
+                               problem.boundaries, CLIP)
     a = dlf.dot(xi1, du1)*dlf.dx
     L = dlf.dot(xi1, problem.displacement)*dlf.dx
     dlf.solve(a == L, u_move, move_bcs)
@@ -239,4 +238,4 @@ if args.compute_volume:
     ale = dlf.ALE()
     ale.move(problem.mesh, u_move)
     print ("Total volume after: ", \
-        dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh)))
+           dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh)))

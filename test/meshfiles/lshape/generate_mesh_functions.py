@@ -1,6 +1,6 @@
 import dolfin as dlf
 
-mesh = dlf.Mesh('lshape.xml.gz')
+mesh = dlf.Mesh('lshape-mesh.xml.gz')
 
 # Region IDs
 ALL_ELSE = 0
@@ -8,8 +8,8 @@ INFLOW = 1
 OUTFLOW = 2
 NOSLIP = 3
 
-mesh_function = dlf.MeshFunction('size_t', mesh, mesh.geometry().dim() - 1)
-mesh_function.set_all(ALL_ELSE)
+boundaries = dlf.MeshFunction('size_t', mesh, mesh.geometry().dim() - 1)
+boundaries.set_all(ALL_ELSE)
 
 
 class Inflow(dlf.SubDomain):
@@ -35,13 +35,13 @@ class NoSlip(dlf.SubDomain):
 
 
 inflow = Inflow()
-inflow.mark(mesh_function, INFLOW)
+inflow.mark(boundaries, INFLOW)
 
 outflow = Outflow()
-outflow.mark(mesh_function, OUTFLOW)
+outflow.mark(boundaries, OUTFLOW)
 
 noslip = NoSlip()
-noslip.mark(mesh_function, NOSLIP)
+noslip.mark(boundaries, NOSLIP)
 
 # Save file
-dlf.File("lshape-mesh_function.xml.gz") << mesh_function
+dlf.File("lshape-boundaries.xml.gz") << boundaries

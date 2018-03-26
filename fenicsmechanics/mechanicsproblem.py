@@ -25,6 +25,7 @@ class MechanicsProblem(BaseMechanicsProblem):
 
     def __init__(self, user_config):
 
+        BaseMechanicsProblem.class_name = "MechanicsProblem"
         BaseMechanicsProblem.__init__(self, user_config)
 
         # Define necessary member data
@@ -43,8 +44,8 @@ class MechanicsProblem(BaseMechanicsProblem):
     def define_function_spaces(self):
         """
         Define the vector (and scalar if incompressible) function spaces
-        based on the degrees specified in config['mesh']['element'], and
-        add them to the instance of MechanicsProblem as member data. If
+        based on the degrees specified in config['formulation']['element'],
+        and add them to the instance of MechanicsProblem as member data. If
         the material is not incompressible, the scalar function space is
         set to None.
 
@@ -52,7 +53,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         """
 
         cell = self.mesh.ufl_cell()
-        vec_degree = int(self.config['mesh']['element'][0][-1])
+        vec_degree = int(self.config['formulation']['element'][0][-1])
         if vec_degree == 0:
             vec_family = "DG"
         else:
@@ -61,7 +62,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         self.vectorSpace = dlf.FunctionSpace(self.mesh, vec_element)
 
         if self.config['material']['incompressible']:
-            scalar_degree = int(self.config['mesh']['element'][1][-1])
+            scalar_degree = int(self.config['formulation']['element'][1][-1])
             if scalar_degree == 0:
                 scalar_family = "DG"
             else:
@@ -414,21 +415,21 @@ class MechanicsProblem(BaseMechanicsProblem):
         if vel_vals is not None:
             self.dirichlet_bcs['velocity'] = list()
             for region, value in zip(regions, vel_vals):
-                bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+                bc = dlf.DirichletBC(V, value, self.boundaries, region)
                 self.dirichlet_bcs['velocity'].append(bc)
 
         # Store the Dirichlet BCs for the displacement vector field.
         if disp_vals is not None:
             self.dirichlet_bcs['displacement'] = list()
             for region, value in zip(regions, disp_vals):
-                bc = dlf.DirichletBC(V, value, self.mesh_function, region)
+                bc = dlf.DirichletBC(V, value, self.boundaries, region)
                 self.dirichlet_bcs['displacement'].append(bc)
 
         # Store the Dirichlet BCs for the pressure scalar field.
         if pressure_vals is not None:
             self.dirichlet_bcs['pressure'] = list()
             for region, value in zip(p_regions, pressure_vals):
-                bc = dlf.DirichletBC(S, value, self.mesh_function, region)
+                bc = dlf.DirichletBC(S, value, self.boundaries, region)
                 self.dirichlet_bcs['pressure'].append(bc)
 
         # Remove pressure item if material is not incompressible.
@@ -518,7 +519,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         self.ufl_neumann_bcs = self.define_ufl_neumann_form(regions, types,
                                                             values, domain,
                                                             self.mesh,
-                                                            self.mesh_function,
+                                                            self.boundaries,
                                                             self.deformationGradient,
                                                             self.jacobian,
                                                             self.test_vector)
@@ -527,7 +528,7 @@ class MechanicsProblem(BaseMechanicsProblem):
             self.ufl_neumann_bcs0 = self.define_ufl_neumann_form(regions, types,
                                                                  values0, domain,
                                                                  self.mesh,
-                                                                 self.mesh_function,
+                                                                 self.boundaries,
                                                                  self.deformationGradient0,
                                                                  self.jacobian0,
                                                                  self.test_vector)

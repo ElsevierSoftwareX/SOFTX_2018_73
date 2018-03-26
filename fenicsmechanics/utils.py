@@ -142,7 +142,7 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
     if mesh_function[-3:] == '.h5':
         f = dlf.HDF5File(dlf.mpi_comm_world(), mesh_function, 'r')
         mesh_func = dlf.MeshFunction('size_t', mesh)
-        f.read(mesh_func, 'mesh_function')
+        f.read(mesh_func, 'boundaries')
         f.close()
     else:
         s1 = 'The file extension provided must be \'.h5\'.'
@@ -322,7 +322,10 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
     # other values in kwargs depend on mesh, e.g. mesh functions.
     try:
         mesh = kwargs.pop("mesh")
-        func(mesh, "mesh", False)
+        if mode == "r":
+            func(mesh, "mesh", False)
+        else:
+            func(mesh, "mesh")
     except KeyError:
         pass
 

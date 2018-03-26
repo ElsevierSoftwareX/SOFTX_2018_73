@@ -21,6 +21,11 @@ print('[DONE]')
 
 print('Generating mesh.....', end='')
 mesh_dims = (args.refinement,)*args.dim
+
+# TEMPORARY !!!!!!!!!!
+args.dim = 3
+mesh_dims = (24, 16, 16)
+
 if args.dim == 1:
     mesh = dlf.UnitIntervalMesh(*mesh_dims)
 elif args.dim == 2:
@@ -36,9 +41,9 @@ ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
 
-print('Generating mesh function.....', end='')
-mesh_function = dlf.MeshFunction('size_t', mesh, args.dim-1)
-mesh_function.set_all(ALL_ELSE)
+print('Generating boundary mesh function.....', end='')
+boundaries = dlf.MeshFunction('size_t', mesh, args.dim-1)
+boundaries.set_all(ALL_ELSE)
 
 
 class Clip(dlf.SubDomain):
@@ -54,10 +59,10 @@ class Traction(dlf.SubDomain):
 
 
 clip = Clip()
-clip.mark(mesh_function, CLIP)
+clip.mark(boundaries, CLIP)
 
 traction = Traction()
-traction.mark(mesh_function, TRACTION)
+traction.mark(boundaries, TRACTION)
 print('[DONE]')
 
 dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
@@ -66,26 +71,26 @@ dim_str   = 'x'.join(['%i' % i for i in mesh_dims])
 print('Writing files.....', end='')
 
 mesh_name = './meshfiles/unit_domain/unit_domain-mesh-%s' % dim_str
-mesh_func_name = './meshfiles/unit_domain/unit_domain-mesh_function-%s' % dim_str
+boundaries_name = './meshfiles/unit_domain/unit_domain-boundaries-%s' % dim_str
 
 if args.hdf5:
     mesh_name += '.h5'
-    mesh_func_name += '.h5'
+    boundaries_name += '.h5'
 
     f1 = dlf.HDF5File(dlf.mpi_comm_world(), mesh_name, 'w')
-    f2 = dlf.HDF5File(dlf.mpi_comm_world(), mesh_func_name, 'w')
+    f2 = dlf.HDF5File(dlf.mpi_comm_world(), boundaries_name, 'w')
 
     f1.write(mesh, 'mesh')
-    f2.write(mesh_function, 'mesh_function')
+    f2.write(boundaries, 'boundaries')
 
     f1.close()
     f2.close()
 
 else:
     mesh_name += '.xml.gz'
-    mesh_func_name += '.xml.gz'
+    boundaries_name += '.xml.gz'
 
     dlf.File(mesh_name) << mesh
-    dlf.File(mesh_func_name) << mesh_function
+    dlf.File(boundaries_name) << boundaries
 
 print('[DONE]')

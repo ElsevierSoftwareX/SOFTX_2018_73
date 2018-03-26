@@ -29,7 +29,8 @@ class BaseMechanicsProblem(object):
        * 'const_eqn' : str, class
             The name of the constitutive equation to be used. User may provide
             their own class which defines a material instead of using those
-            implemented in fenicsmechanics.materials.
+            implemented in fenicsmechanics.materials. For a list of implemented
+            materials, call 'fenicsmechanics.list_implemented_materials()'.
        * 'incompressible' : bool
             True if the material is incompressible. An
             additional weak form for the incompressibility
@@ -51,18 +52,12 @@ class BaseMechanicsProblem(object):
             Name of the file containing the mesh information of
             the problem geometry, or a dolfin.Mesh object. Supported
             file formats are *.xml, *.xml.gz, and *.h5.
-       * 'mesh_function' : str, dolfin.MeshFunction
-            Name of the file containing the mesh function information
-            of the geometry, or a dolfin.MeshFunction object. Supported
-            file formats are *.xml, *.xml.gz, and *.h5. This mesh function
-            will be used to mark different regions of the domain boundary.
-       * 'element' : str
-            Name of the finite element to be used for the discrete
-            function space. Currently, elements of the form 'p<n>-p<m>'
-            are supported, where <n> is the degree used for the vector
-            function space, and <m> is the degree used for the scalar
-            function space. If the material is not incompressible, only the
-            first term should be specified. E.g., 'p2-p1'.
+       * 'boundaries' : str, dolfin.MeshFunction
+            Name of the file containing the mesh function to mark different
+            boundary regions of the geometry, or a dolfin.MeshFunction object.
+            Supported file formats are *.xml, *.xml.gz, and *.h5. This mesh
+            function will be used to mark different regions of the domain
+            boundary.
 
 
     * 'formulation'
@@ -74,22 +69,22 @@ class BaseMechanicsProblem(object):
             * 'interval' : list, tuple
                 A list or tuple of length 2 specifying the time interval,
                 i.e. [t0, tf].
-            * 'theta': float, int
+            * 'theta': float, int (OPTIONAL)
                 The weight given to the current time step and subtracted
                 from the previous, i.e.
 
                   dy/dt = theta*f(y_{n+1}) + (1 - theta)*f(y_n).
 
                 Note: theta = 1 gives a fully implicit scheme, while
-                theta = 0 gives a fully explicit one.
-            * 'beta' : float, int
+                theta = 0 gives a fully explicit one. The default value is 1.
+            * 'beta' : float, int (OPTIONAL)
                 The beta parameter used in the Newmark integration scheme.
                 Note: the Newmark integration scheme is only used by
-                SolidMechanicsProblem.
-            * 'gamma' : float, int
+                SolidMechanicsProblem. The default value is 0.25.
+            * 'gamma' : float, int (OPTIONAL)
                 The gamma parameter used in the Newmark integration scheme.
                 Note: the Newmark integration scheme is only used by
-                SolidMechanicsProblem.
+                SolidMechanicsProblem. The default value is 0.5
         * 'initial_condition' (OPTIONAL)
             * 'displacement' : dolfin.Coefficient (OPTIONAL)
                 A dolfin.Coefficient object specifying the initial value for
@@ -100,11 +95,18 @@ class BaseMechanicsProblem(object):
             * 'pressure' : dolfin.Coefficient (OPTIONAL)
                 A dolfin.Coefficient object specifying the initial value for
                 the pressure.
+       * 'element' : str
+            Name of the finite element to be used for the discrete
+            function space. Currently, elements of the form 'p<n>-p<m>'
+            are supported, where <n> is the degree used for the vector
+            function space, and <m> is the degree used for the scalar
+            function space. If the material is not incompressible, only the
+            first term should be specified. E.g., 'p2-p1'.
         * 'domain' : str
             String specifying whether the problem is to be formulated
             in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
-            ALE is currently not supported. The string must be all lower-case.
-        * 'inverse' : bool
+            ALE is currently not supported.
+        * 'inverse' : bool (OPTIONAL)
             True if the problem is an inverse elastostatics problem, and False
             otherwise. For more information, see Govindjee and Mihalic (1996 &
             1998).
@@ -155,8 +157,17 @@ class BaseMechanicsProblem(object):
     Below is a list of actions taken if an optional key/value IS NOT PROVIDED:
 
     * 'time': the subdictionary {'unsteady': False} is added under this key.
+        * 'theta' : if the 'time' subdictionary is defined without theta, a fully
+            implicit scheme is assumed (theta = 1).
+        * 'beta' : if the 'time' subdictionary is defined without beta, and the
+            SolidMechanicsProblem class is being used, the value of 0.25 will be
+            assigned to beta.
+        * 'gamma' : if the 'time' subdictionary is defined without gamma, and the
+            SolidMechanicsProblem class is being used, the value of 0.5 will be
+            assigned to gamma.
     * 'initial_condition': the initial condition is assumed to be zero for any
         values that are not provided.
+    * 'inverse' : a boolean value is assigned to this key if none is provided.
     * 'body_force': the body force is set to zero.
     * 'bcs': the subdictionary {'dirichlet': None, 'neumann': None} is added
         under this key. A warning is printed alerting the user that no boundary
@@ -178,17 +189,27 @@ class BaseMechanicsProblem(object):
 
         # Obtain mesh and mesh function
         mesh_file = self.config['mesh']['mesh_file']
-        mesh_function = self.config['mesh']['mesh_function']
-        if (mesh_file == mesh_function) and mesh_file[-3:] == ".h5":
+        boundaries = self.config['mesh']['boundaries']
+        if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
             self.mesh = dlf.Mesh()
-            self.mesh_function = dlf.MeshFunction("size_t", self.mesh)
+            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
             _read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                             mesh_function=self.mesh_function)
+                             boundaries=self.boundaries)
         else:
             self.mesh = load_mesh(mesh_file)
-            self.mesh_function = load_mesh_function(mesh_function, self.mesh)
+            self.boundaries = load_mesh_function(boundaries, self.mesh)
 
         return None
+
+
+    @property
+    def class_name(self):
+        return self._class_name
+
+
+    @class_name.setter
+    def class_name(self, name):
+        self._class_name = name
 
 
     def check_config(self, user_config):
@@ -224,34 +245,35 @@ class BaseMechanicsProblem(object):
         config = user_config.copy()
 
         # Check if the finite element type is provided.
-        if 'element' not in config['mesh']:
+        if 'element' not in config['formulation']:
             raise ValueError('You need to specify the type of element(s) to use.')
 
         # Make sure at most two element types are specified.
-        if isinstance(config['mesh']['element'], str):
-            fe_list = re.split('-|_| ', config['mesh']['element'])
+        if isinstance(config['formulation']['element'], str):
+            fe_list = re.split('-|_| ', config['formulation']['element'])
         else:
-            fe_list = config['mesh']['element']
+            fe_list = config['formulation']['element']
 
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
             s1 = 'The current formulation allows 1 or 2 fields.\n'
-            s2 = 'You provided %i. Check config[\'mesh\'][\'element\'].' % len_fe_list
+            s2 = 'You provided %i. Check config[\'formulation\'][\'element\'].' % len_fe_list
             raise NotImplementedError(s1 + s2)
         elif len_fe_list == 1 and config['material']['incompressible']:
-            s1 = 'Only one element type, \'%s\', was specified ' % config['mesh']['element'] \
+            s1 = 'Only one element type, \'%s\', was specified ' \
+                 % config['formulation']['element'] \
                  + 'for an incompressible material.'
             raise ValueError(s1)
         elif len_fe_list == 2 and not config['material']['incompressible']:
-            s1 = 'Two element types, \'%s\', were specified ' % config['mesh']['element'] \
+            s1 = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
                  +'for a compressible material.'
             raise ValueError(s1)
         else:
             # Replace with list in case it was originally a string
-            config['mesh']['element'] = fe_list
+            config['formulation']['element'] = fe_list
 
         # Check to make sure all strings are only 2 characters long.
-        str_len = set(map(len, config['mesh']['element']))
+        str_len = set(map(len, config['formulation']['element']))
         s1 = 'Element types must be of the form \'p<int>\', where <int> ' \
              + 'is the polynomial degree to be used.' # error string
 
@@ -277,6 +299,9 @@ class BaseMechanicsProblem(object):
                  % config['formulation']['domain']
             raise ValueError(s1)
 
+        # Check the parameters given for time integration.
+        self.check_time_params(config)
+
         # Make sure that the BC dictionaries have the same
         # number of regions, values, etc., if any were
         # specified. If they are not specified, set them to None.
@@ -288,13 +313,6 @@ class BaseMechanicsProblem(object):
         # Check if body force was provided. Assume zero if not.
         if 'body_force' not in config['formulation']:
             config['formulation']['body_force'] = None
-
-        # Check the parameters given for time integration.
-        if 'time' in config['formulation']:
-            self.check_time_params(config)
-        else:
-            config['formulation']['time'] = dict()
-            config['formulation']['time']['unsteady'] = False
 
         self.check_initial_condition(config)
 
@@ -329,8 +347,35 @@ class BaseMechanicsProblem(object):
 
         """
 
-        # Exit function if problem was specified as steady.
-        if not config['formulation']['time']['unsteady']:
+        # Check if the 'time' subdictionary was provided. If it wasn't,
+        # We assume the problem is steady since there is no time integration
+        # information to use.
+        if 'time' not in config['formulation']:
+            config['formulation']['time'] = dict()
+            steady = True
+        else:
+            # If the user provided a Boolean value for 'unsteady', use it
+            # to determine if we should set values for a steady problem.
+            # Else, check that they provided both 'dt' and 'tspan'. If not,
+            # we raise an exception.
+            if 'unsteady' in config['formulation']['time']:
+                steady = not config['formulation']['time']['unsteady']
+            else:
+                if 'dt' in config['formulation']['time'] \
+                   and 'interval' in config['formulation']['time']:
+                    config['formulation']['time']['unsteady'] = True
+                    steady = False
+                else:
+                    s = "Need to specify a time step, 'dt', and a time " \
+                        + "interval, 'interval', in the 'time' subdictionary " \
+                        + "of 'formulation' in order to run a time-dependent " \
+                        + "simulation."
+                    raise ValueError(s)
+
+        # Set theta and dt to 1 if the problem is steady, and exit this
+        # function.
+        if steady:
+            config['formulation']['time']['unsteady'] = False
             config['formulation']['time']['theta'] = 1
             config['formulation']['time']['dt'] = 1
             return None
@@ -340,7 +385,11 @@ class BaseMechanicsProblem(object):
                  + 'dolfin.Constant, float'
             raise TypeError(s1)
 
-        # if config['formulation']['time']['integrator'] == 'generalized_theta':
+        # Get rank to only print from process 0
+        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+
+        # Check the theta value provided. If none is provided, it is
+        # set to 1.0.
         try:
             theta = config['formulation']['time']['theta']
             if theta < 0.0 or theta > 1.0:
@@ -349,9 +398,26 @@ class BaseMechanicsProblem(object):
                      + 'provided was: %.4f ' % theta
                 raise ValueError(s1)
         except KeyError:
-            s1 = 'The value of theta for the generalized theta ' \
-                 + 'method must be provided.'
-            raise KeyError(s1)
+            if rank == 0:
+                print("No value was provided for 'theta'. A value of 1.0 (fully " \
+                      + "implicit) was used.")
+            config['formulation']['time']['theta'] = 1.0
+
+        # Provide a default value for Newmark scheme parameters
+        # if not given. This is only for the SolidMechanicsProblem
+        # class.
+        if self.class_name == "SolidMechanicsProblem":
+            if 'beta' not in config['formulation']['time']:
+                if rank == 0:
+                    print("No value was provided for 'beta'. A value of 0.25 will be " \
+                          + "used for the Newmark integration scheme.")
+                config['formulation']['time']['beta'] = 0.25
+
+            if 'gamma' not in config['formulation']['time']:
+                if rank == 0:
+                    print("No value was provided for 'gamma'. A value of 0.5 will be " \
+                          + "used for the Newmark integration scheme.")
+                config['formulation']['time']['gamma'] = 0.5
 
         return None
 
@@ -407,6 +473,9 @@ class BaseMechanicsProblem(object):
                  % const_eqn \
                  + 'within the material type, \'%s\'.' % config['material']['type']
             raise NotImplementedError(s1)
+
+        if 'inverse' not in config['formulation']:
+            config['formulation']['inverse'] = False
 
         return None
 
@@ -487,21 +556,21 @@ class BaseMechanicsProblem(object):
 
         # Make sure the appropriate Dirichlet BCs were specified for the type
         # of problem:
-        # - Velocity & displacement for unsteady elastic
+        # - Velocity & displacement for unsteady elastic (only for MechanicsProblem)
         # - Velocity for steady viscous
         # - Displacement for steady elastic
         if config['formulation']['time']['unsteady'] \
-           and config['material']['type'] == 'elastic':
+           and config['material']['type'] == 'elastic' \
+           and self.class_name == "MechanicsProblem":
             if (vel not in subconfig) or (disp not in subconfig):
-                pass
-                # s1 = 'Dirichlet boundary conditions must be specified for ' \
-                #      + 'both velocity and displacement when the problem is ' \
-                #      + 'unsteady. Only %s BCs were provided.'
-                # if vel not in subconfig:
-                #     s1 = s1 % disp
-                # else:
-                #     s1 = s1 % vel
-                # raise ValueError(s1)
+                s1 = 'Dirichlet boundary conditions must be specified for ' \
+                     + 'both velocity and displacement when the problem is ' \
+                     + 'unsteady. Only %s BCs were provided.'
+                if vel not in subconfig:
+                    s1 = s1 % disp
+                else:
+                    s1 = s1 % vel
+                raise ValueError(s1)
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
@@ -517,6 +586,26 @@ class BaseMechanicsProblem(object):
         if not self.__check_bc_params(subconfig):
             raise ValueError('The number of Dirichlet boundary regions and ' \
                              + 'values for not match!')
+
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
+
+        if 'displacement' in config['formulation']['bcs']['dirichlet']:
+            disps = config['formulation']['bcs']['dirichlet']['displacement']
+            vals = self.__convert_bc_values(disps, t0)
+            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+
+        if 'velocity' in config['formulation']['bcs']['dirichlet']:
+            vels = config['formulation']['bcs']['dirichlet']['velocity']
+            vals = self.__convert_bc_values(vels, t0)
+            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+
+        if 'pressure' in config['formulation']['bcs']['dirichlet']:
+            pressures = config['formulation']['bcs']['dirichlet']['pressure']
+            vals = self.__convert_bc_values(pressures, t0)
+            config['formulation']['bcs']['dirichlet']['displacement'] = vals
 
         return None
 
@@ -582,7 +671,55 @@ class BaseMechanicsProblem(object):
             s1 = 'Piola traction in an Eulerian formulation is not supported.'
             raise NotImplementedError(s1)
 
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
+
+        orig_values = config['formulation']['bcs']['neumann']['values']
+        vals = self.__convert_bc_values(orig_values, t0)
+        config['formulation']['bcs']['neumann']['values'] = vals
+
         return None
+
+
+    @staticmethod
+    def __convert_bc_values(values, t0, degree=1):
+        """
+
+
+        """
+
+        new_values = list()
+        for i,val in enumerate(values):
+            # No need to convert if already a dolfin.Coefficient type.
+            if isinstance(val, dlf.Coefficient):
+                new_values.append(val)
+                continue
+
+            if isinstance(val, str):
+                if "t" in val:
+                    expr = dlf.Expression(val, t=t0, degree=degree)
+                else:
+                    expr = dlf.Expression(val, degree=degree)
+                new_values.append(expr)
+            elif isinstance(val, (float, int)):
+                new_values.append(dlf.Constant(val))
+            elif isinstance(val, (list, tuple)):
+                if isinstance(val[0], str):
+                    if "t" in val:
+                        expr = dlf.Expression(val, t=t0, degree=degree)
+                    else:
+                        expr = dlf.Expression(val, t=t0, degree=degree)
+                    new_values.append(expr)
+                else:
+                    new_values.append(dlf.Constant(val))
+            else:
+                s = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                    + "object." % val.__class__
+                raise TypeError(s)
+
+        return new_values
 
 
     def check_initial_condition(self, config):
@@ -783,7 +920,7 @@ class BaseMechanicsProblem(object):
 
     @staticmethod
     def define_ufl_neumann_form(regions, types, values, domain,
-                                mesh, mesh_function, F, J, xi):
+                                mesh, boundaries, F, J, xi):
         """
         Define the UFL object representing the variational form of the
         Neumann boundary.
@@ -813,7 +950,7 @@ class BaseMechanicsProblem(object):
             ALE is currently not supported.
         mesh : dolfin.Mesh
             Mesh object used to define a measure.
-        mesh_function : dolfin.MeshFunction
+        boundaries : dolfin.MeshFunction
             Mesh function used to tag different regions of the domain
             boundary.
         F : ufl object
@@ -858,7 +995,7 @@ class BaseMechanicsProblem(object):
                 ds_region = dlf.ds
             else:
                 ds_region = dlf.ds(region, domain=mesh,
-                                   subdomain_data=mesh_function)
+                                   subdomain_data=boundaries)
 
             if tt == 'pressure':
                 val = -dlf.dot(xi, value*n)*ds_region
