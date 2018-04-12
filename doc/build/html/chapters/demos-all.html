@@ -1,0 +1,1155 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Examples &#8212; FEniCS Mechanics 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Code Structure and User Interface" href="architecture.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="examples">
+<span id="examples-label"></span><h1>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h1>
+<p>Here, we show five examples of how to use FEniCS Mechanics. The first
+two are steady-state solid mechanics problems, with the second being
+an inverse elastostatics formulation. The third example is a
+time-dependent two-dimensional fluid mechanics problem. The fourth is
+a steady-state solid mechanics problem that is incrementally
+loaded. Thus, it is formulated as a time-dependent problem in FEniCS
+Mechanics. The last example shows the user how to define their own
+constitutive equation.</p>
+<div class="section" id="steady-state-solid-mechanics">
+<span id="steady-solid-label"></span><h2>Steady-State Solid Mechanics<a class="headerlink" href="#steady-state-solid-mechanics" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="mathematical-formulation">
+<h3>Mathematical Formulation<a class="headerlink" href="#mathematical-formulation" title="Permalink to this headline">¶</a></h3>
+<p>For the first example, we consider a steady-state solid mechanics
+problem. The domain is the unit square domain
+<span class="math">\([0,1]\times[0,1]\)</span>. The material will be modeled as an
+incompressible neo-Hookean material, which is given by the strain
+energy function</p>
+<div class="math">
+\[W = U(J) +  \frac{1}{2} \mu \left(\text{tr}\;\tilde{\mathbf{C}} - 3\right),\]</div>
+<p>where <span class="math">\(J = \det{\mathbf{F}}\)</span> is the determinant of the
+deformation gradient, and <span class="math">\(\tilde{\mathbf{C}} =
+J^{-2/3}\mathbf{F}^T\mathbf{F}\)</span> is the isochoric component of the
+Cauchy-Green strain tensor. This leads to the first Piola-Kirchhoff
+stress tensor</p>
+<div class="math">
+\[\mathbf{P} = -\left[Jp + \frac{1}{3} \mu J^{-2/3}
+   I_1(\mathbf{C})\right] \mathbf{F}^{-T} + \mu J^{-2/3}\mathbf{F},\]</div>
+<p>where we define the pressure as</p>
+<div class="math">
+\[p = - \frac{dU(J)}{dJ}.\]</div>
+<p>Additionally, we require that <span class="math">\(\mathbf{u}\)</span> and <span class="math">\(p\)</span> satisfy
+the incompressibility constraint given by</p>
+<div class="math">
+\[p - \frac{\kappa}{J}\ln J = 0.\]</div>
+<p>Thus, <span class="math">\(\kappa\)</span> is the bulk modulus of the material.</p>
+<p>The material is clamped at <span class="math">\(x = 0\)</span>, and a uniformly distributed
+load is applied at <span class="math">\(x = 1\)</span>, i.e. <span class="math">\(\bar{\mathbf{p}} =
+\bar{p}\mathbf{e}_1\)</span>, where <span class="math">\(\bar{p}\)</span> is constant, as shown in
+Figure <a class="reference internal" href="#figure-square-fbd"><span class="std std-numref">Fig. 6</span></a>. For this particular example, we
+use material properties representative of natural rubber. Hence,
+<span class="math">\(\mu = 1.5\)</span> MPa, and <span class="math">\(\kappa = 10\)</span> GPa. The load applied
+is <span class="math">\(\bar{p} = 1\)</span> MPa. Quadratic and linear finite elements are
+used for the displacement and pressure fields, respectively.</p>
+<div class="figure" id="id13">
+<span id="figure-square-fbd"></span><a class="reference internal image-reference" href="../_images/square-free_body_diagram.png"><img alt="../_images/square-free_body_diagram.png" src="../_images/square-free_body_diagram.png" style="width: 215.4px; height: 204.0px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 6 </span><span class="caption-text">Free body diagram for the loading of a unit square domain filled
+with natural rubber.</span></p>
+</div>
+</div>
+<div class="section" id="code">
+<h3>Code<a class="headerlink" href="#code" title="Permalink to this headline">¶</a></h3>
+<p>First, import FEniCS Mechanics with the alias <code class="code docutils literal"><span class="pre">fm</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="kn">as</span> <span class="nn">fm</span>
+</pre></div>
+</div>
+<p>In this demonstration, we will define three separate dictionaries that
+will be combined into one later. First, we define the material
+dictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">material</span> <span class="o">=</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>The problem is of ann elastic material.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We will be using the neo-Hookean constitutive equation. This model is
+already implemented in the <code class="code docutils literal"><span class="pre">materials</span></code> submodule, so we
+can just provide a string.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;neo_hookean&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Given the formulation above for the incompressibility constraint, we
+must provide the bulk modulus of the material.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;kappa&#39;</span><span class="p">:</span> <span class="mf">10e9</span><span class="p">,</span> <span class="c1"># Pa</span>
+</pre></div>
+</div>
+<p>Also, the shear modulus of the material is provided.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>    <span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">1.5e6</span> <span class="c1"># Pa</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The material dictionary is defined all together below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">material</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;neo_hookean&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="s1">&#39;kappa&#39;</span><span class="p">:</span> <span class="mf">10e9</span><span class="p">,</span> <span class="c1"># Pa</span>
+    <span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">1.5e6</span> <span class="c1"># Pa</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now, we define a string variable with the relative location of our
+mesh files. We also define the mesh dictionary by telling FEniCS
+Mechanics where the files containing the mesh and the boundary tags
+are located.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mesh_dir</span> <span class="o">=</span> <span class="s1">&#39;../../meshfiles/unit_domain/&#39;</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mesh_file&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;unit_domain-mesh-20x20.xml.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;boundaries&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;unit_domain-boundaries-20x20.xml.gz&#39;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Last, but not least, is the formulation dictionary used to define the
+weak form for the problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">formulation</span> <span class="o">=</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>First, we tell FEniCS Mechanics that we wish to a quadratic finite
+element for the displacement, and a linear finite element for the
+pressure.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p2-p1&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;bcs&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>We will apply a homogeneous boundary condition at <span class="math">\(x = 0\)</span>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+</pre></div>
+</div>
+<p>To identify this region, we must use the same tags that were provided
+for the <code class="code docutils literal"><span class="pre">'boundaries'</span></code>. In this case, this region was tagged
+with the integer 1.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>    <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>Next, we define the Neumann boundary conditions.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>We are applying a Cauchy traction of <span class="math">\(\mathbf{p} = 10^6
+\mathbf{e}_1\)</span> at <span class="math">\(x = 1\)</span>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>            <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mf">1e6</span><span class="p">,</span><span class="mi">0</span><span class="p">]],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;piola&#39;</span><span class="p">]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The formulation dictionary is defined all together below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">formulation</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p2-p1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bcs&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mf">1e6</span><span class="p">,</span><span class="mi">0</span><span class="p">]],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+            <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;piola&#39;</span><span class="p">]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We now combine all three dictionaries into one by the name of
+<code class="code docutils literal"><span class="pre">config</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;material&#39;</span><span class="p">:</span> <span class="n">material</span><span class="p">,</span>
+    <span class="s1">&#39;mesh&#39;</span><span class="p">:</span> <span class="n">mesh</span><span class="p">,</span>
+    <span class="s1">&#39;formulation&#39;</span><span class="p">:</span> <span class="n">formulation</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We can create a <code class="code docutils literal"><span class="pre">SolidMechanicsProblem</span></code> object to define the
+necessary UFL objects for the problem we have defined.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">problem</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsProblem</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, and tell
+FEniCS Mechanics to solve our problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">solver</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsSolver</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">fname_disp</span><span class="o">=</span><span class="s2">&quot;results/displacement.pvd&quot;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">full_solve</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The solution is shown in Figure <a class="reference internal" href="#figure-square-soln"><span class="std std-numref">Fig. 7</span></a>.</p>
+<div class="figure" id="id14">
+<span id="figure-square-soln"></span><a class="reference internal image-reference" href="../_images/square-soln.png"><img alt="../_images/square-soln.png" src="../_images/square-soln.png" style="width: 183.4px; height: 167.20000000000002px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 7 </span><span class="caption-text">Elongation of a unit square made of natural rubber.</span></p>
+</div>
+</div>
+</div>
+<div class="section" id="inverse-elastostatics">
+<span id="inverse-elastostatics-label"></span><h2>Inverse Elastostatics<a class="headerlink" href="#inverse-elastostatics" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Mathematical Formulation<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>For the second example, we consider the problem of determining the
+unloaded configuration of a material given the loaded configuration
+and the loads that it is undergoing. The loaded geometry desired here
+is an L-shape as shown in Figure <a class="reference internal" href="#figure-lshape-original"><span class="std std-numref">Fig. 8</span></a>.</p>
+<div class="figure" id="id15">
+<span id="figure-lshape-original"></span><a class="reference internal image-reference" href="../_images/lshape-original_mesh.png"><img alt="../_images/lshape-original_mesh.png" src="../_images/lshape-original_mesh.png" style="width: 229.25px; height: 209.0px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 8 </span><span class="caption-text">The mesh of the loaded configuration.</span></p>
+</div>
+<p>In other words, we want the material to take this shape after applying
+the distributed load given by <span class="math">\(\bar{\mathbf{p}} = -10^6\)</span> N/m at
+<span class="math">\(x = 1\)</span>, and imposing a homogeneous Dirichlet boundary condition
+at <span class="math">\(y = 1\)</span>.</p>
+<p>Because this is an inverse elastostatics problem, the Cauchy stress
+tensor is given by</p>
+<div class="math">
+\[\mathbf{T} = -\left[p + \frac{1}{3} \mu
+   j^{-1/3} i_2 \right]
+   \mathbf{I} + \mu j^{5/3} \mathbf{c}^{-1},\]</div>
+<p>where <span class="math">\(j = \det{\mathbf{f}}\)</span>, <span class="math">\(\mathbf{c} =
+\mathbf{f}^T\mathbf{f}\)</span>, and <span class="math">\(i_2\)</span> is the invariant of
+<span class="math">\(\mathbf{f}\)</span> with <span class="math">\(\mathbf{f} = \mathbf{F}^{-1}\)</span>. Further
+details of the formulation of an inverse elastostatics problem can be
+found in Govindjee et al. <a class="reference internal" href="../index.html#govindjeemihalic1996" id="id2">[GM96]</a>.</p>
+</div>
+<div class="section" id="id3">
+<h3>Code<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>First, we import FEniCS Mechanics with the alias <code class="code docutils literal"><span class="pre">fm</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="kn">as</span> <span class="nn">fm</span>
+</pre></div>
+</div>
+<p>We define a string variable with the relative location of our mesh
+files:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mesh_dir</span> <span class="o">=</span> <span class="s1">&#39;../../meshfiles/lshape/&#39;</span>
+</pre></div>
+</div>
+<p>Next, we start to define the problem defined before. We do this by
+defining the <code class="code docutils literal"><span class="pre">config</span></code> dictionary all at once. Here we
+will traverse it line by line:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>First up is the material subdictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;material&#39;</span><span class="p">:</span>
+<span class="p">{</span>
+</pre></div>
+</div>
+<p>The problem is of an elastic material. Thus,</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We will be using the neo-Hookean constitutive equation. This model is
+already implemented in the <code class="code docutils literal"><span class="pre">materials</span></code> submodule, so we
+can just provide a string.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;neo_hookean&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Given the formulation above for the incompressibility constraint, we
+must provide the bulk modulus of the material.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;kappa&#39;</span><span class="p">:</span> <span class="mf">10e9</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Also, the shear modulus of the material is provided.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>   <span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">1.5e6</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>Now that the material has been specified, we tell FEniCS Mechanics
+where the files containing the mesh and the boundary tags are
+located. This is where we use the variable <code class="code docutils literal"><span class="pre">mesh_dir</span></code>
+that we defined before.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;mesh&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;mesh_file&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;lshape-mesh-fine.xml.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;boundaries&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;lshape-boundaries-fine.xml.gz&#39;</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>Last, but not least, is the formulation used to define the weak form
+for the problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;formulation&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>First, we tell FEniCS Mechanics that we wish to linear finite elements
+for both the displacement and the pressure.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p1-p1&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We want to use the inverse elastotatics formulation as in
+<a class="reference internal" href="../index.html#govindjeemihalic1996" id="id4">[GM96]</a>. Thus, we define this as an inverse
+problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;bcs&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>We will apply a homogeneous boundary condition at <span class="math">\(y = 1\)</span>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+</pre></div>
+</div>
+<p>To identify this region, we must use the same tags that were provided
+for the <code class="code docutils literal"><span class="pre">'boundaries'</span></code>. In this case, this region was tagged
+with the integer 1.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>    <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>Next, we define the Neumann boundary conditions.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>We are applying a Cauchy traction of <span class="math">\(\mathbf{p} = -10^5
+\mathbf{e}_2\)</span> at <span class="math">\(x = 1\)</span>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>                <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e5</span><span class="p">]],</span>
+                <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;cauchy&#39;</span><span class="p">]</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Below is the definition of the <code class="code docutils literal"><span class="pre">config</span></code> dictionary all
+together:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;material&#39;</span><span class="p">:</span>
+    <span class="p">{</span>
+        <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;neo_hookean&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="s1">&#39;kappa&#39;</span><span class="p">:</span> <span class="mf">10e9</span><span class="p">,</span>
+        <span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">1.5e6</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;mesh&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;mesh_file&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;lshape-mesh-fine.xml.gz&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;boundaries&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;lshape-boundaries-fine.xml.gz&#39;</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;formulation&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p1-p1&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;inverse&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="s1">&#39;bcs&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]],</span>
+                <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="p">},</span>
+            <span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1e5</span><span class="p">]],</span>
+                <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;cauchy&#39;</span><span class="p">]</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now, we can create a <code class="code docutils literal"><span class="pre">SolidMechanicsProblem</span></code> object to
+define the necessary UFL objects for the problem we have defined.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">problem</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsProblem</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, and tell
+FEniCS Mechanics to solve our problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">solver</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsSolver</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">fname_disp</span><span class="o">=</span><span class="s2">&quot;results/unloaded_config.pvd&quot;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">full_solve</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This solution is shown in Figure <a class="reference internal" href="#figure-lshape-unloaded"><span class="std std-numref">Fig. 9</span></a>.</p>
+<div class="figure" id="id16">
+<span id="figure-lshape-unloaded"></span><a class="reference internal image-reference" href="../_images/lshape-unloaded_soln.png"><img alt="../_images/lshape-unloaded_soln.png" src="../_images/lshape-unloaded_soln.png" style="width: 229.25px; height: 209.0px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 9 </span><span class="caption-text">The loaded configuration desired (transparent gray) along with the
+solution to the inverse elastostatics problem (color contour).</span></p>
+</div>
+<p>Now, to see how well the formulation of the inverse elastostatics
+problem works, we will reload the material. First, we import the
+<code class="code docutils literal"><span class="pre">ALE</span></code> submodule from <code class="code docutils literal"><span class="pre">dolfin</span></code> to move the
+mesh based on the solution of the <em>inverse</em> problem, as well as
+the <code class="code docutils literal"><span class="pre">Mesh</span></code> class to create a copy of an existing mesh.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">ALE</span><span class="p">,</span> <span class="n">Mesh</span>
+</pre></div>
+</div>
+<p>Now, move the mesh and create a deep copy.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">ALE</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">mesh</span><span class="p">,</span> <span class="n">problem</span><span class="o">.</span><span class="n">displacement</span><span class="p">)</span>
+<span class="n">mesh_copy</span> <span class="o">=</span> <span class="n">Mesh</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">mesh</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that we can use the same <code class="code docutils literal"><span class="pre">config</span></code> variable by only
+changing necessary variables. First, we provide it with the mesh copy.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;mesh&#39;</span><span class="p">][</span><span class="s1">&#39;mesh_file&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mesh_copy</span>
+</pre></div>
+</div>
+<p>Then, we change the <em>inverse</em> flag to <code class="code docutils literal"><span class="pre">False</span></code>, since we
+are interested in solving the forward problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;formulation&#39;</span><span class="p">][</span><span class="s1">&#39;inverse&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+</pre></div>
+</div>
+<p>Now, create new problem and solver objects, and solve the problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">problem</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsProblem</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsSolver</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">fname_disp</span><span class="o">=</span><span class="s2">&quot;results/loaded_config.pvd&quot;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">full_solve</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The solution to the reloading problem is shown in Figure
+<a class="reference internal" href="#figure-lshape-reloaded"><span class="std std-numref">Fig. 10</span></a>.</p>
+<div class="figure" id="id17">
+<span id="figure-lshape-reloaded"></span><a class="reference internal image-reference" href="../_images/lshape-reloaded_soln.png"><img alt="../_images/lshape-reloaded_soln.png" src="../_images/lshape-reloaded_soln.png" style="width: 229.25px; height: 209.0px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 10 </span><span class="caption-text">The loaded configuration starting with the solution to the inverse
+elastostatics problem.</span></p>
+</div>
+<p>It is clear that reloading the solution to the inverse elastostatics
+problem yields a geometry that is nearly identical to the desired
+unloaded configuration.</p>
+</div>
+</div>
+<div class="section" id="time-dependent-fluid-mechanics">
+<span id="unsteady-fluids-label"></span><h2>Time-dependent Fluid Mechanics<a class="headerlink" href="#time-dependent-fluid-mechanics" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id5">
+<h3>Mathematical Formulation<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<p>In this example, we consider fluid flow through a pipe formulated as a
+two-dimensional problem. The domain is taken to be <span class="math">\([0, 10]
+\times [0, 1]\)</span>. The mesh of the domain is shown in Figure
+<a class="reference internal" href="#figure-pipe-mesh"><span class="std std-numref">Fig. 11</span></a>.</p>
+<div class="figure" id="id18">
+<span id="figure-pipe-mesh"></span><a class="reference internal image-reference" href="../_images/pipe_flow-mesh.png"><img alt="../_images/pipe_flow-mesh.png" src="../_images/pipe_flow-mesh.png" style="width: 856.0px; height: 175.0px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 11 </span><span class="caption-text">Mesh generated with <code class="code docutils literal"><span class="pre">dolfin</span></code>.</span></p>
+</div>
+<p>No slip conditions are imposed at <span class="math">\(y = 0\)</span> and
+<span class="math">\(y = 1\)</span>. Furthermore, a homogeneous Dirichlet boundary condition
+is imposed for the pressure at <span class="math">\(x = 10\)</span>. A traction boundary
+condition,</p>
+<div class="math">
+\[\bar{\mathbf{t}} = -\bar{p}\mathbf{n}\]</div>
+<p>with</p>
+<div class="math">
+\[\bar{p} = 1.0 + \sin\left(2\pi t\right),\]</div>
+<p>is imposed at the inlet (<span class="math">\(x = 0\)</span>).</p>
+<p>For this example, the fluid is assumed to be an incompressible
+Newtonian fluid, and the density and dynamic viscosity are taken to be
+<span class="math">\(\rho = 1\)</span> <span class="math">\(\mu = 0.1\)</span>, respectively.</p>
+<p>Both the velocity and the pressure are given a zero initial
+condition. We run the simulation for four cycles, <span class="math">\(t_0 = 0\)</span> to
+<span class="math">\(t_f = 4.0\)</span>, to see how the flow develops. The time step is
+taken as <span class="math">\(\Delta t = 0.01\)</span>, and a fully implicit scheme is used.</p>
+<p>In addition to demonstrating how to run a Fluid Mechanics simulation,
+we show how to generate a mesh and mark the boundaries with tools from
+<code class="code docutils literal"><span class="pre">dolfin</span></code>, and passing these objects to <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>.</p>
+</div>
+<div class="section" id="id6">
+<h3>Code<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<p>As before, import <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code> with the alias <code class="code docutils literal"><span class="pre">fm</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="kn">as</span> <span class="nn">fm</span>
+</pre></div>
+</div>
+<p>Now, we import <code class="code docutils literal"><span class="pre">dolfin</span></code> with the alias <code class="code docutils literal"><span class="pre">dlf</span></code>, and create a
+rectangle mesh with 100 and 10 intervals along the <span class="math">\(x\)</span> and
+<span class="math">\(y\)</span> directions, respectively.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">dolfin</span> <span class="kn">as</span> <span class="nn">dlf</span>
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">dlf</span><span class="o">.</span><span class="n">RectangleMesh</span><span class="p">(</span><span class="n">dlf</span><span class="o">.</span><span class="n">Point</span><span class="p">(),</span> <span class="n">dlf</span><span class="o">.</span><span class="n">Point</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, we create a <code class="code docutils literal"><span class="pre">MeshFunction</span></code> object that we will use to mark
+the different boundary regions. We tag every facet with 0.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">boundaries</span> <span class="o">=</span> <span class="n">dlf</span><span class="o">.</span><span class="n">MeshFunction</span><span class="p">(</span><span class="s2">&quot;size_t&quot;</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">boundaries</span><span class="o">.</span><span class="n">set_all</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then, we use the <code class="code docutils literal"><span class="pre">CompiledSubDomain</span></code> class to define the inlet,
+outlet, and no-slip regions of the boundary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">inlet</span> <span class="o">=</span> <span class="n">dlf</span><span class="o">.</span><span class="n">CompiledSubDomain</span><span class="p">(</span><span class="s2">&quot;near(x[0], 0.0)&quot;</span><span class="p">)</span>
+<span class="n">outlet</span> <span class="o">=</span> <span class="n">dlf</span><span class="o">.</span><span class="n">CompiledSubDomain</span><span class="p">(</span><span class="s2">&quot;near(x[0], 10.0)&quot;</span><span class="p">)</span>
+<span class="n">no_slip</span> <span class="o">=</span> <span class="n">dlf</span><span class="o">.</span><span class="n">CompiledSubDomain</span><span class="p">(</span><span class="s2">&quot;near(x[1], 0.0) || near(x[1], 1.0)&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Once the different regions are defined, we can mark them with their
+own integer values for identification.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">inlet</span><span class="o">.</span><span class="n">mark</span><span class="p">(</span><span class="n">boundaries</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">outlet</span><span class="o">.</span><span class="n">mark</span><span class="p">(</span><span class="n">boundaries</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">no_slip</span><span class="o">.</span><span class="n">mark</span><span class="p">(</span><span class="n">boundaries</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>FEniCS Mechanics will accept <code class="code docutils literal"><span class="pre">dolfin.Mesh</span></code> and
+<code class="code docutils literal"><span class="pre">dolfin.MeshFunction</span></code> objects in place of strings specifying
+file names. Thus, we define the mesh dictionary with the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mesh_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mesh_file&#39;</span><span class="p">:</span> <span class="n">mesh</span><span class="p">,</span>
+    <span class="s1">&#39;boundaries&#39;</span><span class="p">:</span> <span class="n">boundaries</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Next, we define the material dictionary by choosing the type to be
+viscous, with the incompressible Newtonian constitutive equation for
+fluids, and the density and dynamic viscosity values of 1.0 and 0.01,
+respectively. Note that we can model Stokes’ flow by switching
+<code class="code docutils literal"><span class="pre">'newtonian'</span></code> with <code class="code docutils literal"><span class="pre">'stokes'</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">material_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;viscous&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;newtonian&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="s1">&#39;density&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="c1"># kg/m^3</span>
+    <span class="s1">&#39;mu&#39;</span><span class="p">:</span> <span class="mf">0.01</span>   <span class="c1"># Pa*s</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We use quadratic and linear finite elements for the velocity and
+pressure fields, respectively, and tell FEniCS mechanics to use
+Eulerian coordinates to formulate the problem. We also specify
+parameters for the time integrator in the <code class="code docutils literal"><span class="pre">time</span></code> subdictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">formulation_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p2-p1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;eulerian&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;unsteady&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="s1">&#39;interval&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span>
+        <span class="s1">&#39;dt&#39;</span><span class="p">:</span> <span class="mf">0.01</span>
+    <span class="p">},</span>
+</pre></div>
+</div>
+<p>Within the formulation dictionary, we specify the Dirichlet and
+Neumann boundary conditions. The Dirichlet boundary conditions are the
+no-slip conditions, and the zero pressure at the outlet. Note that the
+regions for pressure are specified under the key
+<code class="code docutils literal"><span class="pre">p_regions</span></code>. Thus, the Dirichlet boundary conditions for
+velocity and pressure need not be the same. We also specify the
+pressure traction at the inlet.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>    <span class="s1">&#39;bcs&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;velocity&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+            <span class="s1">&#39;pressure&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">],</span>
+            <span class="s1">&#39;p_regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;1.0 + sin(2.0*pi*t)&quot;</span><span class="p">],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;pressure&#39;</span><span class="p">]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>As the other examples, we combine all three dictionaries into one and
+call it <code class="code docutils literal"><span class="pre">config</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mesh&#39;</span><span class="p">:</span> <span class="n">mesh_dict</span><span class="p">,</span>
+    <span class="s1">&#39;material&#39;</span><span class="p">:</span> <span class="n">material_dict</span><span class="p">,</span>
+    <span class="s1">&#39;formulation&#39;</span><span class="p">:</span> <span class="n">formulation_dict</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We then create the problem and solver objects, and ask FEniCS
+Mechanics to solve the problem we have defined.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">problem</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">FluidMechanicsProblem</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="n">solver</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">FluidMechanicsSolver</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">fname_vel</span><span class="o">=</span><span class="s2">&quot;results/v.pvd&quot;</span><span class="p">,</span>
+                                 <span class="n">fname_pressure</span><span class="o">=</span><span class="s2">&quot;results/p.pvd&quot;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">full_solve</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The velocity field at <span class="math">\(t = 4.0\)</span> is shown in the subdomain
+<span class="math">\([0, 5] \times [0, 1]\)</span> in Figure <a class="reference internal" href="#figure-pipe-soln"><span class="std std-numref">Fig. 12</span></a>. As
+expected, we can see a symmetry with respect to the line <span class="math">\(y = 0.5\)</span>.</p>
+<div class="figure" id="id19">
+<span id="figure-pipe-soln"></span><a class="reference internal image-reference" href="../_images/pipe_flow-soln.png"><img alt="../_images/pipe_flow-soln.png" src="../_images/pipe_flow-soln.png" style="width: 369.9px; height: 149.7px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 12 </span><span class="caption-text">Velocity field at <span class="math">\(t = 4.0\)</span> for the subdomain <span class="math">\([0, 5]
+\times [0, 1]\)</span></span></p>
+</div>
+</div>
+</div>
+<div class="section" id="time-dependent-anisotropic-material">
+<span id="unsteady-solids-label"></span><h2>Time-dependent Anisotropic Material<a class="headerlink" href="#time-dependent-anisotropic-material" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id7">
+<h3>Mathematical Formulation<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
+<p>In this example, we use an ellipsoid as an ideal geometry model for
+the human heart as is done in Land et al. <a class="reference internal" href="../index.html#land-2015" id="id8">[LGA+15]</a>. This
+geometry is shown in Figure <a class="reference internal" href="#figure-ellipsoid-geometry"><span class="std std-numref">Fig. 13</span></a>.</p>
+<div class="figure" id="id20">
+<span id="figure-ellipsoid-geometry"></span><a class="reference internal image-reference" href="../_images/ellipsoid-mesh.png"><img alt="../_images/ellipsoid-mesh.png" src="../_images/ellipsoid-mesh.png" style="width: 183.4px; height: 167.20000000000002px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 13 </span><span class="caption-text">Mesh used as an ideal left ventricle of the human heart.</span></p>
+</div>
+<p>The cardiac tissue is modeled using the strain energy function
+proposed by Guccione et al. <a class="reference internal" href="../index.html#guccione-1995" id="id9">[GCM95]</a>, which is given by</p>
+<div class="math">
+\[W = U(J) + Ce^Q,\]</div>
+<p>where</p>
+<div class="math">
+\[Q = b_f \bar{E}_{11}^2 + b_t\left(\bar{E}_{22}^2 + \bar{E}_{33}^2 +
+    2\bar{E}_{23}^2\right) + 2b_{fs}\left(\bar{E}_{12}^2 +
+    \bar{E}_{13}^2\right),\]</div>
+<p>with</p>
+<div class="math">
+\[\bar{\mathbf{E}} = \mathbf{QEQ}^T.\]</div>
+<p>Note that <span class="math">\(\mathbf{Q}\)</span> is an orthogonal tensor that transforms
+the components of the Lagrangian strain tensor, <span class="math">\(\mathbf{E}\)</span>,
+from the global coordinate system to the local fiber direction
+frame. For more details, please read the paper by Guccione et al.</p>
+</div>
+<div class="section" id="id10">
+<h3>Code<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h3>
+<p>Import FEniCS Mechanics with the alias <code class="code docutils literal"><span class="pre">fm</span></code>, and define the mesh
+directory.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="kn">as</span> <span class="nn">fm</span>
+
+<span class="n">mesh_dir</span> <span class="o">=</span> <span class="s1">&#39;../../meshfiles/ellipsoid/&#39;</span>
+</pre></div>
+</div>
+<p>In this demonstration, we will define three separate dictionaries that
+will be combined into one later. First, we define the material
+dictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mat_dict</span> <span class="o">=</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>We will be using the constitutive equation presented by Guccione et
+al. <a class="reference internal" href="../index.html#guccione-1995" id="id11">[GCM95]</a>. This model is already implemented in the
+<code class="code docutils literal"><span class="pre">materials</span></code> submodule, so we can just provide a string with the
+name of the model.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;guccione&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>The problem is of an elastic material.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Given that we are incrementally solving a steady-state problem, we
+wish to cancel the inertial term. Hence, we set the density of the
+material to zero.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;density&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Now, we provide all of the coefficients that are specific to the
+constitutive equation of choice. See <a class="reference internal" href="../index.html#guccione-1995" id="id12">[GCM95]</a> for further
+details on their physical significance.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;bt&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+<span class="s1">&#39;bf&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+<span class="s1">&#39;bfs&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+<span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>This example involves a material that is not isotropic, and hence
+requires fiber information. For this, we define a subdictionary within
+the <code class="code docutils literal"><span class="pre">material</span></code> subdictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;fibers&#39;</span><span class="p">:</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>Here, we provide the name of the files that contain the vector field
+information necessary to define the stress tensor, as well as the
+names we wish to give to these fields.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;fiber_files&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;fibers/n1-p0-1000um.xml.gz&#39;</span><span class="p">,</span>
+                <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;fibers/n2-p0-1000um.xml.gz&#39;</span><span class="p">],</span>
+<span class="s1">&#39;fiber_names&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;n1&#39;</span><span class="p">,</span> <span class="s1">&#39;n2&#39;</span><span class="p">],</span>
+</pre></div>
+</div>
+<p>We also tell FEniCS Mechanics that the fiber vector fields are assumed
+to be constant over each element.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>    <span class="s1">&#39;element-wise&#39;</span><span class="p">:</span> <span class="bp">True</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The entire material dictionary is defined all together below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mat_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="s1">&#39;guccione&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;incompressible&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="s1">&#39;density&#39;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span>
+    <span class="s1">&#39;bt&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s1">&#39;bf&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s1">&#39;bfs&#39;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="s1">&#39;fibers&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;fiber_files&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;fibers/n1-p0-1000um.xml.gz&#39;</span><span class="p">,</span>
+                        <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;fibers/n2-p0-1000um.xml.gz&#39;</span><span class="p">],</span>
+        <span class="s1">&#39;fiber_names&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;n1&#39;</span><span class="p">,</span> <span class="s1">&#39;n2&#39;</span><span class="p">],</span>
+        <span class="s1">&#39;element-wise&#39;</span><span class="p">:</span> <span class="bp">True</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p>We define the mesh dictionary by telling FEniCS Mechanics where the
+files containing the mesh and the boundary tags are located. Note that
+this information is stored in a single HDF5 file for this
+example. FEniCS Mechanics will recognize this and open the file just
+once for efficiency.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">mesh_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;mesh_file&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;ellipsoid-mesh_fibers_boundaries-1000um.h5&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;boundaries&#39;</span><span class="p">:</span> <span class="n">mesh_dir</span> <span class="o">+</span> <span class="s1">&#39;ellipsoid-mesh_fibers_boundaries-1000um.h5&#39;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The last dictionary to define is the formulation dictionary.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">formulation_dict</span> <span class="o">=</span> <span class="p">{</span>
+</pre></div>
+</div>
+<p>This incremental steady-state problem is being treated as a
+time-dependent problem and thus requires a <code class="code docutils literal"><span class="pre">time</span></code> subdictionary
+within the formulation dictionary. Here, we specify the size of the
+time interval, <span class="math">\(\Delta t\)</span>, and the initial and final time for
+the simulation.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s1">&#39;dt&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+    <span class="s1">&#39;interval&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>Note that no value was provided for <span class="math">\(\theta, \beta,
+\gamma\)</span>. Thus, the default values, <span class="math">\(\theta = 1\)</span>, <span class="math">\(\beta =
+0.25\)</span>, and <span class="math">\(\gamma = 0.5\)</span>, are used.</p>
+<p>Now, we specify a quadratic finite element for the displacement, and a
+linear finite element for the pressure.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p2-p1&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+</pre></div>
+</div>
+<p>Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions. We will apply a zero Dirichlet boundary condition
+at the base of the ideal ventricle. The integer value 10 was used to
+identify this region.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="s1">&#39;bcs&#39;</span><span class="p">:{</span>
+    <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]],</span>
+        <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">],</span> <span class="c1"># Integer ID for base plane</span>
+    <span class="p">},</span>
+</pre></div>
+</div>
+<p>Next, we define the Neumann boundary conditions. We apply a pressure
+that is incremented from 0 to 10 at the inner wall of the ideal
+ventricle. The integer value 20 was used to identify this region.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span>        <span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">],</span> <span class="c1"># Integer ID for inner surface</span>
+            <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;pressure&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;10.0*t&#39;</span><span class="p">]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The formulation dictionary is defined all together below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">formulation_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;dt&#39;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>
+        <span class="s1">&#39;interval&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">]</span>
+    <span class="p">},</span>
+    <span class="s1">&#39;element&#39;</span><span class="p">:</span> <span class="s1">&#39;p2-p1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;domain&#39;</span><span class="p">:</span> <span class="s1">&#39;lagrangian&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bcs&#39;</span><span class="p">:{</span>
+        <span class="s1">&#39;dirichlet&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;displacement&#39;</span><span class="p">:</span> <span class="p">[[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]],</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">],</span> <span class="c1"># Integer ID for base plane</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;neumann&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;regions&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">20</span><span class="p">],</span> <span class="c1"># Integer ID for inner surface</span>
+            <span class="s1">&#39;types&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;pressure&#39;</span><span class="p">],</span>
+            <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;10.0*t&#39;</span><span class="p">]</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We now combine all three dictionaries into one by the name of
+<code class="code docutils literal"><span class="pre">config</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;material&#39;</span><span class="p">:</span> <span class="n">mat_dict</span><span class="p">,</span>
+    <span class="s1">&#39;mesh&#39;</span><span class="p">:</span> <span class="n">mesh_dict</span><span class="p">,</span>
+    <span class="s1">&#39;formulation&#39;</span><span class="p">:</span> <span class="n">formulation_dict</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>We can create a <code class="code docutils literal"><span class="pre">SolidMechanicsProblem</span></code> object to define the
+necessary UFL objects for the problem we have defined.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">problem</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsProblem</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, choose the
+linear solver we want to use, and tell FEniCS Mechanics to solve our
+problem.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">solver</span> <span class="o">=</span> <span class="n">fm</span><span class="o">.</span><span class="n">SolidMechanicsSolver</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">fname_disp</span><span class="o">=</span><span class="s1">&#39;results/displacement.pvd&#39;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">set_parameters</span><span class="p">(</span><span class="n">linear_solver</span><span class="o">=</span><span class="s2">&quot;superlu_dist&quot;</span><span class="p">)</span>
+<span class="n">solver</span><span class="o">.</span><span class="n">full_solve</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The solution is shown on the right of Figure
+<a class="reference internal" href="#figure-ellipsoid-soln"><span class="std std-numref">Fig. 14</span></a>.</p>
+<div class="figure" id="id21">
+<span id="figure-ellipsoid-soln"></span><a class="reference internal image-reference" href="../_images/ellipsoid.png"><img alt="../_images/ellipsoid.png" src="../_images/ellipsoid.png" style="width: 240.0px; height: 203.20000000000002px;" /></a>
+<p class="caption"><span class="caption-number">Fig. 14 </span><span class="caption-text">The unloaded (right) and loaded (left) geometries.</span></p>
+</div>
+<p>The choice of linear solvers, and other solver parameters, depends on
+your linear algebra backend. To see a list of linear solvers
+available, use the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">dolfin</span> <span class="kn">as</span> <span class="nn">dlf</span>
+<span class="n">dlf</span><span class="o">.</span><span class="n">list_linear_solver_methods</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="custom-constitutive-equation">
+<span id="user-consteqn-label"></span><h2>Custom Constitutive Equation<a class="headerlink" href="#custom-constitutive-equation" title="Permalink to this headline">¶</a></h2>
+<p>In this example, we will not show the full script for running a
+simulation with FEniCS Mechanics. Instead, we will show the minimal
+code required when a user wants to provide their own constitutive
+equation.</p>
+<p>Though the constitutive equation for linear isotropic materials has
+already been implemented in the <code class="code docutils literal"><span class="pre">materials</span></code> submodule, we will
+use this constitutive equation as an example. In order to use a custom
+constitutive equation, the user must define it as a python
+class. Thus, we start with</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyMaterial</span><span class="p">:</span>
+</pre></div>
+</div>
+<p>The two member functions that are required to make this constitutive
+model work are <code class="code docutils literal"><span class="pre">__init__</span></code>, and <code class="code docutils literal"><span class="pre">stress_tensor</span></code>. If the
+material is to be modeled as incompressible, the third member function
+<code class="code docutils literal"><span class="pre">incompressibilityConstraint</span></code> must also be defined. First, let
+us look at the constructor function, <code class="code docutils literal"><span class="pre">__init__</span></code>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_inverse</span> <span class="o">=</span> <span class="n">inverse</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_incompressible</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;incompressible&#39;</span><span class="p">]</span> \
+          <span class="k">if</span> <span class="s1">&#39;incompressible&#39;</span> <span class="ow">in</span> <span class="n">params</span> <span class="k">else</span> <span class="bp">False</span>
+
+    <span class="k">if</span> <span class="s1">&#39;kappa&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+        <span class="n">kappa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;first_lame&#39;</span><span class="p">]</span> \
+              <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;second_lame&#39;</span><span class="p">]</span><span class="o">/</span><span class="mf">3.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The parameter <code class="code docutils literal"><span class="pre">inverse</span></code> specifies if the stress tensor is to be
+formulated for an inverse elastostatics problem. Then,
+<code class="code docutils literal"><span class="pre">**params</span></code> allows for an arbitrary number of keyword arguments
+to be passed when initializing an object of this class. The particular
+keys used to identify the material parameters are up to the
+user. Here, we used <code class="code docutils literal"><span class="pre">first_lame</span></code> and <code class="code docutils literal"><span class="pre">second_lame</span></code>.</p>
+<p>The first line of this method creates a member object by the name
+<code class="code docutils literal"><span class="pre">_parameters</span></code> as a dictionary object. This is necessary for the
+way we will be accessing the material parameters in the other
+functions. We then use the member function of python dictionary
+objects <code class="code docutils literal"><span class="pre">update</span></code> to include all of the keyword arguments passed
+when the material object was initialized. We also define a member
+object <code class="code docutils literal"><span class="pre">_inverse</span></code> that will store the Boolean value of
+<code class="code docutils literal"><span class="pre">inverse</span></code> used during initialization. We now check if the
+material was specified as incompressible with a conditional
+expressions to see if the keyword parameter <code class="code docutils literal"><span class="pre">incompressible</span></code> was
+provided. Note that we assume that the material is not incompressible
+if the keyword parameter was not provided. The last three lines check
+if the bulk modulus was given under the key <code class="code docutils literal"><span class="pre">kappa</span></code>. If not, the
+bulk modulus is computed based on the first and second Lame
+parameters, and included in the <code class="code docutils literal"><span class="pre">_parameters</span></code> dictionary.</p>
+<p>Next, we must define the stress tensor. Note that the specific stress
+tensor defined here should be consistent with the formulation used
+(Eulerian or Lagrangian). Since this is a linear material, Eulerian
+and Lagrangian formulations are identical. We now define the function.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">stress_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">ufl</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+    <span class="n">la</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;first_lame&#39;</span><span class="p">]</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;second_lame&#39;</span><span class="p">]</span>
+
+    <span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">tr</span>
+
+    <span class="n">I</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inverse</span><span class="p">:</span>
+        <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">inv</span><span class="p">(</span><span class="n">F</span><span class="p">))</span> <span class="o">-</span> <span class="n">I</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="o">-</span> <span class="n">I</span>
+
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_incompressible</span><span class="p">:</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="o">-</span><span class="n">p</span><span class="o">*</span><span class="n">I</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="n">la</span><span class="o">*</span><span class="n">tr</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span><span class="o">*</span><span class="n">I</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+</pre></div>
+</div>
+<p>We now traverse this function line by line. Starting with the
+definition of the function itself.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">stress_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+</pre></div>
+</div>
+<p>Here, <code class="code docutils literal"><span class="pre">F</span></code> is the deformation gradient, <code class="code docutils literal"><span class="pre">J</span></code> the Jacobian,
+and <code class="code docutils literal"><span class="pre">p</span></code> the pressure for incompressible problems. Next, we
+import the <code class="code docutils literal"><span class="pre">ufl</span></code> module from the FEniCS Project to determine the
+geometric dimension of the problem instead of hard coding this in our
+definition.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">ufl</span>
+<span class="n">dim</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, we retrieve the material constants for our constitutive
+equation, <span class="math">\(\lambda\)</span> and <span class="math">\(\mu\)</span>.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">la</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;first_lame&#39;</span><span class="p">]</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;second_lame&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Here, we use key values that are different than those used by the
+<code class="code docutils literal"><span class="pre">materials</span></code> submodule to demonstrate that the user can use any
+key values so long as they are consistent. A <code class="code docutils literal"><span class="pre">KeyError</span></code> will be
+raised if these keyword arguments  were not provided when the object
+was initialized.</p>
+<p>Now, we import objects from <code class="code docutils literal"><span class="pre">dolfin</span></code> that we will need to define
+our constitutive equation.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">tr</span>
+</pre></div>
+</div>
+<p>Now we can start to define the stress tensor itself. First, we
+define the linearized strain tensor in terms of the deformation
+gradient, which is given by</p>
+<div class="math">
+\[\boldsymbol\varepsilon = \mathbf{F} - \mathbf{I} =
+      \mathbf{f}^{-1} - \mathbf{I},\]</div>
+<p>where <span class="math">\(\mathbf{f}\)</span> is used for inverse elastostatics
+problems. We must use a conditional state to check which formulation
+we should use.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">I</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inverse</span><span class="p">:</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">inv</span><span class="p">(</span><span class="n">F</span><span class="p">))</span> <span class="o">-</span> <span class="n">I</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="o">-</span> <span class="n">I</span>
+</pre></div>
+</div>
+<p>Finally, we define the Cauchy stress tensor given by</p>
+<div class="math">
+\[\mathbf{T} = -p\mathbf{I} + 2\mu\boldsymbol\varepsilon\]</div>
+<p>when the material is incompressible, and</p>
+<div class="math">
+\[\mathbf{T} = \lambda\left(\text{tr}\;\boldsymbol\varepsilon\right) +
+     2\mu\boldsymbol\varepsilon\]</div>
+<p>otherwise. This is done with</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_incompressible</span><span class="p">:</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="o">-</span><span class="n">p</span><span class="o">*</span><span class="n">I</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="n">la</span><span class="o">*</span><span class="n">tr</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+</pre></div>
+</div>
+<p>and this object is returned.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">return</span> <span class="n">T</span>
+</pre></div>
+</div>
+<p>The incompressibility condition for a linear material is</p>
+<div class="math">
+\[\phi(\mathbf{u}) - \frac{1}{\kappa}p = 0,\]</div>
+<p>where <span class="math">\(\kappa\)</span> is the bulk modulus of the material, and
+<span class="math">\(\phi(\mathbf{u}) = \text{div}\;\mathbf{u}\)</span>. The user must
+return <span class="math">\(\phi\)</span>, and FEniCS Mechanics will formulate the
+corresponding weak form. This is done with</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">incompressibilityCondition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">div</span>
+    <span class="k">return</span> <span class="n">div</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The only part of the <code class="code docutils literal"><span class="pre">config</span></code> dictionary that will change is the
+material subdicionary. Thus, we provide an example below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="n">material</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;elastic&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;const_eqn&#39;</span><span class="p">:</span> <span class="n">MyMaterial</span><span class="p">,</span>
+    <span class="s1">&#39;density&#39;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>
+    <span class="s1">&#39;first_lame&#39;</span><span class="p">:</span> <span class="mf">1e9</span><span class="p">,</span>
+    <span class="s1">&#39;second_lame&#39;</span><span class="p">:</span> <span class="mf">1.5e6</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The combined code for the class definition is shown below.</p>
+<div class="highlight-python"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyMaterial</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inverse</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_inverse</span> <span class="o">=</span> <span class="n">inverse</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_incompressible</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;incompressible&#39;</span><span class="p">]</span> \
+              <span class="k">if</span> <span class="s1">&#39;incompressible&#39;</span> <span class="ow">in</span> <span class="n">params</span> <span class="k">else</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="s1">&#39;kappa&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">params</span><span class="p">:</span>
+            <span class="n">kappa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;first_lame&#39;</span><span class="p">]</span> \
+                  <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;second_lame&#39;</span><span class="p">]</span><span class="o">/</span><span class="mf">3.0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">stress_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">ufl</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="n">ufl</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">find_geometric_dimension</span><span class="p">(</span><span class="n">F</span><span class="p">)</span>
+        <span class="n">la</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;first_lame&#39;</span><span class="p">]</span>
+        <span class="n">mu</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parameters</span><span class="p">[</span><span class="s1">&#39;second_lame&#39;</span><span class="p">]</span>
+
+        <span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">Identity</span><span class="p">,</span> <span class="n">sym</span><span class="p">,</span> <span class="n">inv</span><span class="p">,</span> <span class="n">tr</span>
+
+        <span class="n">I</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_inverse</span><span class="p">:</span>
+            <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">inv</span><span class="p">(</span><span class="n">F</span><span class="p">))</span> <span class="o">-</span> <span class="n">I</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">epsilon</span> <span class="o">=</span> <span class="n">sym</span><span class="p">(</span><span class="n">F</span><span class="p">)</span> <span class="o">-</span> <span class="n">I</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_incompressible</span><span class="p">:</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="o">-</span><span class="n">p</span><span class="o">*</span><span class="n">I</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="n">la</span><span class="o">*</span><span class="n">tr</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span><span class="o">*</span><span class="n">I</span> <span class="o">+</span> <span class="mf">2.0</span><span class="o">*</span><span class="n">mu</span><span class="o">*</span><span class="n">epsilon</span>
+
+    <span class="k">def</span> <span class="nf">incompressibilityCondition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="kn">from</span> <span class="nn">dolfin</span> <span class="kn">import</span> <span class="n">div</span>
+        <span class="k">return</span> <span class="n">div</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The rest of the script to run the simulation can be written as in the
+other examples where the three dictionaries are combined into one, and
+the problem and solver objects are created.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Examples</a><ul>
+<li><a class="reference internal" href="#steady-state-solid-mechanics">Steady-State Solid Mechanics</a><ul>
+<li><a class="reference internal" href="#mathematical-formulation">Mathematical Formulation</a></li>
+<li><a class="reference internal" href="#code">Code</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#inverse-elastostatics">Inverse Elastostatics</a><ul>
+<li><a class="reference internal" href="#id1">Mathematical Formulation</a></li>
+<li><a class="reference internal" href="#id3">Code</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#time-dependent-fluid-mechanics">Time-dependent Fluid Mechanics</a><ul>
+<li><a class="reference internal" href="#id5">Mathematical Formulation</a></li>
+<li><a class="reference internal" href="#id6">Code</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#time-dependent-anisotropic-material">Time-dependent Anisotropic Material</a><ul>
+<li><a class="reference internal" href="#id7">Mathematical Formulation</a></li>
+<li><a class="reference internal" href="#id10">Code</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#custom-constitutive-equation">Custom Constitutive Equation</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="architecture.html" title="previous chapter">Code Structure and User Interface</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/chapters/demos-all.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Miguel A. Rodriguez.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/chapters/demos-all.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

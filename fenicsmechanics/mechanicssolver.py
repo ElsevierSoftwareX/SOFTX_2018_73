@@ -1,10 +1,19 @@
 from __future__ import print_function
 
+import sys
+if sys.version_info.major == 2:
+    import block
+    from block import iterative
+else:
+    # raise ImportError("The module mechanicssolver is not compatible with Python 3.")
+    msg = """
+    The module 'mechanicssolver' is not compatible with Python 3. Thus,
+    it's functionality is severely limited.
+    """
+    print(msg)
+
 from .utils import _create_file_objects, _write_objects # This might not be necessary
 from ufl import Form
-
-import block
-from block import iterative
 
 from mpi4py import MPI
 
@@ -23,6 +32,7 @@ class MechanicsBlockSolver(object):
     steady problems, the user may choose from the linear solvers available
     through dolfin. Furthermore, Newton's method is used to solve the
     resulting algebraic equations.
+
 
     """
 

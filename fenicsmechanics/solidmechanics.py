@@ -18,9 +18,12 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
     are generated based on definitions provided by the user in a
     dictionary of sub-dictionaries.
 
-    *** Refer to the documentation of BaseMechanicsProblem ***
-    ***  for details on how to define a problem using the  ***
-    ***                'config' dictionary.                ***
+    Refer to the documentation of the FEniCS Mechanics package for
+    details on how to define a problem using the :code:`config`
+    dictionary.
+
+    >>> import fenicsmechanics as fm
+    >>> help(fm)
 
 
     """
@@ -108,29 +111,29 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         The names of the member data added to the instance of the
         SolidMechanicsProblem class are:
 
-        - sys_u : mixed function
-        - ufl_displacement : sub component corresponding to displacement
-        - displacement : copy of sub component for writing and assigning
-                         values
-        - ufl_pressure : sub component corresponding to pressure
-        - pressure : copy of sub component for writing and assigning values
-        - sys_du : mixed trial function
-        - trial_vector : sub component of mixed trial function
-        - trial_scalar : sub component of mixed trial function
-        - test_vector : sub component of mixed test function
-        - test_scalar : sub component of mixed test function
+        - :code:`sys_u`: mixed function
+        - :code:`ufl_displacement`: sub component corresponding to displacement
+        - :code:`displacement`: copy of sub component for writing and assigning
+          values
+        - :code:`ufl_pressure`: sub component corresponding to pressure
+        - :code:`pressure`: copy of sub component for writing and assigning values
+        - :code:`sys_du`: mixed trial function
+        - :code:`trial_vector`: sub component of mixed trial function
+        - :code:`trial_scalar`: sub component of mixed trial function
+        - :code:`test_vector`: sub component of mixed test function
+        - :code:`test_scalar`: sub component of mixed test function
 
         If problem is unsteady, the following are also added:
 
-        - ufl_velocity0 : sub component corresponding to velocity
-        - velocity0 : copy of sub component for writing and assigning values
-        - ufl_acceleration0 : sub component corresponding to acceleration
-        - acceleration0 : copy of sub component for writing and assigning values
-        - sys_u0 : mixed function at previous time step
-        - ufl_displacement0 : sub component at previous time step
-        - displacement0 : copy of sub component at previous time step
-        - ufl_pressure0 : sub component at previous time step
-        - pressure0 : copy of sub component at previous time step
+        - :code:`ufl_velocity0`: sub component corresponding to velocity
+        - :code:`velocity0`: copy of sub component for writing and assigning values
+        - :code:`ufl_acceleration0`: sub component corresponding to acceleration
+        - :code:`acceleration0`: copy of sub component for writing and assigning values
+        - :code:`sys_u0`: mixed function at previous time step
+        - :code:`ufl_displacement0`: sub component at previous time step
+        - :code:`displacement0`: copy of sub component at previous time step
+        - :code:`ufl_pressure0`: sub component at previous time step
+        - :code:`pressure0`: copy of sub component at previous time step
 
 
         """
@@ -198,17 +201,17 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         mechanics problem. The names of the member data added to the
         instance of the SolidMechanicsProblem class are:
 
-        - sys_u = ufl_displacement = displacement : all point to the same
-                  displacement function, unlike the incompressible case.
-        - sys_du = trial_vector : trial function for vector function space
-        - test_vector : sub component of mixed test function
-        - ufl_pressure = pressure = None
+        - :code:`sys_u = ufl_displacement = displacement`: all point to the same
+          displacement function, unlike the incompressible case.
+        - :code:`sys_du = trial_vector`: trial function for vector function space
+        - :code:`test_vector`: sub component of mixed test function
+        - :code:`ufl_pressure = pressure = None`
 
         If problem is unsteady, the following are also added:
 
-        - sys_v0 = ufl_velocity0 = velocity0
-        - sys_a0 = ufl_acceleration0 = acceleration0
-        - sys_u0 = ufl_displacement0 = displacement0
+        - :code:`sys_v0 = ufl_velocity0 = velocity0`
+        - :code:`sys_a0 = ufl_acceleration0 = acceleration0`
+        - :code:`sys_u0 = ufl_displacement0 = displacement0`
 
 
         """
@@ -283,10 +286,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         The names of member data added to an instance of the SolidMechanicsProblem
         class are:
 
-        - deformationGradient
-        - deformationGradient0
-        - jacobian
-        - jacobian0
+        - :code:`deformationGradient`
+        - :code:`deformationGradient0`
+        - :code:`jacobian`
+        - :code:`jacobian0`
 
 
         """

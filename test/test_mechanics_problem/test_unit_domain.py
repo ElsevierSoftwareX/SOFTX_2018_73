@@ -48,7 +48,7 @@ else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
 
-mesh_dir = '../meshfiles/unit_domain/'
+mesh_dir = '../../meshfiles/unit_domain/'
 if args.save:
     if args.inverse:
         disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
@@ -199,5 +199,5 @@ if args.compute_volume:
 
     ale = dlf.ALE()
     ale.move(problem.mesh, u_move)
-    print "Total volume after: ", \
-        dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh))
+    # print "Total volume after: ", \
+    #     dlf.assemble(dlf.Constant(1.0)*dlf.dx(domain=problem.mesh))

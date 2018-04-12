@@ -131,26 +131,30 @@ class Fluid(object):
 
     def incompressibilityCondition(self, v):
         """
-        Return the incompressibility function, f(v), for fluids such that
-        f(v) = 0. The default is
+        Return the incompressibility function, :math:`f(\mathbf{v})`,
+        for fluids such that :math:`f(\mathbf{v}) = 0`. The default is
 
-        f(v) = div(v) = 0,
+        .. math::
 
-        where v is the velocity vector field. This can be redefined by
-        subclasses if a different constraint function is desired.
+           f(\mathbf{v}) = \\text{div}(\mathbf{v}) = 0,
+
+        where :math:`\mathbf{v}` is the velocity vector field. This can
+        be redefined by subclasses if a different constraint function is
+        desired.
 
 
         Parameters
         ----------
 
-        v :
+        v : dolfin.Function, ufl.tensors.ListTensor
             The velocity vector.
 
 
         Returns
         -------
 
-        UFL object defining the incompressibility condition, f(v).
+        f : ufl.differentiation.Div
+            UFL object defining the incompressibility condition.
 
         """
 
@@ -163,19 +167,26 @@ class NewtonianFluid(Fluid):
     fluid. Currently, only incompressible fluids are supported. The
     Cauchy stress tensor is given by
 
-    T = -p*I + 2*mu*Sym(L),
+    .. math::
 
-    where p is the pressure, I is the identity tensor, mu is the
-    dynamic viscosity of the fluid, and L = grad(v), where v is the
-    velocity vector field.
+       \mathbf{T} = -p\mathbf{I} + 2\mu\\text{Sym}(\mathbf{L}),
 
-    In addition to the values listed in the documentation of BaseMechanicsProblem
-    for the 'material' 'subdictionary' of 'config', the user must provide at
+    where :math:`p` is the pressure, :math:`\mathbf{I}` is the identity
+    tensor, :math:`\mu` is the dynamic viscosity of the fluid, and
+    :math:`\mathbf{L} = \\text{grad}(\mathbf{v})`, where :math:`\mathbf{v}`
+    is the velocity vector field.
+
+    In addition to the values listed in the documentation of :code:`fenicsmechanics`
+    for the :code:`'material'` subdictionary of 'config', the user must provide at
     least one of the values listed below:
 
-    * 'mu' : float
+
+    Parameters
+    ----------
+
+    'mu' : float
         Dynamic viscosity of the fluid.
-    * 'nu' : float
+    'nu' : float
         Kinematic viscosity of the fluid.
 
 
@@ -211,25 +222,28 @@ class NewtonianFluid(Fluid):
         Return the Cauchy stress tensor for an incompressible Newtonian fluid,
         namely
 
-        T = -p*I + 2*mu*Sym(L),
+        .. math::
 
-        where L = grad(v), I is the identity tensor, p is the hydrostatic pressure,
-        and mu is the dynamic viscosity.
+           \mathbf{T} = -p\mathbf{I} + 2\mu\\text{Sym}(\mathbf{L}),
+
+        where :math:`\mathbf{L} = \\text{grad}(\mathbf{v})`, :math:`\mathbf{I}`
+        is the identity tensor, :math:`p` is the hydrostatic pressure, and
+        :math:`\mu` is the dynamic viscosity.
 
 
         Parameters
         ----------
 
-        L :
+        L : ufl.differentiation.Grad
             The velocity gradient.
-        p :
+        p : dolfin.Function, ufl.indexed.Indexed
             The hydrostatic pressure.
 
 
         Returns
         -------
 
-        T :
+        T : ufl.algebra.Sum
             The Cauchy stress tensor defined above.
 
 
@@ -252,27 +266,22 @@ def convert_viscosity(param):
     available, the kinematic viscosity is (re)calculated. Note
     that the three material properties are related by
 
-    mu = rho*nu,
+    .. math::
 
-    where mu is the dynamic viscosity, rho is the density, and nu
-    is the kinematic viscosity.
+       \mu = \rho\nu,
+
+    where :math:`\mu` is the dynamic viscosity, :math:`\rho` is
+    the density, and :math:`\nu` is the kinematic viscosity.
+
+    Note: the material parameters are recalculated in-place.
 
 
     Parameters
     ----------
 
     param : dict
-        The material subdictionary in 'config', i.e. the dictionary
-        passed into material classes.
-
-
-    Returns
-    -------
-
-    None
-
-
-    Note: the material parameters are recalculated in-place.
+        The material subdictionary in :code:`'config'`, i.e. the
+        dictionary passed into material classes.
 
 
     """

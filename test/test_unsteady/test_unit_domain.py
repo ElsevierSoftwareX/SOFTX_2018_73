@@ -51,7 +51,7 @@ else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
 
-mesh_dir = '../meshfiles/unit_domain/'
+mesh_dir = '../../meshfiles/unit_domain/'
 if args.save:
     if args.inverse:
         disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims

@@ -1,0 +1,302 @@
+Mathematical Formulation
+************************
+
+For the second example, we consider the problem of determining the
+unloaded configuration of a material given the loaded configuration
+and the loads that it is undergoing. The loaded geometry desired here
+is an L-shape as shown in Figure :numref:`figure-lshape-original`.
+
+.. _figure-lshape-original:
+
+.. figure:: /_static/figures/lshape-original_mesh.png
+   :scale: 25 %
+
+   The mesh of the loaded configuration.
+
+In other words, we want the material to take this shape after applying
+the distributed load given by :math:`\bar{\mathbf{p}} = -10^6` N/m at
+:math:`x = 1`, and imposing a homogeneous Dirichlet boundary condition
+at :math:`y = 1`.
+
+Because this is an inverse elastostatics problem, the Cauchy stress
+tensor is given by
+
+.. math::
+
+   \mathbf{T} = -\left[p + \frac{1}{3} \mu
+      j^{-1/3} i_2 \right]
+      \mathbf{I} + \mu j^{5/3} \mathbf{c}^{-1},
+
+where :math:`j = \det{\mathbf{f}}`, :math:`\mathbf{c} =
+\mathbf{f}^T\mathbf{f}`, and :math:`i_2` is the invariant of
+:math:`\mathbf{f}` with :math:`\mathbf{f} = \mathbf{F}^{-1}`. Further
+details of the formulation of an inverse elastostatics problem can be
+found in Govindjee et al. :cite:`govindjeemihalic1996`.
+
+
+Code
+****
+
+First, we import FEniCS Mechanics with the alias :code:`fm`.
+
+.. code-block:: python
+
+   import fenicsmechanics as fm
+
+We define a string variable with the relative location of our mesh
+files:
+
+.. code-block:: python
+
+   mesh_dir = '../../meshfiles/lshape/'
+
+Next, we start to define the problem defined before. We do this by
+defining the :code:`config` dictionary all at once. Here we
+will traverse it line by line:
+
+.. code-block:: python
+
+   config = {
+
+First up is the material subdictionary.
+
+.. code-block:: python
+
+       'material':
+       {
+
+The problem is of an elastic material. Thus,
+
+.. code-block:: python
+
+          'type': 'elastic',
+
+We will be using the neo-Hookean constitutive equation. This model is
+already implemented in the :code:`materials` submodule, so we
+can just provide a string.
+
+.. code-block:: python
+
+          'const_eqn': 'neo_hookean',
+
+We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.
+
+.. code-block:: python
+
+          'incompressible': True,
+
+Given the formulation above for the incompressibility constraint, we
+must provide the bulk modulus of the material.
+
+.. code-block:: python
+
+          'kappa': 10e9,
+
+Also, the shear modulus of the material is provided.
+
+.. code-block:: python
+
+          'mu': 1.5e6
+       },
+
+Now that the material has been specified, we tell FEniCS Mechanics
+where the files containing the mesh and the boundary tags are
+located. This is where we use the variable :code:`mesh_dir`
+that we defined before.
+
+.. code-block:: python
+
+       'mesh': {
+           'mesh_file': mesh_dir + 'lshape-mesh-fine.xml.gz',
+           'boundaries': mesh_dir + 'lshape-boundaries-fine.xml.gz'
+       },
+
+Last, but not least, is the formulation used to define the weak form
+for the problem.
+
+.. code-block:: python
+
+       'formulation': {
+
+First, we tell FEniCS Mechanics that we wish to linear finite elements
+for both the displacement and the pressure.
+
+.. code-block:: python
+
+           'element': 'p1-p1',
+
+Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.
+
+.. code-block:: python
+
+           'domain': 'lagrangian',
+
+We want to use the inverse elastotatics formulation as in
+:cite:`govindjeemihalic1996`. Thus, we define this as an inverse
+problem.
+
+.. code-block:: python
+
+           'inverse': True,
+
+Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions.
+
+.. code-block:: python
+
+           'bcs': {
+               'dirichlet': {
+
+We will apply a homogeneous boundary condition at :math:`y = 1`.
+
+.. code-block:: python
+
+                   'displacement': [[0, 0]],
+
+To identify this region, we must use the same tags that were provided
+for the :code:`'boundaries'`. In this case, this region was tagged
+with the integer 1.
+
+.. code-block:: python
+
+                   'regions': [1]
+               },
+
+Next, we define the Neumann boundary conditions.
+
+.. code-block:: python
+
+               'neumann': {
+
+We are applying a Cauchy traction of :math:`\mathbf{p} = -10^5
+\mathbf{e}_2` at :math:`x = 1`.
+
+.. code-block:: python
+
+                   'values': [[0, -1e5]],
+                   'regions': [2],
+                   'types': ['cauchy']
+               }
+           }
+       }
+   }
+
+
+Below is the definition of the :code:`config` dictionary all
+together:
+
+.. code-block:: python
+
+   config = {
+       'material':
+       {
+           'type': 'elastic',
+           'const_eqn': 'neo_hookean',
+           'incompressible': True,
+           'kappa': 10e9,
+           'mu': 1.5e6
+       },
+       'mesh': {
+           'mesh_file': mesh_dir + 'lshape-mesh-fine.xml.gz',
+           'boundaries': mesh_dir + 'lshape-boundaries-fine.xml.gz'
+       },
+       'formulation': {
+           'element': 'p1-p1',
+           'domain': 'lagrangian',
+           'inverse': True,
+           'bcs': {
+               'dirichlet': {
+                   'displacement': [[0, 0]],
+                   'regions': [1]
+               },
+               'neumann': {
+                   'values': [[0, -1e5]],
+                   'regions': [2],
+                   'types': ['cauchy']
+               }
+           }
+       }
+   }
+
+Now, we can create a :code:`SolidMechanicsProblem` object to
+define the necessary UFL objects for the problem we have defined.
+
+.. code-block:: python
+
+   problem = fm.SolidMechanicsProblem(config)
+
+Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, and tell
+FEniCS Mechanics to solve our problem.
+
+.. code-block:: python
+
+   solver = fm.SolidMechanicsSolver(problem, fname_disp="results/unloaded_config.pvd")
+   solver.full_solve()
+
+This solution is shown in Figure :numref:`figure-lshape-unloaded`.
+
+.. _figure-lshape-unloaded:
+
+.. figure:: /_static/figures/lshape-unloaded_soln.png
+   :scale: 25 %
+
+   The loaded configuration desired (transparent gray) along with the
+   solution to the inverse elastostatics problem (color contour).
+
+
+Now, to see how well the formulation of the inverse elastostatics
+problem works, we will reload the material. First, we import the
+:code:`ALE` submodule from :code:`dolfin` to move the
+mesh based on the solution of the *inverse* problem, as well as
+the :code:`Mesh` class to create a copy of an existing mesh.
+
+.. code-block:: python
+
+   from dolfin import ALE, Mesh
+
+Now, move the mesh and create a deep copy.
+
+.. code-block:: python
+
+   ALE.move(problem.mesh, problem.displacement)
+   mesh_copy = Mesh(problem.mesh)
+
+Note that we can use the same :code:`config` variable by only
+changing necessary variables. First, we provide it with the mesh copy.
+
+.. code-block:: python
+
+   config['mesh']['mesh_file'] = mesh_copy
+
+Then, we change the *inverse* flag to :code:`False`, since we
+are interested in solving the forward problem.
+
+.. code-block:: python
+
+   config['formulation']['inverse'] = False
+
+Now, create new problem and solver objects, and solve the problem.
+
+.. code-block:: python
+
+   problem = fm.SolidMechanicsProblem(config)
+   solver = fm.SolidMechanicsSolver(problem, fname_disp="results/loaded_config.pvd")
+   solver.full_solve()
+
+The solution to the reloading problem is shown in Figure
+:numref:`figure-lshape-reloaded`.
+
+.. _figure-lshape-reloaded:
+
+.. figure:: /_static/figures/lshape-reloaded_soln.png
+   :scale: 25 %
+
+   The loaded configuration starting with the solution to the inverse
+   elastostatics problem.
+
+It is clear that reloading the solution to the inverse elastostatics
+problem yields a geometry that is nearly identical to the desired
+unloaded configuration.

@@ -16,9 +16,12 @@ class MechanicsProblem(BaseMechanicsProblem):
     are generated based on definitions provided by the user in a
     dictionary of sub-dictionaries.
 
-    *** Refer to the documentation of BaseMechanicsProblem ***
-    ***  for details on how to define a problem using the  ***
-    ***                'config' dictionary.                ***
+    Refer to the documentation of the FEniCS Mechanics package for
+    details on how to define a problem using the :code:`config`
+    dictionary.
+
+    >>> import fenicsmechanics as fm
+    >>> help(fm)
 
 
     """
@@ -103,12 +106,12 @@ class MechanicsProblem(BaseMechanicsProblem):
         this function. The names of the member data added to the instance
         of the MechanicsProblem class are:
 
-        - test_vector
-        - trial_vector
-        - displacement
-        - displacement0
-        - velocity
-        - velocity0
+        - :code:`test_vector`
+        - :code:`trial_vector`
+        - :code:`displacement`
+        - :code:`displacement0`
+        - :code:`velocity`
+        - :code:`velocity0`
 
 
         """
@@ -223,10 +226,10 @@ class MechanicsProblem(BaseMechanicsProblem):
         the previous time step. The names of the member data added to an
         instance of the MechanicsProblem class are:
 
-        - test_scalar
-        - trial_scalar
-        - pressure
-        - pressure0
+        - :code:`test_scalar`
+        - :code:`trial_scalar`
+        - :code:`pressure`
+        - :code:`pressure0`
 
 
         """
@@ -272,12 +275,12 @@ class MechanicsProblem(BaseMechanicsProblem):
         The names of member data added to an instance of the MechanicsProblem
         class are:
 
-        - deformationGradient
-        - deformationGradient0
-        - velocityGradient
-        - velocityGradient0
-        - jacobian
-        - jacobian0
+        - :code:`deformationGradient`
+        - :code:`deformationGradient0`
+        - :code:`velocityGradient`
+        - :code:`velocityGradient0`
+        - :code:`jacobian`
+        - :code:`jacobian0`
 
 
         """
