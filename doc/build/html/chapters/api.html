@@ -1,0 +1,2042 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Application Program Interface &#8212; FEniCS Mechanics 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Examples" href="demos-all.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="application-program-interface">
+<h1>Application Program Interface<a class="headerlink" href="#application-program-interface" title="Permalink to this headline">¶</a></h1>
+<p>The difference classes in FEniCS Mechanics and member classes are
+listed here.</p>
+<div class="section" id="problem-objects">
+<h2>Problem Objects<a class="headerlink" href="#problem-objects" title="Permalink to this headline">¶</a></h2>
+<p>The problem classes defining the weak form for mechanics problems are
+listed here.</p>
+<div class="section" id="base-mechanics-problem">
+<h3>Base Mechanics Problem<a class="headerlink" href="#base-mechanics-problem" title="Permalink to this headline">¶</a></h3>
+<p>All mechanics problem objects are child classes of
+<code class="code docutils literal"><span class="pre">basemechanicsproblem.BaseMechanicsProblem</span></code>.</p>
+<span class="target" id="module-fenicsmechanics.basemechanicsproblem"></span><dl class="class">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.basemechanicsproblem.</code><code class="descname">BaseMechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is the base class for mechanics problems. Checking validity of the
+‘config’ dictionary provided by users is done at this level since all
+mechanics problems are derived from this class. The derived classes will
+then define the variational problem using the FEniCS UFL language.</p>
+<p>For details on the format of the <code class="code docutils literal"><span class="pre">config</span></code> dictionary, check the
+documentation of the FEniCS Mechanics module by executing</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="k">as</span> <span class="nn">fm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">help</span><span class="p">(</span><span class="n">fm</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="staticmethod">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.apply_initial_conditions">
+<em class="property">static </em><code class="descname">apply_initial_conditions</code><span class="sig-paren">(</span><em>init_value</em>, <em>function</em>, <em>function0=0</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.apply_initial_conditions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assign the initial values to field variables.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>init_value</strong> (<em>dolfin.Coefficient</em><em>, </em><em>dolfin.Expression</em>) – A function/expression that approximates the initial condition.</li>
+<li><strong>function</strong> (<em>dolfin.Function</em>) – The function approximating a field variable in a mechanics problem.</li>
+<li><strong>function0</strong> (<em>dolfin.Function</em>) – The function approximatinga field variable at the previous time
+step in a mechanics problem.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_bcs">
+<code class="descname">check_bcs</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the boundary conditions provided by the user in the config dictionary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_config">
+<code class="descname">check_config</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check that all parameters provided in ‘user_config’ are valid
+based on the current capabilities of the package. An exception
+is raised when a parameter (or combination of parameters) is
+(are) found to be invalid. Please see the documentation of
+BaseMechanicsProblem for detailed information on the required
+values.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>user_config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>config</strong> – A copy of user_config with possibly new keys that are needed
+if they were not originally provided.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">dict</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_dirichlet">
+<code class="descname">check_dirichlet</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_dirichlet" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the number of parameters for each key in the dirichlet
+sub-dictionary are equal. If the key ‘dirichlet’ does not exist,
+it is added to the dictionary with the value None.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_initial_condition">
+<code class="descname">check_initial_condition</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_initial_condition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if initial condition values were provided. Insert ‘None’ for the
+values that were not provided.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_material_const_eqn">
+<code class="descname">check_material_const_eqn</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_material_const_eqn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the material type and the specific constitutive equation
+specified in the config dictionary are implemented, unless a class
+is provided. An exception is raised if an unknown material type
+and/or constitutive equation name is provided.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_neumann">
+<code class="descname">check_neumann</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_neumann" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the number of parameters for each key in the neumann
+sub-dictionary are equal. If the key ‘neumann’ does not exist,
+it is added to the dictionary with the value None.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_time_params">
+<code class="descname">check_time_params</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_time_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the time parameters provided by the user in the config dictionary.
+Things this function does:</p>
+<ul class="simple">
+<li>If the problem is steady, the theta and dt values are set to 1.</li>
+<li>If the problem is unsteady and no value was provided for theta,
+an exception is raised.</li>
+<li>If the problem is unsteady, and a theta outside of the interval
+[0, 1] is provided, an exception is raised.</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.define_ufl_neumann_form">
+<em class="property">static </em><code class="descname">define_ufl_neumann_form</code><span class="sig-paren">(</span><em>regions</em>, <em>types</em>, <em>values</em>, <em>domain</em>, <em>mesh</em>, <em>boundaries</em>, <em>F</em>, <em>J</em>, <em>xi</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.define_ufl_neumann_form" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object representing the variational form of the
+Neumann boundary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>regions</strong> (<em>list</em><em>, </em><em>tuple</em>) – List of the region IDs on which Neumann boundary conditions are to
+be imposed. These IDs must match those used by the mesh function
+provided. The order must match the order used in the list of types
+and values.</li>
+<li><strong>types</strong> (<em>list</em><em>, </em><em>tuple</em>) – List of strings specifying whether a ‘pressure’, ‘piola’,
+or ‘cauchy’ is provided for each region. The order
+must match the order used in the list of region IDs
+and values.</li>
+<li><strong>values</strong> (<em>list</em><em>, </em><em>tuple</em>) – List of values (dolfin.Constant or dolfin.Expression)
+for each Dirichlet boundary region specified. The order
+must match the order used in the list of region IDs
+and types.</li>
+<li><strong>domain</strong> (<em>str</em>) – String specifying whether the problem is to be formulated
+in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
+ALE is currently not supported.</li>
+<li><strong>mesh</strong> (<em>dolfin.Mesh</em>) – Mesh object used to define a measure.</li>
+<li><strong>boundaries</strong> (<em>dolfin.MeshFunction</em>) – Mesh function used to tag different regions of the domain
+boundary.</li>
+<li><strong>F</strong> (<em>ufl object</em>) – Deformation gradient.</li>
+<li><strong>J</strong> (<em>ufl object</em>) – Determinant of the deformation gradient.</li>
+<li><strong>xi</strong> (<em>dolfin.Argument</em>) – Test function used in variational formulation.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>neumann_form</strong> – The UFL Form object defining the variational term(s) corresponding
+to the Neumann boundary conditions.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.Form</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_bodyforce_time">
+<code class="descname">update_bodyforce_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_bodyforce_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the time parameter in the body force expression if it depends
+on time explicitly.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>t</strong> (<em>float</em>) – The value to which the user wishes to update the time to.</li>
+<li><strong>t0</strong> (<em>float</em><em> (</em><em>default None</em><em>)</em>) – The previous time value.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_dirichlet_time">
+<code class="descname">update_dirichlet_time</code><span class="sig-paren">(</span><em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_dirichlet_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the time parameter in the Dirichlet BCs that depend on time
+explicitly.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>t</strong> (<em>float</em>) – The value to which the users wishes to update the time to.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_form_time">
+<em class="property">static </em><code class="descname">update_form_time</code><span class="sig-paren">(</span><em>form</em>, <em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_form_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the time of the coefficient objects that depend on it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>form</strong> (<em>ufl.Form</em>) – Variational form for which the time is to be updated.</li>
+<li><strong>t</strong> (<em>float</em>) – The value to which the time is to be updated.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_neumann_time">
+<code class="descname">update_neumann_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_neumann_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the time parameter in the Neumann BCs that depend on time
+explicitly.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>t</strong> (<em>float</em>) – The value to which the user wishes to update the time to.</li>
+<li><strong>t0</strong> (<em>float</em><em> (</em><em>default None</em><em>)</em>) – The previous time value.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_time">
+<code class="descname">update_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the time parameter in the BCs that depend on time explicitly.
+Also, the body force expression if necessary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>t</strong> (<em>float</em>) – The value to which the user wishes to update the time to.</li>
+<li><strong>t0</strong> (<em>float</em><em> (</em><em>default None</em><em>)</em>) – The previous time value.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.mechanicsproblem">
+<span id="mechanics-problem"></span><h3>Mechanics Problem<a class="headerlink" href="#module-fenicsmechanics.mechanicsproblem" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.mechanicsproblem.</code><code class="descname">MechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class represents the variational form of a continuum
+mechanics problem. The specific form and boundary conditions
+are generated based on definitions provided by the user in a
+dictionary of sub-dictionaries.</p>
+<p>Refer to the documentation of the FEniCS Mechanics package for
+details on how to define a problem using the <code class="code docutils literal"><span class="pre">config</span></code>
+dictionary.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="k">as</span> <span class="nn">fm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">help</span><span class="p">(</span><span class="n">fm</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_deformation_tensors">
+<code class="descname">define_deformation_tensors</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_deformation_tensors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define kinematic tensors needed for constitutive equations. Tensors
+that are irrelevant to the current problem are set to 0, e.g. the
+deformation gradient is set to 0 when simulating fluid flow. Secondary
+tensors are added with the suffix “0” if the problem is time-dependent.
+The names of member data added to an instance of the MechanicsProblem
+class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">deformationGradient</span></code></li>
+<li><code class="code docutils literal"><span class="pre">deformationGradient0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">velocityGradient</span></code></li>
+<li><code class="code docutils literal"><span class="pre">velocityGradient0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">jacobian</span></code></li>
+<li><code class="code docutils literal"><span class="pre">jacobian0</span></code></li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_dirichlet_bcs">
+<code class="descname">define_dirichlet_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_dirichlet_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define a list of Dirichlet BC objects based on the problem configuration
+provided by the user, and add it as member data under ‘dirichlet_bcs’. If
+no Dirichlet BCs are provided, ‘dirichlet_bcs’ is set to None.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_forms">
+<code class="descname">define_forms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_forms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem specified
+by the user and add them as member data. The variational forms are those
+corresponding to the order reduction of the time derivative (for unsteady
+solid material simulations), the balance of linear momentum, and the
+incompressibility constraint.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_function_spaces">
+<code class="descname">define_function_spaces</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_function_spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the vector (and scalar if incompressible) function spaces
+based on the degrees specified in config[‘formulation’][‘element’],
+and add them to the instance of MechanicsProblem as member data. If
+the material is not incompressible, the scalar function space is
+set to None.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_functions">
+<code class="descname">define_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the vector and scalar functions necessary to define the
+problem specified in the ‘config’ dictionary. Functions that are
+not needed are set to 0. This method calls a method to define
+the vector functions and another for the scalar functions.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_material">
+<code class="descname">define_material</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_material" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an instance of the class that defining the constitutive
+equation for the current problem and add it as member data under
+‘_material’. All necessary parameters must be included in the
+‘material’ subdictionary of ‘config’. The specific values necessary
+depends on the constitutive equation used. Please check the
+documentation of the material classes provided in
+‘fenicsmechanics.materials’ if using a built-in material.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_scalar_functions">
+<code class="descname">define_scalar_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_scalar_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the pressure function(s) necessary to define the problem
+specified in the ‘config’ dictionary. If the problem is not
+specified as incompressible, the scalar functions are set to 0.
+A secondary pressure function with the suffix “0” is also added
+if the problem is time-dependent to store the pressure values at
+the previous time step. The names of the member data added to an
+instance of the MechanicsProblem class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">test_scalar</span></code></li>
+<li><code class="code docutils literal"><span class="pre">trial_scalar</span></code></li>
+<li><code class="code docutils literal"><span class="pre">pressure</span></code></li>
+<li><code class="code docutils literal"><span class="pre">pressure0</span></code></li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_body_force">
+<code class="descname">define_ufl_body_force</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_body_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the body force term in
+the weak form. The function exits if it has already been defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_convec_accel">
+<code class="descname">define_ufl_convec_accel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_convec_accel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the convective acceleration
+term in the weak form. The function exits if it has already been
+defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_convec_accel_diff">
+<code class="descname">define_ufl_convec_accel_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_convec_accel_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the Gateaux derivative of
+the convective acceleration term in the weak form. The function
+exits if it has already been defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_equations">
+<code class="descname">define_ufl_equations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_equations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem
+specified in the ‘config’ dictionary. This function calls other
+functions to define the velocity, momentum, and incompressibility
+equations.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_equations_diff">
+<code class="descname">define_ufl_equations_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_equations_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Differentiate all of the variational forms with respect to appropriate
+fields variables and add as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_incompressibility_equation">
+<code class="descname">define_ufl_incompressibility_equation</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_incompressibility_equation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational form corresponding to the incompressibility
+constraint and add as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_local_inertia">
+<code class="descname">define_ufl_local_inertia</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_local_inertia" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the local acceleration
+term in the weak form. The function exits if it has already
+been defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_local_inertia_diff">
+<code class="descname">define_ufl_local_inertia_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_local_inertia_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object that describes the matrix that results
+from taking the Gateaux derivative of the local acceleration
+term in the weak form. The function exits if it has already
+been defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_momentum_equation">
+<code class="descname">define_ufl_momentum_equation</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_momentum_equation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational form corresponding to the balance of
+linear momentum and add as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_neumann_bcs">
+<code class="descname">define_ufl_neumann_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_neumann_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational forms for all of the Neumann BCs given
+in the ‘config’ dictionary under “ufl_neumann_bcs”. If the problem
+is time-dependent, a secondary variational form is defined at the
+previous time step with the name “ufl_neumann_bcs0”.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_neumann_bcs_diff">
+<code class="descname">define_ufl_neumann_bcs_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_neumann_bcs_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the derivative(s) of the variational form of the Neumann BCs
+and add them as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_stress_work">
+<code class="descname">define_ufl_stress_work</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_stress_work" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the stress tensor term
+in the weak form. The function exits if it has already been
+defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_stress_work_diff">
+<code class="descname">define_ufl_stress_work_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_stress_work_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the Gateaux derivative of
+the stress tensor term in the weak form. The function exits if it
+has already been defined.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_velocity_equation">
+<code class="descname">define_ufl_velocity_equation</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_ufl_velocity_equation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational form for the reduction of order equation
+(equation that relates the velocity and displacement) and add as
+member data. Note that this is only necessary for time-dependent
+elastic materials. If this form is not necessary, it is set to 0.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicsproblem.MechanicsProblem.define_vector_functions">
+<code class="descname">define_vector_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicsproblem.MechanicsProblem.define_vector_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the vector functions necessary to define the problem
+specified in the ‘config’ dictionary. If the material is elastic,
+displacement and velocity functions are defined. Secondary
+displacement and velocity functions are defined with the suffix
+“0” if the problem is time-dependent to store the previous time
+step. Functions that are not needed are set to 0. The trial and
+test functions for the vector function space are also defined by
+this function. The names of the member data added to the instance
+of the MechanicsProblem class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">test_vector</span></code></li>
+<li><code class="code docutils literal"><span class="pre">trial_vector</span></code></li>
+<li><code class="code docutils literal"><span class="pre">displacement</span></code></li>
+<li><code class="code docutils literal"><span class="pre">displacement0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">velocity</span></code></li>
+<li><code class="code docutils literal"><span class="pre">velocity0</span></code></li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.solidmechanics">
+<span id="solid-mechanics-problem"></span><h3>Solid Mechanics Problem<a class="headerlink" href="#module-fenicsmechanics.solidmechanics" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.solidmechanics.</code><code class="descname">SolidMechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class represents the variational form of a solid
+mechanics problem. The specific form and boundary conditions
+are generated based on definitions provided by the user in a
+dictionary of sub-dictionaries.</p>
+<p>Refer to the documentation of the FEniCS Mechanics package for
+details on how to define a problem using the <code class="code docutils literal"><span class="pre">config</span></code>
+dictionary.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="k">as</span> <span class="nn">fm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">help</span><span class="p">(</span><span class="n">fm</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_compressible_functions">
+<code class="descname">define_compressible_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_compressible_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define functions necessary to formulate a compressible solid
+mechanics problem. The names of the member data added to the
+instance of the SolidMechanicsProblem class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">sys_u</span> <span class="pre">=</span> <span class="pre">ufl_displacement</span> <span class="pre">=</span> <span class="pre">displacement</span></code>: all point to the same
+displacement function, unlike the incompressible case.</li>
+<li><code class="code docutils literal"><span class="pre">sys_du</span> <span class="pre">=</span> <span class="pre">trial_vector</span></code>: trial function for vector function space</li>
+<li><code class="code docutils literal"><span class="pre">test_vector</span></code>: sub component of mixed test function</li>
+<li><code class="code docutils literal"><span class="pre">ufl_pressure</span> <span class="pre">=</span> <span class="pre">pressure</span> <span class="pre">=</span> <span class="pre">None</span></code></li>
+</ul>
+<p>If problem is unsteady, the following are also added:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">sys_v0</span> <span class="pre">=</span> <span class="pre">ufl_velocity0</span> <span class="pre">=</span> <span class="pre">velocity0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">sys_a0</span> <span class="pre">=</span> <span class="pre">ufl_acceleration0</span> <span class="pre">=</span> <span class="pre">acceleration0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">sys_u0</span> <span class="pre">=</span> <span class="pre">ufl_displacement0</span> <span class="pre">=</span> <span class="pre">displacement0</span></code></li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_deformation_tensors">
+<code class="descname">define_deformation_tensors</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_deformation_tensors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define kinematic tensors needed for constitutive equations. Secondary
+tensors are added with the suffix “0” if the problem is time-dependent.
+The names of member data added to an instance of the SolidMechanicsProblem
+class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">deformationGradient</span></code></li>
+<li><code class="code docutils literal"><span class="pre">deformationGradient0</span></code></li>
+<li><code class="code docutils literal"><span class="pre">jacobian</span></code></li>
+<li><code class="code docutils literal"><span class="pre">jacobian0</span></code></li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_dirichlet_bcs">
+<code class="descname">define_dirichlet_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_dirichlet_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define a list of Dirichlet BC objects based on the problem configuration
+provided by the user, and add it as member data under ‘dirichlet_bcs’. If
+no Dirichlet BCs are provided, ‘dirichlet_bcs’ is set to None.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_forms">
+<code class="descname">define_forms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_forms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem specified
+by the user and add them as member data. The variational forms are those
+corresponding to the balance of linear momentum and the incompressibility
+constraint.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_function_assigners">
+<code class="descname">define_function_assigners</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_function_assigners" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create function assigners to update the current and previous time
+values of all field variables. This is specific to incompressible
+simulations since the mixed function space formulation requires the
+handling of the mixed functions and the copies of its subcomponents
+in a specific manner.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_function_spaces">
+<code class="descname">define_function_spaces</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_function_spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the function space based on the degree(s) specified
+in config[‘formulation’][‘element’] and add it as member data.
+If the problem is specified as incompressible, a mixed function
+space made up of a vector and scalar function spaces is defined.
+Note that this differs from MechanicsProblem since there,
+the vector and scalar function spaces are defined separately.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_functions">
+<code class="descname">define_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define mixed functions necessary to formulate the problem
+specified in the ‘config’ dictionary. The sub-functions are
+also defined for use in formulating variational forms and saving
+results separately. Functions that are not needed are set to 0.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_incompressible_functions">
+<code class="descname">define_incompressible_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_incompressible_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define mixed functions necessary to formulate an incompressible
+solid mechanics problem. The mixed function is also split using
+dolfin.split (for use in UFL variational forms) and u.split(),
+where u is a mixed function (for saving solutions separately).
+The names of the member data added to the instance of the
+SolidMechanicsProblem class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">sys_u</span></code>: mixed function</li>
+<li><code class="code docutils literal"><span class="pre">ufl_displacement</span></code>: sub component corresponding to displacement</li>
+<li><code class="code docutils literal"><span class="pre">displacement</span></code>: copy of sub component for writing and assigning
+values</li>
+<li><code class="code docutils literal"><span class="pre">ufl_pressure</span></code>: sub component corresponding to pressure</li>
+<li><code class="code docutils literal"><span class="pre">pressure</span></code>: copy of sub component for writing and assigning values</li>
+<li><code class="code docutils literal"><span class="pre">sys_du</span></code>: mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">trial_vector</span></code>: sub component of mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">trial_scalar</span></code>: sub component of mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">test_vector</span></code>: sub component of mixed test function</li>
+<li><code class="code docutils literal"><span class="pre">test_scalar</span></code>: sub component of mixed test function</li>
+</ul>
+<p>If problem is unsteady, the following are also added:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">ufl_velocity0</span></code>: sub component corresponding to velocity</li>
+<li><code class="code docutils literal"><span class="pre">velocity0</span></code>: copy of sub component for writing and assigning values</li>
+<li><code class="code docutils literal"><span class="pre">ufl_acceleration0</span></code>: sub component corresponding to acceleration</li>
+<li><code class="code docutils literal"><span class="pre">acceleration0</span></code>: copy of sub component for writing and assigning values</li>
+<li><code class="code docutils literal"><span class="pre">sys_u0</span></code>: mixed function at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">ufl_displacement0</span></code>: sub component at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">displacement0</span></code>: copy of sub component at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">ufl_pressure0</span></code>: sub component at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">pressure0</span></code>: copy of sub component at previous time step</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_material">
+<code class="descname">define_material</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_material" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an instance of the class that defines the constitutive
+equation for the current problem and add it as member data under
+‘_material’. All necessary parameters must be included in the
+‘material’ subdictionary of ‘config’. The specific values necessary
+depends on the constitutive equation used. Please check the
+documentation of the material classes provided in
+‘fenicsmechanics.materials’ if using a built-in material.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_acceleration">
+<code class="descname">define_ufl_acceleration</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_acceleration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the acceleration based on the Newmark integration scheme
+and add as member data under ‘ufl_acceleration’.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_body_force">
+<code class="descname">define_ufl_body_force</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_body_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the body force term in
+the weak form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_equations">
+<code class="descname">define_ufl_equations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_equations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem
+specified in the ‘config’ dictionary, as well as the mixed
+variational form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_equations_diff">
+<code class="descname">define_ufl_equations_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_equations_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Differentiate all of the variational forms with respect to appropriate
+fields variables and add as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_local_inertia">
+<code class="descname">define_ufl_local_inertia</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_local_inertia" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the local acceleration
+term in the weak form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_neumann_bcs">
+<code class="descname">define_ufl_neumann_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_neumann_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational forms for all of the Neumann BCs given
+in the ‘config’ dictionary under “ufl_neumann_bcs”. If the problem
+is time-dependent, a secondary variational form is defined at the
+previous time step with the name “ufl_neumann_bcs0”.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_stress_work">
+<code class="descname">define_ufl_stress_work</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsProblem.define_ufl_stress_work" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the stress tensor term
+in the weak form.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.fluidmechanics">
+<span id="fluid-mechanics-problem"></span><h3>Fluid Mechanics Problem<a class="headerlink" href="#module-fenicsmechanics.fluidmechanics" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.fluidmechanics.</code><code class="descname">FluidMechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class represents the variational form of a fluid
+mechanics problem. The specific form and boundary conditions
+are generated based on definitions provided by the user in a
+dictionary of sub-dictionaries.</p>
+<p>Refer to the documentation of the FEniCS Mechanics package for
+details on how to define a problem using the <code class="code docutils literal"><span class="pre">config</span></code>
+dictionary.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">fenicsmechanics</span> <span class="k">as</span> <span class="nn">fm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">help</span><span class="p">(</span><span class="n">fm</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_compressible_functions">
+<code class="descname">define_compressible_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_compressible_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p><strong>COMPRESSIBLE FLUIDS ARE CURRENTLY NOT SUPPORTED.</strong></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_deformation_tensors">
+<code class="descname">define_deformation_tensors</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_deformation_tensors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define kinematic tensors needed for constitutive equations. Secondary
+tensors are added with the suffix “0” if the problem is time-dependent.
+The names of member data added to an instance of FluidMechanicsProblem
+class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">velocityGradient</span></code></li>
+<li><code class="code docutils literal"><span class="pre">velocityGradient0</span></code></li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_dirichlet_bcs">
+<code class="descname">define_dirichlet_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_dirichlet_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define a list of Dirichlet BC objects based on the problem configuration
+provided by the user, and add it as member data under ‘dirichlet_bcs’. If
+no Dirichlet BCs are provided, ‘dirichlet_bcs’ is set to None.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_forms">
+<code class="descname">define_forms</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_forms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem specified
+by the user and add them as member data. The variational forms are those
+corresponding to the order reduction of the time derivative (for unsteady
+solid material simulations), the balance of linear momentum, and the
+incompressibility constraint.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_function_assigners">
+<code class="descname">define_function_assigners</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_function_assigners" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create function assigners to update the current and previous time
+values of all field variables. This is specific to incompressible
+simulations since the mixed function space formulation requires the
+handling of the mixed functions and the copies of its subcomponents
+in a specific manner.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_function_spaces">
+<code class="descname">define_function_spaces</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_function_spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the function space based on the degree(s) specified
+in config[‘formulation’][‘element’] and add it as member data.
+If the problem is specified as incompressible, a mixed function
+space made up of a vector and scalar function spaces is defined.
+Note that this differs from MechanicsProblem since there,
+the vector and scalar function spaces are defined separately.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_functions">
+<code class="descname">define_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the vector and scalar functions necessary to define the
+problem specified in the ‘config’ dictionary. Functions that are
+not needed are set to 0. This method calls one of two methods to
+define these functions based depending on whether the fluid is
+incompressible or not.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_incompressible_functions">
+<code class="descname">define_incompressible_functions</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_incompressible_functions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define mixed functions necessary to formulate an incompressible
+fluid mechanics problem. The mixed function is also split using
+dolfin.split (for use in UFL variational forms) and u.split(),
+where u is a mixed function (for saving solutions separately).
+The names of the member data added to the instance of the
+SolidMechanicsProblem class are:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">sys_v</span></code>: mixed function</li>
+<li><code class="code docutils literal"><span class="pre">ufl_velocity</span></code>: sub component corresponding to velocity</li>
+<li><code class="code docutils literal"><span class="pre">velocity</span></code>: copy of sub component for writing and assigning
+values</li>
+<li><code class="code docutils literal"><span class="pre">ufl_pressure</span></code>: sub component corresponding to pressure</li>
+<li><code class="code docutils literal"><span class="pre">pressure</span></code>: copy of sub component for writing and assigning values</li>
+<li><code class="code docutils literal"><span class="pre">sys_du</span></code>: mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">trial_vector</span></code>: sub component of mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">trial_scalar</span></code>: sub component of mixed trial function</li>
+<li><code class="code docutils literal"><span class="pre">test_vector</span></code>: sub component of mixed test function</li>
+<li><code class="code docutils literal"><span class="pre">test_scalar</span></code>: sub component of mixed test function</li>
+</ul>
+<p>If problem is unsteady, the following are also added:</p>
+<ul class="simple">
+<li><code class="code docutils literal"><span class="pre">sys_v0</span></code>: mixed function at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">ufl_velocity0</span></code>: sub component corresponding to velocity</li>
+<li><code class="code docutils literal"><span class="pre">velocity0</span></code>: copy of sub component for writing and assigning values</li>
+<li><code class="code docutils literal"><span class="pre">ufl_pressure0</span></code>: sub component at previous time step</li>
+<li><code class="code docutils literal"><span class="pre">pressure0</span></code>: copy of sub component at previous time step</li>
+</ul>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_material">
+<code class="descname">define_material</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_material" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an instance of the class that defines the constitutive
+equation for the current problem and add it as member data under
+‘_material’. All necessary parameters must be included in the
+‘material’ subdictionary of ‘config’. The specific values necessary
+depends on the constitutive equation used. Please check the
+documentation of the material classes provided in
+‘fenicsmechanics.materials’ if using a built-in material.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_acceleration">
+<code class="descname">define_ufl_acceleration</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_acceleration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the acceleration based on a single step finite difference
+and add as member data under ‘ufl_acceleration’.</p>
+<p>ufl_acceleration = (ufl_velocity - ufl_velocity0)/dt,</p>
+<p>where dt is the size of the time step.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_body_force">
+<code class="descname">define_ufl_body_force</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_body_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the body force term in
+the weak form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_convec_accel">
+<code class="descname">define_ufl_convec_accel</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_convec_accel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the convective acceleration
+term in the weak form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_equations">
+<code class="descname">define_ufl_equations</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_equations" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define all of the variational forms necessary for the problem
+specified in the ‘config’ dictionary, as well as the mixed
+variational form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_equations_diff">
+<code class="descname">define_ufl_equations_diff</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_equations_diff" title="Permalink to this definition">¶</a></dt>
+<dd><p>Differentiate all of the variational forms with respect to appropriate
+fields variables and add as member data.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_local_inertia">
+<code class="descname">define_ufl_local_inertia</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_local_inertia" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the local acceleration
+term in the weak form.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_neumann_bcs">
+<code class="descname">define_ufl_neumann_bcs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_neumann_bcs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the variational forms for all of the Neumann BCs given
+in the ‘config’ dictionary under “ufl_neumann_bcs”. If the problem
+is time-dependent, a secondary variational form is defined at the
+previous time step with the name “ufl_neumann_bcs0”.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_stress_work">
+<code class="descname">define_ufl_stress_work</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsProblem.define_ufl_stress_work" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the UFL object corresponding to the stress tensor term
+in the weak form.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="solver-objects">
+<h2>Solver Objects<a class="headerlink" href="#solver-objects" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-fenicsmechanics.mechanicssolver">
+<span id="mechanics-solver"></span><h3>Mechanics Solver<a class="headerlink" href="#module-fenicsmechanics.mechanicssolver" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.mechanicssolver.</code><code class="descname">MechanicsBlockSolver</code><span class="sig-paren">(</span><em>mechanics_problem</em>, <em>fname_disp=None</em>, <em>fname_vel=None</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class assembles the UFL variational forms from a MechanicsProblem
+object, and calls solvers to solve the resulting (nonlinear) algebraic
+equations. If the problem is time-dependent, this class loops through
+the time interval specified in the ‘config’ dictionary. An LGMRES
+algorithm from CBC-Block is used for time-dependent problems. For
+steady problems, the user may choose from the linear solvers available
+through dolfin. Furthermore, Newton’s method is used to solve the
+resulting algebraic equations.</p>
+<dl class="method">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver.nonlinear_solve">
+<code class="descname">nonlinear_solve</code><span class="sig-paren">(</span><em>lhs</em>, <em>rhs</em>, <em>bcs</em>, <em>nonlinear_tol=1e-10</em>, <em>iter_tol=1e-08</em>, <em>maxNonlinIters=50</em>, <em>maxLinIters=200</em>, <em>show=0</em>, <em>print_norm=True</em>, <em>lin_solver=’mumps’</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver.nonlinear_solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the nonlinear system of equations using Newton’s method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>lhs</strong> (<em>ufl.Form</em><em>, </em><em>list</em>) – The definition of the left-hand side of the resulting linear
+system of equations.</li>
+<li><strong>rhs</strong> (<em>ufl.Form</em><em>, </em><em>list</em>) – The definition of the right-hand side of the resulting linear
+system of equations.</li>
+<li><strong>bcs</strong> (<em>dolfin.DirichletBC</em><em>, </em><em>list</em>) – Object specifying the Dirichlet boundary conditions of the
+system.</li>
+<li><strong>nonlinear_tol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Tolerance used to terminate Newton’s method.</li>
+<li><strong>iter_tol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Tolerance used to terminate the iterative linear solver.</li>
+<li><strong>maxNonlinIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
+<li><strong>maxLinIters</strong> (<em>int</em><em> (</em><em>default 200</em><em>)</em>) – Maximum number of iterations for iterative linear solver.</li>
+<li><strong>show</strong> (<em>int</em><em> (</em><em>default 0</em><em>)</em>) – Amount of information for iterative.LGMRES to show. See
+documentation of this class for different log levels.</li>
+<li><strong>print_norm</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if user wishes to see the norm at every linear iteration
+and False otherwise.</li>
+<li><strong>lin_solver</strong> (<em>str</em><em> (</em><em>default &quot;mumps&quot;</em><em>)</em>) – Name of the linear solver to be used for steady compressible elastic
+problems. See the dolfin.solve documentation for a list of available
+linear solvers.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver.solve">
+<code class="descname">solve</code><span class="sig-paren">(</span><em>nonlinear_tol=1e-10</em>, <em>iter_tol=1e-08</em>, <em>maxNonlinIters=50</em>, <em>maxLinIters=200</em>, <em>show=0</em>, <em>print_norm=True</em>, <em>save_freq=1</em>, <em>save_initial=True</em>, <em>lin_solver=’mumps’</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver.solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the mechanics problem defined in the MechanicsProblem object.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nonlinear_tol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Tolerance used to terminate Newton’s method.</li>
+<li><strong>iter_tol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Tolerance used to terminate the iterative linear solver.</li>
+<li><strong>maxNonlinIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
+<li><strong>maxLinIters</strong> (<em>int</em><em> (</em><em>default 200</em><em>)</em>) – Maximum number of iterations for iterative linear solver.</li>
+<li><strong>show</strong> (<em>int</em><em> (</em><em>default 0</em><em>)</em>) – Amount of information for iterative.LGMRES to show. See
+documentation of this class for different log levels.</li>
+<li><strong>print_norm</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if user wishes to see the norm at every linear iteration
+and False otherwise.</li>
+<li><strong>save_freq</strong> (<em>int</em><em> (</em><em>default 1</em><em>)</em>) – The frequency at which the solution is to be saved if the problem is
+unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+every 10 time steps.</li>
+<li><strong>save_initial</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if the user wishes to save the initial condition and False otherwise.</li>
+<li><strong>lin_solver</strong> (<em>str</em><em> (</em><em>default &quot;mumps&quot;</em><em>)</em>) – Name of the linear solver to be used for steady compressible elastic
+problems. See the dolfin.solve documentation for a list of available
+linear solvers.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver.time_solve">
+<code class="descname">time_solve</code><span class="sig-paren">(</span><em>nonlinear_tol=1e-10</em>, <em>iter_tol=1e-08</em>, <em>maxNonlinIters=50</em>, <em>maxLinIters=200</em>, <em>show=0</em>, <em>print_norm=True</em>, <em>save_freq=1</em>, <em>save_initial=True</em>, <em>lin_solver=’mumps’</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver.time_solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loop through the time interval using the time step specified
+in the MechanicsProblem config dictionary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>nonlinear_tol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Tolerance used to terminate Newton’s method.</li>
+<li><strong>iter_tol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Tolerance used to terminate the iterative linear solver.</li>
+<li><strong>maxNonlinIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
+<li><strong>maxLinIters</strong> (<em>int</em><em> (</em><em>default 200</em><em>)</em>) – Maximum number of iterations for iterative linear solver.</li>
+<li><strong>show</strong> (<em>int</em><em> (</em><em>default 0</em><em>)</em>) – Amount of information for iterative.LGMRES to show. See
+documentation of this class for different log levels.</li>
+<li><strong>print_norm</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if user wishes to see the norm at every linear iteration
+and False otherwise.</li>
+<li><strong>save_freq</strong> (<em>int</em><em> (</em><em>default int</em><em>)</em>) – The frequency at which the solution is to be saved if the problem is
+unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+every 10 time steps.</li>
+<li><strong>save_initial</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if the user wishes to save the initial condition and False otherwise.</li>
+<li><strong>lin_solver</strong> (<em>str</em><em> (</em><em>default &quot;mumps&quot;</em><em>)</em>) – Name of the linear solver to be used for steady compressible elastic
+problems. See the dolfin.solve documentation for a list of available
+linear solvers.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver.ufl_lhs_rhs">
+<code class="descname">ufl_lhs_rhs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver.ufl_lhs_rhs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the UFL objects that define the left and right hand sides
+of the resulting linear system for the variational problem defined
+by the MechanicsProblem object.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.mechanicssolver.MechanicsBlockSolver.update_soln">
+<code class="descname">update_soln</code><span class="sig-paren">(</span><em>du</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.mechanicssolver.MechanicsBlockSolver.update_soln" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the values of the field variables based on the solution
+to the resulting linear system.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>du</strong> (<em>block.block_vec</em><em>, </em><em>dolfin.Vector</em>) – The solution to the resulting linear system of the variational
+problem defined by the MechanicsProblem object.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.solidmechanics">
+<span id="solid-mechanics-solver"></span><h3>Solid Mechanics Solver<a class="headerlink" href="#module-fenicsmechanics.solidmechanics" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.solidmechanics.</code><code class="descname">SolidMechanicsSolver</code><span class="sig-paren">(</span><em>problem</em>, <em>fname_disp=None</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class is derived from the dolfin.NonlinearVariationalSolver to
+solve problems formulated with SolidMechanicsProblem. It passes the
+UFL variational forms to the solver, and loops through all time steps
+if the problem is unsteady. The solvers that are available through
+this class are the same as those available through dolfin. The user
+may use the helper function, ‘set_parameters’ to set the linear solver
+used, as well as the tolerances for iterative and nonlinear solves, or
+do it directly through the ‘parameters’ member.</p>
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.full_solve">
+<code class="descname">full_solve</code><span class="sig-paren">(</span><em>save_freq=1</em>, <em>save_initial=True</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.full_solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the mechanics problem defined by SolidMechanicsProblem. If the
+problem is unsteady, this function will loop through the entire time
+interval using the parameters provided for the Newmark integration
+scheme.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>save_freq</strong> (<em>int</em><em> (</em><em>default 1</em><em>)</em>) – The frequency at which the solution is to be saved if the problem is
+unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+every 10 time steps.</li>
+<li><strong>save_initial</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if the user wishes to save the initial condition and False otherwise.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.set_parameters">
+<code class="descname">set_parameters</code><span class="sig-paren">(</span><em>linear_solver=’default’</em>, <em>preconditioner=’default’</em>, <em>newton_abstol=1e-10</em>, <em>newton_reltol=1e-09</em>, <em>newton_maxIters=50</em>, <em>krylov_abstol=1e-08</em>, <em>krylov_reltol=1e-07</em>, <em>krylov_maxIters=50</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.set_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the parameters used by the NonlinearVariationalSolver.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>linear_solver</strong> (<em>str</em>) – The name of linear solver to be used.</li>
+<li><strong>newton_abstol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Absolute tolerance used to terminate Newton’s method.</li>
+<li><strong>newton_reltol</strong> (<em>float</em><em> (</em><em>default 1e-9</em><em>)</em>) – Relative tolerance used to terminate Newton’s method.</li>
+<li><strong>newton_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
+<li><strong>krylov_abstol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Absolute tolerance used to terminate Krylov solver methods.</li>
+<li><strong>krylov_reltol</strong> (<em>float</em><em> (</em><em>default 1e-7</em><em>)</em>) – Relative tolerance used to terminate Krylov solver methods.</li>
+<li><strong>krylov_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Krylov solver methods.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.step">
+<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the solution for the next time step in the simulation. Note that
+there is only one “step” if the simulation is steady.</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.update">
+<em class="property">static </em><code class="descname">update</code><span class="sig-paren">(</span><em>u</em>, <em>u0</em>, <em>v0</em>, <em>a0</em>, <em>beta</em>, <em>gamma</em>, <em>dt</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to update values of field variables at the current and previous
+time steps based on the Newmark integration scheme:</p>
+<p>a = 1.0/(beta*dt^2)*(u - u0 - v0*dt) - (1.0/(2.0*beta) - 1.0)*v0
+v = dt*((1.0 - gamma)*a0 + gamma*a) + v0</p>
+<p>This particular method is to be used when the function objects do not
+derive from a mixed function space.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>u</strong> (<em>dolfin.Function</em>) – Object storing the displacement at the current time step.</li>
+<li><strong>u0</strong> (<em>dolfin.Function</em>) – Object storing the displacement at the previous time step.</li>
+<li><strong>v0</strong> (<em>dolfin.Function</em>) – Object storing the velocity at the previous time step.</li>
+<li><strong>a0</strong> (<em>dolfin.Function</em>) – Object storing the acceleration at the previous time step.</li>
+<li><strong>beta</strong> (<em>float</em>) – Scalar parameter for the family of Newmark integration schemes.
+See equation above.</li>
+<li><strong>gamma</strong> (<em>float</em>) – Scalar parameter for the family of Newmark integration schemes.
+See equation above.</li>
+<li><strong>dt</strong> (<em>float</em>) – Time step used to advance through the entire time interval.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.update_assign">
+<code class="descname">update_assign</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.update_assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the values of the field variables – both the current and
+previous time step in preparation for the next step of the simulation.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.fluidmechanics">
+<span id="fluid-mechanics-solver"></span><h3>Fluid Mechanics Solver<a class="headerlink" href="#module-fenicsmechanics.fluidmechanics" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.fluidmechanics.</code><code class="descname">FluidMechanicsSolver</code><span class="sig-paren">(</span><em>problem</em>, <em>fname_vel=None</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class is derived from the dolfin.NonlinearVariationalSolver to
+solve problems formulated with FluidMechanicsProblem. It passes the
+UFL variational forms to the solver, and loops through all time steps
+if the problem is unsteady. The solvers that are available through
+this class are the same as those available through dolfin. The user
+may use the helper function, ‘set_parameters’ to set the linear solver
+used, as well as the tolerances for iterative and nonlinear solves, or
+do it directly through the ‘parameters’ member.</p>
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.full_solve">
+<code class="descname">full_solve</code><span class="sig-paren">(</span><em>save_freq=1</em>, <em>save_initial=True</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.full_solve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Solve the mechanics problem defined by FluidMechanicsProblem. If the
+problem is unsteady, this function will loop through the entire time
+interval using a single step finite difference scheme.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>save_freq</strong> (<em>int</em><em> (</em><em>default 1</em><em>)</em>) – The frequency at which the solution is to be saved if the problem is
+unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+every 10 time steps.</li>
+<li><strong>save_initial</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if the user wishes to save the initial condition and False otherwise.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.set_parameters">
+<code class="descname">set_parameters</code><span class="sig-paren">(</span><em>linear_solver=’default’</em>, <em>preconditioner=’default’</em>, <em>newton_abstol=1e-10</em>, <em>newton_reltol=1e-09</em>, <em>newton_maxIters=50</em>, <em>krylov_abstol=1e-08</em>, <em>krylov_reltol=1e-07</em>, <em>krylov_maxIters=50</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.set_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the parameters used by the NonlinearVariationalSolver.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>linear_solver</strong> (<em>str</em>) – The name of linear solver to be used.</li>
+<li><strong>newton_abstol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Absolute tolerance used to terminate Newton’s method.</li>
+<li><strong>newton_reltol</strong> (<em>float</em><em> (</em><em>default 1e-9</em><em>)</em>) – Relative tolerance used to terminate Newton’s method.</li>
+<li><strong>newton_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
+<li><strong>krylov_abstol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Absolute tolerance used to terminate Krylov solver methods.</li>
+<li><strong>krylov_reltol</strong> (<em>float</em><em> (</em><em>default 1e-7</em><em>)</em>) – Relative tolerance used to terminate Krylov solver methods.</li>
+<li><strong>krylov_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Krylov solver methods.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.step">
+<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the solution for the next time step in the simulation. Note that
+there is only one “step” if the simulation is steady.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.update_assign">
+<code class="descname">update_assign</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.update_assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>Update the values of the field variables – both the current and
+previous time step in preparation for the next step of the simulation.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="constitutive-equations">
+<h2>Constitutive Equations<a class="headerlink" href="#constitutive-equations" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="code docutils literal"><span class="pre">materials</span></code> submodule implements some common constitutive
+equations for users to take advantage of.</p>
+<div class="section" id="module-fenicsmechanics.materials.solid_materials">
+<span id="solid-materials"></span><h3>Solid Materials<a class="headerlink" href="#module-fenicsmechanics.materials.solid_materials" title="Permalink to this headline">¶</a></h3>
+<p>This module contains classes that define the stress tensor for various
+solid materials. The parent class <code class="xref py py-class docutils literal"><span class="pre">ElasticMaterial</span></code> is used for
+all class definitions. Then materials are separated into isotropic and
+anisotropic using <code class="xref py py-class docutils literal"><span class="pre">IsotropicMaterial</span></code> and
+<code class="xref py py-class docutils literal"><span class="pre">AnisotropicMaterial</span></code>.</p>
+<p>Parameters required by each constitutive equation is case-dependent.
+Thus, the user should check that particular documentation.</p>
+<dl class="class">
+<dt id="fenicsmechanics.materials.solid_materials.LinearIsoMaterial">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.materials.solid_materials.</code><code class="descname">LinearIsoMaterial</code><span class="sig-paren">(</span><em>inverse=False</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.LinearIsoMaterial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Cauchy stress tensor based on linear elasticity, i.e.
+infinitesimal deformations, both compressible and incompressible. The
+stress tensor is given by</p>
+<ul class="simple">
+<li>Compressible: <span class="math">\(\mathbf{T} = \lambda\text{tr}(\mathbf{e})\mathbf{I} \
++ 2\mu\mathbf{e}\)</span>,</li>
+<li>Incompressible: <span class="math">\(\mathbf{T} = -p\mathbf{I} + 2\mu\mathbf{e}\)</span>,</li>
+</ul>
+<p>where <span class="math">\(\lambda\)</span> and <span class="math">\(\mu\)</span> are the Lame material parameters,
+<span class="math">\(\mathbf{e} = \text{sym}(\text{grad}(\mathbf{u}))\)</span> where
+<span class="math">\(\mathbf{u}\)</span> is the displacement, and <span class="math">\(p\)</span> is the pressure in
+the case of an incompressible material.</p>
+<p>The inverse elastostatics formulation is also supported for this material
+model. In that case, the only change that must be accounted for is the
+fact that</p>
+<div class="math">
+\[\mathbf{e} = \text{sym}(\mathbf{f}^{-1}) - \mathbf{I},\]</div>
+<p>where <span class="math">\(\mathbf{f} = \mathbf{F}^{-1}\)</span> is the deformation gradient from
+the current to the reference configuration.</p>
+<p>At least two of the material constants from the list below must be provided
+in the <code class="code docutils literal"><span class="pre">'material'</span></code> subdictionary of <code class="code docutils literal"><span class="pre">config</span></code> in addition to the
+values already listed in the docstring of <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>. The remaining
+constants will be computed based on the parameters provided by the user.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>la</strong> (<em>*</em>) – The first Lame parameter used as shown in the equations above. Note:
+providing la and inv_la does not qualify as providing two material
+constants.</li>
+<li><strong>mu</strong> (<em>*</em>) – The second Lame parameter used as shown in the equations above.</li>
+<li><strong>kappa</strong> (<em>*</em>) – The bulk modulus of the material.</li>
+<li><strong>inv_la</strong> (<em>*</em>) – The reciprocal of the first Lame parameter, la. Note: providing la and
+inv_la does not qualify as providing two material constants.</li>
+<li><strong>E</strong> (<em>*</em>) – The Young’s modulus of the material.</li>
+<li><strong>nu</strong> (<em>*</em>) – The Poisson’s ratio of the material.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.LinearIsoMaterial.incompressibilityCondition">
+<code class="descname">incompressibilityCondition</code><span class="sig-paren">(</span><em>u</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.LinearIsoMaterial.incompressibilityCondition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the incompressibility condition for a linear material,
+<span class="math">\(p = \kappa\text{div}(\mathbf{u})\)</span>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>u</strong> (<em>dolfin.Function</em><em>, </em><em>ufl.tensors.ListTensor</em>) – The displacement vector.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>Bvol</strong> – UFL object defining the incompressibility condition.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ufl.algebra.Product</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.LinearIsoMaterial.stress_tensor">
+<code class="descname">stress_tensor</code><span class="sig-paren">(</span><em>F</em>, <em>J</em>, <em>p=None</em>, <em>formulation=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.LinearIsoMaterial.stress_tensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Cauchy stress tensor for a linear material, namely:</p>
+<ul class="simple">
+<li>Compressible: <span class="math">\(\mathbf{T} = \lambda\text{tr}(\mathbf{e})\mathbf{I} \
++ 2\mu\mathbf{e}\)</span>,</li>
+<li>Incompressible: <span class="math">\(\mathbf{T} = -p\mathbf{I} + 2\mu\mathbf{e}\)</span>,</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>F</strong> (<em>ufl.algebra.Sum</em>) – The deformation gradient.</li>
+<li><strong>J</strong> (<em>ufl.tensoralgebra.Determinant</em>) – The Jacobian, i.e. determinant of the deformation gradient. Note
+that this is not used for this material. It is solely a place holder
+to conform to the format of other materials.</li>
+<li><strong>p</strong> (<em>dolfin.Coefficient</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The UFL pressure function for incompressible materials.</li>
+<li><strong>formulation</strong> (<em>str</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – This input is not used for this material. It is solely a place holder
+to conform to the format of other materials.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>T</strong> – The Cauchy stress tensor given by the equation above.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="fenicsmechanics.materials.solid_materials.NeoHookeMaterial">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.materials.solid_materials.</code><code class="descname">NeoHookeMaterial</code><span class="sig-paren">(</span><em>inverse=False</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.NeoHookeMaterial" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the first Piola-Kirchhoff stress tensor based on variations of the
+strain energy function</p>
+<div class="math">
+\[\psi(\mathbf{C}) = \frac{1}{2}\mu(\text{tr}(\mathbf{C}) - n),\]</div>
+<p>where <span class="math">\(\mathbf{C} = \mathbf{F}^T\mathbf{F}\)</span>, and <span class="math">\(n\)</span> is the
+geometric dimension. For nearly incompressible materials, the total strain
+energy function is given by</p>
+<div class="math">
+\[W = U(J) + \psi(\mathbf{C}),\]</div>
+<p>where <span class="math">\(U(J)\)</span> corresponds to the strain energy in response to dilatation
+of the material with <span class="math">\(J = \det(\mathbf{F})\)</span>. The two forms of <span class="math">\(U(J)\)</span>
+supported here are</p>
+<ul class="simple">
+<li>Square: <span class="math">\(U(J) = \frac{1}{2}\kappa(J - 1)^2\)</span>,</li>
+<li>Log: <span class="math">\(U(J) = \frac{1}{2}\kappa(\ln(J))^2\)</span>,</li>
+</ul>
+<p>where <span class="math">\(\kappa\)</span> is the bulk modulus of the material. This results in the
+first Piola-Kirchhoff stress tensor given by</p>
+<div class="math">
+\[\mathbf{P} = J\frac{dU}{dJ}\mathbf{F}^{-T} + \mu\mathbf{F}.\]</div>
+<p>In the case of an incompressible material, the total strain energy is
+assumed to be of the form</p>
+<div class="math">
+\[W = U(J) + \psi(\bar{\mathbf{C}}),\]</div>
+<p>where <span class="math">\(\bar{\mathbf{C}} = J^{-2/n}\mathbf{C}\)</span>. Furthermore, the
+pressure scalar field is defined such that <span class="math">\(p = -\frac{dU}{dJ}\)</span>.
+The resulting first Piola-Kirchhoff stress tensor is then</p>
+<div class="math">
+\[\mathbf{P} = -\left[Jp + \frac{1}{n}\mu J^{-2/n}\text{tr}(\mathbf{C})
+      \right]\mathbf{F}^{-T} + \mu J^{-2/n}\mathbf{F}.\]</div>
+<p>The inverse elastostatics formulation is also supported for this material
+model. In that case, the Cauchy stress tensor for compressible material is</p>
+<div class="math">
+\[\mathbf{T} = -j^2\frac{dU}{dj}\mathbf{I} + \mu\mathbf{c}^{-1},\]</div>
+<p>and</p>
+<div class="math">
+\[\mathbf{T} = -\left[p + \frac{1}{n}\mu j^{-1/n}i_2\right]\mathbf{I}
+      + \mu j^{5/n}\mathbf{c}^{-1},\]</div>
+<p>for incompressible material where <span class="math">\(j = \det(\mathbf{f}) = \
+\det(\mathbf{F}^{-1}) = \frac{1}{J}, \mathbf{c} = \mathbf{f}^T\mathbf{f}\)</span>,
+<span class="math">\(i_2\)</span> is the second invariant of c, and p is the pressure in the latter
+case. Note that <span class="math">\(\mathbf{f}\)</span> is the deformation gradient from the
+current configuration to the reference configuration.</p>
+<p>At least two of the material constants from the list below must be provided
+in the <code class="code docutils literal"><span class="pre">'material'</span></code> subdictionary of <code class="code docutils literal"><span class="pre">config</span></code> in addition to the
+values already listed in the docstring of <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>'la'</strong> (<em>*</em>) – The first parameter used as shown in the equations above. Note: providing
+<code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">inv_la</span></code> does not qualify as providing two material
+parameters.</li>
+<li><strong>'mu'</strong> (<em>*</em>) – The second material parameter used as shown in the equations above.</li>
+<li><strong>'kappa'</strong> (<em>*</em>) – The bulk modulus of the material.</li>
+<li><strong>'inv_la'</strong> (<em>*</em>) – The reciprocal of the first parameter, <code class="code docutils literal"><span class="pre">la</span></code>. Note: providing
+<code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">inv_la</span></code> does not qualify as providing two material
+parameters.</li>
+<li><strong>'E'</strong> (<em>*</em>) – The Young’s modulus of the material. Note: this is not entirely consistent
+with the neo-Hookean formulation, but <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">mu</span></code> will be
+computed based on the relation between the Young’s modulus and the Lame
+parameters if <code class="code docutils literal"><span class="pre">E</span></code> is given.</li>
+<li><strong>'nu'</strong> (<em>*</em>) – The Poisson’s ratio of the material. Note: this is not entirely consistent
+with the neo-Hookean formulation, but <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">mu</span></code> will be
+computed based on the relation between the Poisson’s ratio and the Lame
+parameters if <code class="code docutils literal"><span class="pre">nu</span></code> is given.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.NeoHookeMaterial.strain_energy">
+<code class="descname">strain_energy</code><span class="sig-paren">(</span><em>F</em>, <em>J</em>, <em>formulation=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.NeoHookeMaterial.strain_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Define the total strain energy based on the incompressibility of
+the material (fully or nearly incompressible, or compressible), defined
+with respect to the deformation gradient, or by its inverse if the
+objective is to find the inverse displacement. The strain energy for a
+compressible material is defined by</p>
+<div class="math">
+\[\begin{split}W = \frac{1}{2}\mu(I_1 - n) + \frac{1}{2}\lambda(\ln(J))^2
+      - \mu\ln(J) \\
+  = \frac{1}{2}\mu\left(\frac{i_2}{i_3} - n\right)
+      + \frac{1}{2}\lambda(\ln(j))^2 - \mu\ln(j),\end{split}\]</div>
+<p>where <span class="math">\(I_1\)</span> is the first invariant of <span class="math">\(\mathbf{C} = \
+\mathbf{F}^T\mathbf{F}\)</span>, while <span class="math">\(i_2\)</span> and <span class="math">\(i_3\)</span> are the
+second and third invariants of <span class="math">\(\mathbf{c} = \mathbf{f}^T \
+\mathbf{f}\)</span>, with <span class="math">\(\mathbf{f} = \mathbf{F}^{-1}\)</span>. For a
+(nearly-)incompressible material, the strain energy is defined by</p>
+<div class="math">
+\[\begin{split}W = U(J) + \frac{1}{2}\mu(I_1 - n) \\
+  = U(j) + \frac{1}{2}\mu(\frac{i_2}{i_3} - n),\end{split}\]</div>
+<p>where the invariants are now those of <span class="math">\(\bar{\mathbf{C}} = \
+J^{-2/n}\mathbf{C}\)</span> or <span class="math">\(\bar{\mathbf{c}} = j^{-2/n}\mathbf{c}\)</span>,
+and <span class="math">\(\frac{dU}{dJ} = p\)</span> for fully incompressible material, while
+<span class="math">\(U(J) = \kappa\phi(J)\)</span>. The two forms of <span class="math">\(\phi(J)\)</span> supported
+here are</p>
+<ul class="simple">
+<li>Square: <span class="math">\(\phi(J) = \frac{1}{2}(J - 1)^2\)</span>,</li>
+<li>Log: <span class="math">\(\phi(J) = \frac{1}{2}(\ln(J))^2\)</span>.</li>
+</ul>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>F</strong> (<em>ufl.algebra.Sum</em>) – The (forward or inverse) deformation gradient.</li>
+<li><strong>J</strong> (<em>ufl.tensoralgebra.Determinant</em>) – The jacobian, i.e. determinant of the deformation gradient given
+above.</li>
+<li><strong>formulation</strong> (<em>str</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The formulation used for the nearly-incompressible materials.
+Value must either be <code class="code docutils literal"><span class="pre">'square'</span></code> or <code class="code docutils literal"><span class="pre">'log'</span></code>.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>W</strong> – The strain energy defined above.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.NeoHookeMaterial.stress_tensor">
+<code class="descname">stress_tensor</code><span class="sig-paren">(</span><em>F</em>, <em>J</em>, <em>p=None</em>, <em>formulation=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.NeoHookeMaterial.stress_tensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the first Piola-Kirchhoff stress tensor for a neo-Hookean
+material. The stress tensor is given by</p>
+<ul>
+<li><p class="first">Compressible:</p>
+<div class="math">
+\[\mathbf{P} = J\frac{dU}{dJ}\mathbf{F}^{-T} + \mu\mathbf{F}\]</div>
+</li>
+<li><p class="first">Incompressible:</p>
+<div class="math">
+\[\mathbf{P} = \left[-Jp - \frac{\mu J^{-2/n}}{n}\text{tr}(\mathbf{C}) \
+      \right]\mathbf{F}^{-T} + \mu J^{-2/n}\mathbf{F},\]</div>
+</li>
+</ul>
+<p>where <span class="math">\(\mathbf{F}\)</span> is the deformation gradient, <span class="math">\(J = \
+\det(\mathbf{F})\)</span>, <span class="math">\(\mathbf{C} = \mathbf{F}^T\mathbf{F}\)</span>, and
+<span class="math">\(\mu\)</span> is a material constant. If the problem is an inverse
+elastostatics problem, the Cauchy stress tensor is given by</p>
+<ul>
+<li><p class="first">Compressible:</p>
+<div class="math">
+\[\mathbf{T} = \left[-j^2\frac{dU}{dj} - \frac{\mu j^{-1/n}}{n}i_2 \
+      \right]\mathbf{I} + \mu j^{-5/n}\mathbf{c}^{-1}\]</div>
+</li>
+<li><p class="first">Incompressible:</p>
+<div class="math">
+\[\mathbf{T} = -\left[p + \frac{\mu j^{-1/n}}{n}i_2 \
+      \right]\mathbf{I} + \mu j^{-5/n}\mathbf{c}^{-1}\]</div>
+</li>
+</ul>
+<p>where <span class="math">\(\mathbf{f} = \mathbf{F}^{-1}\)</span>, <span class="math">\(j = \det(\mathbf{f})\)</span>,
+<span class="math">\(\mathbf{c} = \mathbf{f}^T\mathbf{f}\)</span>, and <span class="math">\(n\)</span> is the geometric
+dimension.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>F</strong> (<em>ufl.algebra.Sum</em>) – The deformation gradient.</li>
+<li><strong>J</strong> (<em>ufl.tensoralgebra.Determinant</em>) – The Jacobian, i.e. determinant of the deformation gradient.</li>
+<li><strong>p</strong> (<em>dolfin.Function</em><em>, </em><em>ufl.indexed.Indexed</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The pressure for incompressible materials.</li>
+<li><strong>formulation</strong> (<em>str</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The formulation used for the strain energy due to dilatation
+of the material.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>P</strong> – The first Piola-Kirchhoff stress tensor for forward problems and
+the Cauchy stress tensor for inverse elastostatics problems.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="fenicsmechanics.materials.solid_materials.FungMaterial">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.materials.solid_materials.</code><code class="descname">FungMaterial</code><span class="sig-paren">(</span><em>mesh</em>, <em>inverse=False</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.FungMaterial" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class defines the stress tensor for Fung type materials which are
+based on the strain energy function given by</p>
+<div class="math">
+\[W = C\exp(Q),\]</div>
+<p>where</p>
+<div class="math">
+\[Q = d_1 E_{11}^2 + d_2 E_{22}^2 + d_3 E_{33}^2
+    + 2(d_4 E_{11}E_{22} + d_5 E_{22}E_{33} + d_6 E_{11}E_{33})
+    + d_7 E_{12}^2 + d_8 E_{23}^2 + d_9 E_{13}^2,\]</div>
+<p>and <span class="math">\(C\)</span> and <span class="math">\(d_i, i = 1,...,9\)</span> are material constants. The
+<span class="math">\(E_{ij}\)</span> components here are the components of the Lagrangian
+strain tensor,</p>
+<div class="math">
+\[\mathbf{E} = \frac{1}{2}(\mathbf{F}^T\mathbf{F} - \mathbf{I}),\]</div>
+<p>with respect to the orthonormal set <span class="math">\(\{\mathbf{e}_1, \mathbf{e}_2, \
+\mathbf{e}_3\}\)</span>, where <span class="math">\(\mathbf{e}_1\)</span> is a fiber direction,
+<span class="math">\(\mathbf{e}_2\)</span> the direction normal to the fiber, and
+<span class="math">\(\mathbf{e}_3 = \mathbf{e}_1 \times \mathbf{e}_2\)</span>.</p>
+<p>The resulting first Piola-Kirchhoff stress tensor is then</p>
+<div class="math">
+\[\mathbf{P} = \mathbf{P}_{vol} + \mathbf{P}_{iso}\]</div>
+<p>with</p>
+<div class="math">
+\[\mathbf{P}_{iso} = J^{-2/n}\mathbf{F}\hat{\mathbf{S}}
+      - \frac{1}{n}J^{-2/n}\text{tr}(\mathbf{C}\hat{\mathbf{S}})
+      \mathbf{F}^{-T},\]</div>
+<p>and</p>
+<div class="math">
+\[\hat{\mathbf{S}} = C\exp(Q)\left(
+      (d_1 E_{11} + d_4 E_{22} + d_6 E_{33})
+         \text{outer}(\mathbf{e}_1, \mathbf{e}_1)
+    + (d_4 E_{11} + d_2 E_{22} + d_5 E_{33})
+         \text{outer}(\mathbf{e}_2, \mathbf{e}_2)
+    + (d_6 E_{11} + d_5 E_{22} + d_3 E_{33})
+         \text{outer}(\mathbf{e}_3, \mathbf{e}_3)
+    + d_7 E_{12}(\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
+         + \text{outer}(\mathbf{e}_2, \mathbf{e}_1))
+    + d_9 E_{13}(\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
+         + \text{outer}(\mathbf{e}_3, \mathbf{e}_1))
+    + d_8 E_{23}(        text{outer}(\mathbf{e}_2, \mathbf{e}_3)
+         + \text{outer}(\mathbf{e}_3, \mathbf{e}_2))\right).\]</div>
+<p>For compressible materials,</p>
+<div class="math">
+\[\mathbf{P}_{vol} = 2J\kappa(J - \frac{1}{J})\mathbf{F}^{-T},\]</div>
+<p>and</p>
+<div class="math">
+\[\mathbf{P}_{vol} = -Jp\mathbf{F}^{-T}\]</div>
+<p>for incompressible, where <span class="math">\(\kappa\)</span> is the bulk modulus, and
+<span class="math">\(p\)</span> is the pressure.</p>
+<p>The inverse elastostatics formulation for this material is supported. The
+constitutive equation remains the same, but the Lagrangian strain is
+defined in terms of the <span class="math">\(\mathbf{f} = \mathbf{F}^{-1}\)</span>, i.e.</p>
+<div class="math">
+\[\mathbf{E} = \frac{1}{2}((\mathbf{ff}^T)^{-1} - \mathbf{I}).\]</div>
+<p>Furthermore, <span class="math">\(\mathbf{F} = \mathbf{f}^{-1}\)</span> is substituted, and the
+stress tensor returned is the Cauchy stress tensor given by <span class="math">\(\mathbf{T} \
+= j\mathbf{Pf}^{-T}\)</span>, where <span class="math">\(j = \det(\mathbf{f})\)</span>.</p>
+<p>In addition to the values listed in the docstring of <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>
+for the ‘material’ subdictionary of ‘config’, the user must provide the
+values listed below.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>'fibers'</strong> (<em>dict</em>) – See AnisotropicMaterial for details.</li>
+<li><strong>'C'</strong> (<em>float</em>) – Material constant that can be thought of as “stiffness” in some
+limiting cases.</li>
+<li><strong>'d'</strong> (<em>list</em><em>, </em><em>tuple</em>) – A list containing the coefficients in the exponent, Q, defined above.</li>
+<li><strong>'kappa'</strong> (<em>float</em>) – The bulk modulus of the material.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.FungMaterial.stress_tensor">
+<code class="descname">stress_tensor</code><span class="sig-paren">(</span><em>F</em>, <em>J</em>, <em>p=None</em>, <em>formulation=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.FungMaterial.stress_tensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the first Piola-Kirchhoff stress tensor for forward problems
+and the Cauchy stress tensor for inverse elastostatics problems. The
+constitutive equation is shown in the documentation of FungMaterial.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>F</strong> (<em>ufl.algebra.Sum</em>) – The deformation gradient.</li>
+<li><strong>J</strong> (<em>ufl.tensoralgebra.Determinant</em>) – The Jacobian, i.e. the determinant of the deformation gradient.</li>
+<li><strong>p</strong> (<em>dolfin.Function</em><em>, </em><em>ufl.indexed.Indexed</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The pressure function for incompressible materials.</li>
+<li><strong>formulation</strong> (<em>str</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – This input is not used for this material. It is solely a place holder
+to conform to the format of other materials.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>P</strong> – The stress tensor defined in the FungMaterial documentation.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="fenicsmechanics.materials.solid_materials.GuccioneMaterial">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.materials.solid_materials.</code><code class="descname">GuccioneMaterial</code><span class="sig-paren">(</span><em>mesh</em>, <em>inverse=False</em>, <em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.GuccioneMaterial" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class defines the stress tensor for Guccione type materials, which are
+a subclass of Fung-type materials. The constitutive equation is the same
+as that found in the FungMaterial documentation, but with</p>
+<div class="math">
+\[Q = b_f E_{11}^2 + b_t (E_{22}^2 + E_{33}^2 + 2 E_{23}^2)
+    + 2b_{fs}(E_{12}^2 + E_{13}^2),\]</div>
+<p>where <span class="math">\(b_f\)</span>, <span class="math">\(b_t\)</span>, and <span class="math">\(b_{fs}\)</span> are the material parameters.
+The relation between these material constants and the <span class="math">\(d_i, i = 1,...,9\)</span>
+can be obtained in a straight-forward manner.</p>
+<p>Note that the inverse elastostatics formulation is also supported since
+this class is derived from FungMaterial.</p>
+<p>In addition to the values listed in the documentation for <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>
+for the <code class="code docutils literal"><span class="pre">'material'</span></code> subdictionary of ‘config’, the user must provide the
+following values:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>'fibers'</strong> (<em>dict</em>) – See AnisotropicMaterial for details.</li>
+<li><strong>'C'</strong> (<em>float</em>) – Material constant that can be thought of as “stiffness” in some
+limiting cases.</li>
+<li><strong>'bf'</strong> (<em>float</em>) – Material “stiffness” in the fiber direction.</li>
+<li><strong>'bt'</strong> (<em>float</em>) – Material “stiffness” in transverse directions.</li>
+<li><strong>'bfs'</strong> (<em>float</em>) – Material rigidity under shear.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="fenicsmechanics.materials.solid_materials.GuccioneMaterial.strain_energy">
+<code class="descname">strain_energy</code><span class="sig-paren">(</span><em>u</em>, <em>p=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.solid_materials.GuccioneMaterial.strain_energy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the strain energy of Guccione material defined in the
+documentation of GuccioneMaterial.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>u</strong> (<em>dolfin.Funcion</em><em>, </em><em>ufl.tensors.ListTensor</em>) – The displacement of the material.</li>
+<li><strong>p</strong> (<em>dolfin.Function</em><em>, </em><em>ufl.indexed.Indexed</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The pressure for incompressible materials.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>W</strong> – The strain energy defined in the documentation of GuccioneMaterial.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.materials.fluids">
+<span id="fluids"></span><h3>Fluids<a class="headerlink" href="#module-fenicsmechanics.materials.fluids" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.materials.fluids.NewtonianFluid">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.materials.fluids.</code><code class="descname">NewtonianFluid</code><span class="sig-paren">(</span><em>**params</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.fluids.NewtonianFluid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class defining the stress tensor for an incompressible Newtonian
+fluid. Currently, only incompressible fluids are supported. The
+Cauchy stress tensor is given by</p>
+<div class="math">
+\[\mathbf{T} = -p\mathbf{I} + 2\mu\text{Sym}(\mathbf{L}),\]</div>
+<p>where <span class="math">\(p\)</span> is the pressure, <span class="math">\(\mathbf{I}\)</span> is the identity
+tensor, <span class="math">\(\mu\)</span> is the dynamic viscosity of the fluid, and
+<span class="math">\(\mathbf{L} = \text{grad}(\mathbf{v})\)</span>, where <span class="math">\(\mathbf{v}\)</span>
+is the velocity vector field.</p>
+<p>In addition to the values listed in the documentation of <code class="code docutils literal"><span class="pre">fenicsmechanics</span></code>
+for the <code class="code docutils literal"><span class="pre">'material'</span></code> subdictionary of ‘config’, the user must provide at
+least one of the values listed below:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>'mu'</strong> (<em>float</em>) – Dynamic viscosity of the fluid.</li>
+<li><strong>'nu'</strong> (<em>float</em>) – Kinematic viscosity of the fluid.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="fenicsmechanics.materials.fluids.NewtonianFluid.stress_tensor">
+<code class="descname">stress_tensor</code><span class="sig-paren">(</span><em>L</em>, <em>p</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.materials.fluids.NewtonianFluid.stress_tensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return the Cauchy stress tensor for an incompressible Newtonian fluid,
+namely</p>
+<div class="math">
+\[\mathbf{T} = -p\mathbf{I} + 2\mu\text{Sym}(\mathbf{L}),\]</div>
+<p>where <span class="math">\(\mathbf{L} = \text{grad}(\mathbf{v})\)</span>, <span class="math">\(\mathbf{I}\)</span>
+is the identity tensor, <span class="math">\(p\)</span> is the hydrostatic pressure, and
+<span class="math">\(\mu\)</span> is the dynamic viscosity.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>L</strong> (<em>ufl.differentiation.Grad</em>) – The velocity gradient.</li>
+<li><strong>p</strong> (<em>dolfin.Function</em><em>, </em><em>ufl.indexed.Indexed</em>) – The hydrostatic pressure.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>T</strong> – The Cauchy stress tensor defined above.</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ufl.algebra.Sum</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Application Program Interface</a><ul>
+<li><a class="reference internal" href="#problem-objects">Problem Objects</a><ul>
+<li><a class="reference internal" href="#base-mechanics-problem">Base Mechanics Problem</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.mechanicsproblem">Mechanics Problem</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.solidmechanics">Solid Mechanics Problem</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.fluidmechanics">Fluid Mechanics Problem</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#solver-objects">Solver Objects</a><ul>
+<li><a class="reference internal" href="#module-fenicsmechanics.mechanicssolver">Mechanics Solver</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.solidmechanics">Solid Mechanics Solver</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.fluidmechanics">Fluid Mechanics Solver</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#constitutive-equations">Constitutive Equations</a><ul>
+<li><a class="reference internal" href="#module-fenicsmechanics.materials.solid_materials">Solid Materials</a></li>
+<li><a class="reference internal" href="#module-fenicsmechanics.materials.fluids">Fluids</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="demos-all.html" title="previous chapter">Examples</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/chapters/api.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Miguel A. Rodriguez.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/chapters/api.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -17,167 +17,11 @@ class BaseMechanicsProblem(object):
     mechanics problems are derived from this class. The derived classes will
     then define the variational problem using the FEniCS UFL language.
 
-    The user must provide a python dictionary (referred to as 'config' throughout)
-    with the keys and values listed below. Actions taken when optional values are
-    not provided are listed below.
+    For details on the format of the :code:`config` dictionary, check the
+    documentation of the FEniCS Mechanics module by executing
 
-
-    * 'material'
-       * 'type' : str
-            The class of material that will be used, e.g. elastic, viscous,
-            viscoelastic, etc.
-       * 'const_eqn' : str, class
-            The name of the constitutive equation to be used. User may provide
-            their own class which defines a material instead of using those
-            implemented in fenicsmechanics.materials. For a list of implemented
-            materials, call 'fenicsmechanics.list_implemented_materials()'.
-       * 'incompressible' : bool
-            True if the material is incompressible. An
-            additional weak form for the incompressibility
-            constraint will be added to the problem.
-       * 'density' : float, int
-            Scalar specifying the density of the material.
-
-       *** The additional material parameters depend on the ***
-       ***  constitutive equation being used. Please check  ***
-       ***   the documentation of the specific model used.  ***
-       ***                                                  ***
-       ***     A list of implemented material types and     ***
-       ***       constitutive equations is provided by      ***
-       ***         'list_implemented_materials'.            ***
-
-
-    * 'mesh'
-       * 'mesh_file' : str, dolfin.Mesh
-            Name of the file containing the mesh information of
-            the problem geometry, or a dolfin.Mesh object. Supported
-            file formats are *.xml, *.xml.gz, and *.h5.
-       * 'boundaries' : str, dolfin.MeshFunction
-            Name of the file containing the mesh function to mark different
-            boundary regions of the geometry, or a dolfin.MeshFunction object.
-            Supported file formats are *.xml, *.xml.gz, and *.h5. This mesh
-            function will be used to mark different regions of the domain
-            boundary.
-
-
-    * 'formulation'
-        * 'time' (OPTIONAL)
-            * 'unsteady' : bool
-                True if the problem is time dependent, and False otherwise.
-            * 'dt' : float
-                Time step used for the numerical integrator.
-            * 'interval' : list, tuple
-                A list or tuple of length 2 specifying the time interval,
-                i.e. [t0, tf].
-            * 'theta': float, int (OPTIONAL)
-                The weight given to the current time step and subtracted
-                from the previous, i.e.
-
-                  dy/dt = theta*f(y_{n+1}) + (1 - theta)*f(y_n).
-
-                Note: theta = 1 gives a fully implicit scheme, while
-                theta = 0 gives a fully explicit one. The default value is 1.
-            * 'beta' : float, int (OPTIONAL)
-                The beta parameter used in the Newmark integration scheme.
-                Note: the Newmark integration scheme is only used by
-                SolidMechanicsProblem. The default value is 0.25.
-            * 'gamma' : float, int (OPTIONAL)
-                The gamma parameter used in the Newmark integration scheme.
-                Note: the Newmark integration scheme is only used by
-                SolidMechanicsProblem. The default value is 0.5
-        * 'initial_condition' (OPTIONAL)
-            * 'displacement' : dolfin.Coefficient (OPTIONAL)
-                A dolfin.Coefficient object specifying the initial value for
-                the displacement.
-            * 'velocity' : dolfin.Coefficient (OPTIONAL)
-                A dolfin.Coefficient object specifying the initial value for
-                the velocity.
-            * 'pressure' : dolfin.Coefficient (OPTIONAL)
-                A dolfin.Coefficient object specifying the initial value for
-                the pressure.
-       * 'element' : str
-            Name of the finite element to be used for the discrete
-            function space. Currently, elements of the form 'p<n>-p<m>'
-            are supported, where <n> is the degree used for the vector
-            function space, and <m> is the degree used for the scalar
-            function space. If the material is not incompressible, only the
-            first term should be specified. E.g., 'p2-p1'.
-        * 'domain' : str
-            String specifying whether the problem is to be formulated
-            in terms of Lagrangian, Eulerian, or ALE coordinates. Note:
-            ALE is currently not supported.
-        * 'inverse' : bool (OPTIONAL)
-            True if the problem is an inverse elastostatics problem, and False
-            otherwise. For more information, see Govindjee and Mihalic (1996 &
-            1998).
-        * 'body_force' : dolfin.Coefficient (OPTIONAL)
-            Value of the body force throughout the body.
-        * 'bcs' (OPTIONAL)
-            * 'dirichlet' (OPTIONAL)
-                * 'velocity' : list, tuple
-                    List of velocity values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order must
-                    match the order used in the list of region IDs.
-                * 'displacement' : list, tuple
-                    List of displacement values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order must match
-                    the order used in the list of region IDs.
-                * 'pressure' : list, tuple
-                    List of pressure values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order must match
-                    the order used in the list of pressure region IDs.
-                * 'regions' : list, tuple
-                    List of the region IDs on which Dirichlet boundary conditions for
-                    displacement and velocity are to be imposed. These IDs must match
-                    those used by the mesh function provided. The order must match that
-                    used in the list of values (velocity and displacement).
-                * 'p_regions' : list, tuple
-                    List of the region IDs on which Dirichlet boundary conditions for
-                    pressure are to be imposed. These IDs must match those used by the
-                    mesh function provided. The order must also match that used in the
-                    list of values (pressure).
-            * 'neumann' (OPTIONAL)
-                * 'regions' : list, tuple
-                    List of the region IDs on which Neumann boundary conditions are to
-                    be imposed. These IDs must match those used by the mesh function
-                    provided. The order must match the order used in the list of types
-                    and values.
-                * 'types' : list, tuple
-                    List of strings specifying whether a 'pressure', 'piola',
-                    or 'cauchy' is provided for each region. The order
-                    must match the order used in the list of region IDs
-                    and values.
-                * 'values' : list, tuple
-                    List of values (dolfin.Constant or dolfin.Expression)
-                    for each Dirichlet boundary region specified. The order
-                    must match the order used in the list of region IDs
-                    and types.
-
-
-    Below is a list of actions taken if an optional key/value IS NOT PROVIDED:
-
-    * 'time': the subdictionary {'unsteady': False} is added under this key.
-        * 'theta' : if the 'time' subdictionary is defined without theta, a fully
-            implicit scheme is assumed (theta = 1).
-        * 'beta' : if the 'time' subdictionary is defined without beta, and the
-            SolidMechanicsProblem class is being used, the value of 0.25 will be
-            assigned to beta.
-        * 'gamma' : if the 'time' subdictionary is defined without gamma, and the
-            SolidMechanicsProblem class is being used, the value of 0.5 will be
-            assigned to gamma.
-    * 'initial_condition': the initial condition is assumed to be zero for any
-        values that are not provided.
-    * 'inverse' : a boolean value is assigned to this key if none is provided.
-    * 'body_force': the body force is set to zero.
-    * 'bcs': the subdictionary {'dirichlet': None, 'neumann': None} is added
-        under this key. A warning is printed alerting the user that no boundary
-        conditions were specified.
-        * 'dirichlet': if 'bcs' is provided, but 'dirichlet' is not, the value
-            of 'dirichlet' is set to None. A warning is printed alerting the user
-            that no Dirichlet BC was specified.
-        * 'neumann': if 'bcs' is provided, but 'neumann' is not, the value of
-            'neumann' is set to None. A warning is printed alerting the user that
-            not Neumann BC was specified.
+    >>> import fenicsmechanics as fm
+    >>> help(fm)
 
 
     """
@@ -231,7 +75,7 @@ class BaseMechanicsProblem(object):
             BaseMechanicsProblem to see the format of the dictionary.
 
 
-        Results
+        Returns
         -------
 
         config : dict

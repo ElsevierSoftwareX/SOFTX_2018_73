@@ -1,0 +1,253 @@
+Mathematical Formulation
+************************
+
+For the first example, we consider a steady-state solid mechanics
+problem. The domain is the unit square domain
+:math:`[0,1]\times[0,1]`. The material will be modeled as an
+incompressible neo-Hookean material, which is given by the strain
+energy function
+
+.. math::
+
+   W = U(J) +  \frac{1}{2} \mu \left(\text{tr}\;\tilde{\mathbf{C}} - 3\right),
+
+where :math:`J = \det{\mathbf{F}}` is the determinant of the
+deformation gradient, and :math:`\tilde{\mathbf{C}} =
+J^{-2/3}\mathbf{F}^T\mathbf{F}` is the isochoric component of the
+Cauchy-Green strain tensor. This leads to the first Piola-Kirchhoff
+stress tensor
+
+.. math::
+
+   \mathbf{P} = -\left[Jp + \frac{1}{3} \mu J^{-2/3}
+      I_1(\mathbf{C})\right] \mathbf{F}^{-T} + \mu J^{-2/3}\mathbf{F},
+
+where we define the pressure as
+
+.. math::
+
+   p = - \frac{dU(J)}{dJ}.
+
+Additionally, we require that :math:`\mathbf{u}` and :math:`p` satisfy
+the incompressibility constraint given by
+
+.. math::
+
+   p - \frac{\kappa}{J}\ln J = 0.
+
+Thus, :math:`\kappa` is the bulk modulus of the material.
+
+The material is clamped at :math:`x = 0`, and a uniformly distributed
+load is applied at :math:`x = 1`, i.e. :math:`\bar{\mathbf{p}} =
+\bar{p}\mathbf{e}_1`, where :math:`\bar{p}` is constant, as shown in
+Figure :numref:`figure-square-fbd`. For this particular example, we
+use material properties representative of natural rubber. Hence,
+:math:`\mu = 1.5` MPa, and :math:`\kappa = 10` GPa. The load applied
+is :math:`\bar{p} = 1` MPa. Quadratic and linear finite elements are
+used for the displacement and pressure fields, respectively.
+
+.. _figure-square-fbd:
+
+.. figure:: /_static/figures/square-free_body_diagram.png
+   :scale: 60 %
+
+   Free body diagram for the loading of a unit square domain filled
+   with natural rubber.
+
+
+Code
+****
+
+First, import FEniCS Mechanics with the alias :code:`fm`.
+
+.. code-block:: python
+
+   import fenicsmechanics as fm
+
+In this demonstration, we will define three separate dictionaries that
+will be combined into one later. First, we define the material
+dictionary.
+
+.. code-block:: python
+
+   material = {
+
+The problem is of ann elastic material.
+
+.. code-block:: python
+
+       'type': 'elastic',
+
+We will be using the neo-Hookean constitutive equation. This model is
+already implemented in the :code:`materials` submodule, so we
+can just provide a string.
+
+.. code-block:: python
+
+       'const_eqn': 'neo_hookean',
+
+We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.
+
+.. code-block:: python
+
+       'incompressible': True,
+
+Given the formulation above for the incompressibility constraint, we
+must provide the bulk modulus of the material.
+
+.. code-block:: python
+
+       'kappa': 10e9, # Pa
+
+Also, the shear modulus of the material is provided.
+
+.. code-block:: python
+
+       'mu': 1.5e6 # Pa
+   }
+
+The material dictionary is defined all together below.
+
+.. code-block:: python
+
+   material = {
+       'type': 'elastic',
+       'const_eqn': 'neo_hookean',
+       'incompressible': True,
+       'kappa': 10e9, # Pa
+       'mu': 1.5e6 # Pa
+   }
+
+
+Now, we define a string variable with the relative location of our
+mesh files. We also define the mesh dictionary by telling FEniCS
+Mechanics where the files containing the mesh and the boundary tags
+are located.
+
+.. code-block:: python
+
+   mesh_dir = '../../meshfiles/unit_domain/'
+   mesh = {
+       'mesh_file': mesh_dir + 'unit_domain-mesh-20x20.xml.gz',
+       'boundaries': mesh_dir + 'unit_domain-boundaries-20x20.xml.gz'
+   }
+
+Last, but not least, is the formulation dictionary used to define the
+weak form for the problem.
+
+.. code-block:: python
+
+   formulation = {
+
+First, we tell FEniCS Mechanics that we wish to a quadratic finite
+element for the displacement, and a linear finite element for the
+pressure.
+
+.. code-block:: python
+
+       'element': 'p2-p1',
+
+Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.
+
+.. code-block:: python
+
+       'domain': 'lagrangian',
+
+Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions.
+
+.. code-block:: python
+
+       'bcs': {
+           'dirichlet': {
+
+We will apply a homogeneous boundary condition at :math:`x = 0`.
+
+.. code-block:: python
+
+               'displacement': [[0, 0]],
+
+To identify this region, we must use the same tags that were provided
+for the :code:`'boundaries'`. In this case, this region was tagged
+with the integer 1.
+
+.. code-block:: python
+
+               'regions': [1]
+           },
+
+Next, we define the Neumann boundary conditions.
+
+.. code-block:: python
+
+           'neumann': {
+
+We are applying a Cauchy traction of :math:`\mathbf{p} = 10^6
+\mathbf{e}_1` at :math:`x = 1`.
+
+.. code-block:: python
+
+               'values': [[1e6,0]],
+               'regions': [2],
+               'types': ['piola']
+           }
+       }
+   }
+
+The formulation dictionary is defined all together below.
+
+.. code-block:: python
+
+   formulation = {
+       'element': 'p2-p1',
+       'domain': 'lagrangian',
+       'bcs': {
+           'dirichlet': {
+               'displacement': [[0, 0]],
+               'regions': [1]
+           },
+           'neumann': {
+               'values': [[1e6,0]],
+               'regions': [2],
+               'types': ['piola']
+           }
+       }
+   }
+
+We now combine all three dictionaries into one by the name of
+:code:`config`.
+
+.. code-block:: python
+
+   config = {
+       'material': material,
+       'mesh': mesh,
+       'formulation': formulation
+   }
+
+We can create a :code:`SolidMechanicsProblem` object to define the
+necessary UFL objects for the problem we have defined.
+
+.. code-block:: python
+
+   problem = fm.SolidMechanicsProblem(config)
+
+Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, and tell
+FEniCS Mechanics to solve our problem.
+
+.. code-block:: python
+
+   solver = fm.SolidMechanicsSolver(problem, fname_disp="results/displacement.pvd")
+   solver.full_solve()
+
+The solution is shown in Figure :numref:`figure-square-soln`.
+
+.. _figure-square-soln:
+
+.. figure:: /_static/figures/square-soln.png
+   :scale: 20 %
+
+   Elongation of a unit square made of natural rubber.

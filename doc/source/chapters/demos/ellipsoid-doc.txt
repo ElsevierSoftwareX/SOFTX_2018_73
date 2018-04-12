@@ -1,0 +1,299 @@
+Mathematical Formulation
+************************
+
+In this example, we use an ellipsoid as an ideal geometry model for
+the human heart as is done in Land et al. :cite:`land_2015`. This
+geometry is shown in Figure :numref:`figure-ellipsoid-geometry`.
+
+.. _figure-ellipsoid-geometry:
+
+.. figure:: /_static/figures/ellipsoid-mesh.png
+   :scale: 20 %
+
+   Mesh used as an ideal left ventricle of the human heart.
+
+The cardiac tissue is modeled using the strain energy function
+proposed by Guccione et al. :cite:`guccione_1995`, which is given by
+
+.. math::
+
+   W = U(J) + Ce^Q,
+
+where
+
+.. math::
+
+   Q = b_f \bar{E}_{11}^2 + b_t\left(\bar{E}_{22}^2 + \bar{E}_{33}^2 +
+       2\bar{E}_{23}^2\right) + 2b_{fs}\left(\bar{E}_{12}^2 +
+       \bar{E}_{13}^2\right),
+
+with
+
+.. math::
+
+   \bar{\mathbf{E}} = \mathbf{QEQ}^T.
+
+Note that :math:`\mathbf{Q}` is an orthogonal tensor that transforms
+the components of the Lagrangian strain tensor, :math:`\mathbf{E}`,
+from the global coordinate system to the local fiber direction
+frame. For more details, please read the paper by Guccione et al.
+
+
+Code
+****
+
+Import FEniCS Mechanics with the alias :code:`fm`, and define the mesh
+directory.
+
+.. code-block:: python
+
+   import fenicsmechanics as fm
+
+   mesh_dir = '../../meshfiles/ellipsoid/'
+
+In this demonstration, we will define three separate dictionaries that
+will be combined into one later. First, we define the material
+dictionary.
+
+.. code-block:: python
+
+   mat_dict = {
+
+We will be using the constitutive equation presented by Guccione et
+al. :cite:`guccione_1995`. This model is already implemented in the
+:code:`materials` submodule, so we can just provide a string with the
+name of the model.
+
+.. code-block:: python
+
+       'const_eqn': 'guccione',
+
+The problem is of an elastic material.
+
+.. code-block:: python
+
+       'type': 'elastic',
+
+We must also let FEniCS Mechanics know that we wish to model the
+material as incompressible.
+
+.. code-block:: python
+
+       'incompressible': True,
+
+Given that we are incrementally solving a steady-state problem, we
+wish to cancel the inertial term. Hence, we set the density of the
+material to zero.
+
+.. code-block:: python
+
+       'density': 0.0,
+
+Now, we provide all of the coefficients that are specific to the
+constitutive equation of choice. See :cite:`guccione_1995` for further
+details on their physical significance.
+
+.. code-block:: python
+
+       'bt': 1.0,
+       'bf': 1.0,
+       'bfs': 1.0,
+       'C': 10.0,
+
+This example involves a material that is not isotropic, and hence
+requires fiber information. For this, we define a subdictionary within
+the :code:`material` subdictionary.
+
+.. code-block:: python
+
+       'fibers': {
+
+Here, we provide the name of the files that contain the vector field
+information necessary to define the stress tensor, as well as the
+names we wish to give to these fields.
+
+.. code-block:: python
+
+           'fiber_files': [mesh_dir + 'fibers/n1-p0-1000um.xml.gz',
+                           mesh_dir + 'fibers/n2-p0-1000um.xml.gz'],
+           'fiber_names': ['n1', 'n2'],
+
+We also tell FEniCS Mechanics that the fiber vector fields are assumed
+to be constant over each element.
+
+.. code-block:: python
+
+           'element-wise': True
+           }
+       }
+
+The entire material dictionary is defined all together below.
+
+.. code-block:: python
+
+   mat_dict = {
+       'const_eqn': 'guccione',
+       'type': 'elastic',
+       'incompressible': True,
+       'density': 0.0,
+       'bt': 1.0,
+       'bf': 1.0,
+       'bfs': 1.0,
+       'C': 10.0,
+       'fibers': {
+           'fiber_files': [mesh_dir + 'fibers/n1-p0-1000um.xml.gz',
+                           mesh_dir + 'fibers/n2-p0-1000um.xml.gz'],
+           'fiber_names': ['n1', 'n2'],
+           'element-wise': True
+           }
+       }
+
+We define the mesh dictionary by telling FEniCS Mechanics where the
+files containing the mesh and the boundary tags are located. Note that
+this information is stored in a single HDF5 file for this
+example. FEniCS Mechanics will recognize this and open the file just
+once for efficiency.
+
+.. code-block:: python
+
+   mesh_dict = {
+       'mesh_file': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5',
+       'boundaries': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5'
+   }
+
+The last dictionary to define is the formulation dictionary.
+
+.. code-block:: python
+
+   formulation_dict = {
+
+This incremental steady-state problem is being treated as a
+time-dependent problem and thus requires a :code:`time` subdictionary
+within the formulation dictionary. Here, we specify the size of the
+time interval, :math:`\Delta t`, and the initial and final time for
+the simulation.
+
+.. code-block:: python
+
+       'time': {
+           'dt': 0.01,
+           'interval': [0., 1.]
+       },
+
+Note that no value was provided for :math:`\theta, \beta,
+\gamma`. Thus, the default values, :math:`\theta = 1`, :math:`\beta =
+0.25`, and :math:`\gamma = 0.5`, are used.
+
+Now, we specify a quadratic finite element for the displacement, and a
+linear finite element for the pressure.
+
+.. code-block:: python
+
+       'element': 'p2-p1',
+
+Then, we specify that the mathematical formulation should be done in
+the reference (Lagrangian) configuration.
+
+.. code-block:: python
+
+       'domain': 'lagrangian',
+
+Now, we define the boundary conditions. First up are the Dirichlet
+boundary conditions. We will apply a zero Dirichlet boundary condition
+at the base of the ideal ventricle. The integer value 10 was used to
+identify this region.
+
+.. code-block:: python
+
+       'bcs':{
+           'dirichlet': {
+               'displacement': [[0., 0., 0.]],
+               'regions': [10], # Integer ID for base plane
+           },
+
+Next, we define the Neumann boundary conditions. We apply a pressure
+that is incremented from 0 to 10 at the inner wall of the ideal
+ventricle. The integer value 20 was used to identify this region.
+
+.. code-block:: python
+
+           'neumann': {
+               'regions': [20], # Integer ID for inner surface
+               'types': ['pressure'],
+               'values': ['10.0*t']
+           }
+       }
+   }
+
+
+The formulation dictionary is defined all together below.
+
+.. code-block:: python
+
+   formulation_dict = {
+       'time': {
+           'dt': 0.01,
+           'interval': [0., 1.]
+       },
+       'element': 'p2-p1',
+       'domain': 'lagrangian',
+       'bcs':{
+           'dirichlet': {
+               'displacement': [[0., 0., 0.]],
+               'regions': [10], # Integer ID for base plane
+           },
+           'neumann': {
+               'regions': [20], # Integer ID for inner surface
+               'types': ['pressure'],
+               'values': ['10.0*t']
+           }
+       }
+   }
+
+We now combine all three dictionaries into one by the name of
+:code:`config`.
+
+.. code-block:: python
+
+   config = {
+       'material': mat_dict,
+       'mesh': mesh_dict,
+       'formulation': formulation_dict
+   }
+
+We can create a :code:`SolidMechanicsProblem` object to define the
+necessary UFL objects for the problem we have defined.
+
+.. code-block:: python
+
+   problem = fm.SolidMechanicsProblem(config)
+
+Last, we define the solver object by passing in the problem object and
+the name of the file we wish to save the displacement in, choose the
+linear solver we want to use, and tell FEniCS Mechanics to solve our
+problem.
+
+.. code-block:: python
+
+   solver = fm.SolidMechanicsSolver(problem, fname_disp='results/displacement.pvd')
+   solver.set_parameters(linear_solver="superlu_dist")
+   solver.full_solve()
+
+The solution is shown on the right of Figure
+:numref:`figure-ellipsoid-soln`.
+
+.. _figure-ellipsoid-soln:
+
+.. figure:: /_static/figures/ellipsoid.png
+   :scale: 20 %
+
+   The unloaded (right) and loaded (left) geometries.
+
+The choice of linear solvers, and other solver parameters, depends on
+your linear algebra backend. To see a list of linear solvers
+available, use the following:
+
+.. code-block:: python
+
+   import dolfin as dlf
+   dlf.list_linear_solver_methods()

@@ -1,0 +1,246 @@
+In this example, we will not show the full script for running a
+simulation with FEniCS Mechanics. Instead, we will show the minimal
+code required when a user wants to provide their own constitutive
+equation.
+
+Though the constitutive equation for linear isotropic materials has
+already been implemented in the :code:`materials` submodule, we will
+use this constitutive equation as an example. In order to use a custom
+constitutive equation, the user must define it as a python
+class. Thus, we start with
+
+.. code-block:: python
+
+   class MyMaterial:
+
+The two member functions that are required to make this constitutive
+model work are :code:`__init__`, and :code:`stress_tensor`. If the
+material is to be modeled as incompressible, the third member function
+:code:`incompressibilityConstraint` must also be defined. First, let
+us look at the constructor function, :code:`__init__`.
+
+.. code-block:: python
+
+       def __init__(self, inverse=False, **params):
+           self._parameters = dict()
+           self._parameters.update(params)
+           self._inverse = inverse
+           self._incompressible = params['incompressible'] \
+                 if 'incompressible' in params else False
+
+           if 'kappa' not in params:
+               kappa = self._parameters['first_lame'] \
+                     + 2.0*self._parameters['second_lame']/3.0
+               self._parameters.update(kappa=kappa)
+
+The parameter :code:`inverse` specifies if the stress tensor is to be
+formulated for an inverse elastostatics problem. Then,
+:code:`**params` allows for an arbitrary number of keyword arguments
+to be passed when initializing an object of this class. The particular
+keys used to identify the material parameters are up to the
+user. Here, we used :code:`first_lame` and :code:`second_lame`.
+
+The first line of this method creates a member object by the name
+:code:`_parameters` as a dictionary object. This is necessary for the
+way we will be accessing the material parameters in the other
+functions. We then use the member function of python dictionary
+objects :code:`update` to include all of the keyword arguments passed
+when the material object was initialized. We also define a member
+object :code:`_inverse` that will store the Boolean value of
+:code:`inverse` used during initialization. We now check if the
+material was specified as incompressible with a conditional
+expressions to see if the keyword parameter :code:`incompressible` was
+provided. Note that we assume that the material is not incompressible
+if the keyword parameter was not provided. The last three lines check
+if the bulk modulus was given under the key :code:`kappa`. If not, the
+bulk modulus is computed based on the first and second Lame
+parameters, and included in the :code:`_parameters` dictionary.
+
+Next, we must define the stress tensor. Note that the specific stress
+tensor defined here should be consistent with the formulation used
+(Eulerian or Lagrangian). Since this is a linear material, Eulerian
+and Lagrangian formulations are identical. We now define the function.
+
+.. code-block:: python
+
+   def stress_tensor(self, F, J, p=None):
+       import ufl
+       dim = ufl.domain.find_geometric_dimension(F)
+       la = self._parameters['first_lame']
+       mu = self._parameters['second_lame']
+
+       from dolfin import Identity, sym, inv, tr
+
+       I = Identity(dim)
+       if self._inverse:
+           epsilon = sym(inv(F)) - I
+       else:
+           epsilon = sym(F) - I
+
+       if self._incompressible:
+           T = -p*I + 2.0*mu*epsilon
+       else:
+           T = la*tr(epsilon)*I + 2.0*mu*epsilon
+
+We now traverse this function line by line. Starting with the
+definition of the function itself.
+
+.. code-block:: python
+
+   def stress_tensor(self, F, J, p=None):
+
+Here, :code:`F` is the deformation gradient, :code:`J` the Jacobian,
+and :code:`p` the pressure for incompressible problems. Next, we
+import the :code:`ufl` module from the FEniCS Project to determine the
+geometric dimension of the problem instead of hard coding this in our
+definition.
+
+.. code-block:: python
+
+   import ufl
+   dim = ufl.domain.find_geometric_dimension(F)
+
+Next, we retrieve the material constants for our constitutive
+equation, :math:`\lambda` and :math:`\mu`.
+
+.. code-block:: python
+
+   la = self._parameters['first_lame']
+   mu = self._parameters['second_lame']
+
+Here, we use key values that are different than those used by the
+:code:`materials` submodule to demonstrate that the user can use any
+key values so long as they are consistent. A :code:`KeyError` will be
+raised if these keyword arguments  were not provided when the object
+was initialized.
+
+Now, we import objects from :code:`dolfin` that we will need to define
+our constitutive equation.
+
+.. code-block:: python
+
+   from dolfin import Identity, sym, inv, tr
+
+Now we can start to define the stress tensor itself. First, we
+define the linearized strain tensor in terms of the deformation
+gradient, which is given by
+
+.. math::
+
+   \boldsymbol\varepsilon = \mathbf{F} - \mathbf{I} =
+         \mathbf{f}^{-1} - \mathbf{I},
+
+where :math:`\mathbf{f}` is used for inverse elastostatics
+problems. We must use a conditional state to check which formulation
+we should use.
+
+.. code-block:: python
+
+   I = Identity(dim)
+   if self._inverse:
+       epsilon = sym(inv(F)) - I
+   else:
+       epsilon = sym(F) - I
+
+Finally, we define the Cauchy stress tensor given by
+
+.. math::
+
+   \mathbf{T} = -p\mathbf{I} + 2\mu\boldsymbol\varepsilon
+
+when the material is incompressible, and
+
+.. math::
+
+   \mathbf{T} = \lambda\left(\text{tr}\;\boldsymbol\varepsilon\right) +
+        2\mu\boldsymbol\varepsilon
+
+otherwise. This is done with
+
+.. code-block:: python
+
+   if self._incompressible:
+       T = -p*I + 2.0*mu*epsilon
+   else:
+       T = la*tr(epsilon) + 2.0*mu*epsilon
+
+and this object is returned.
+
+.. code-block:: python
+
+   return T
+
+The incompressibility condition for a linear material is
+
+.. math::
+
+   \phi(\mathbf{u}) - \frac{1}{\kappa}p = 0,
+
+where :math:`\kappa` is the bulk modulus of the material, and
+:math:`\phi(\mathbf{u}) = \text{div}\;\mathbf{u}`. The user must
+return :math:`\phi`, and FEniCS Mechanics will formulate the
+corresponding weak form. This is done with
+
+.. code-block:: python
+
+   def incompressibilityCondition(self, u):
+       from dolfin import div
+       return div(u)
+
+The only part of the :code:`config` dictionary that will change is the
+material subdicionary. Thus, we provide an example below.
+
+.. code-block:: python
+
+   material = {
+       'type': 'elastic',
+       'const_eqn': MyMaterial,
+       'density': 10.0,
+       'first_lame': 1e9,
+       'second_lame': 1.5e6
+   }
+
+The combined code for the class definition is shown below.
+
+.. code-block:: python
+
+   class MyMaterial:
+
+       def __init__(self, inverse=False, **params):
+           self._parameters = dict()
+           self._parameters.update(params)
+           self._inverse = inverse
+           self._incompressible = params['incompressible'] \
+                 if 'incompressible' in params else False
+
+           if 'kappa' not in params:
+               kappa = self._parameters['first_lame'] \
+                     + 2.0*self._parameters['second_lame']/3.0
+               self._parameters.update(kappa=kappa)
+
+       def stress_tensor(self, F, J, p=None):
+           import ufl
+           dim = ufl.domain.find_geometric_dimension(F)
+           la = self._parameters['first_lame']
+           mu = self._parameters['second_lame']
+
+           from dolfin import Identity, sym, inv, tr
+
+           I = Identity(dim)
+           if self._inverse:
+               epsilon = sym(inv(F)) - I
+           else:
+               epsilon = sym(F) - I
+
+           if self._incompressible:
+               T = -p*I + 2.0*mu*epsilon
+           else:
+               T = la*tr(epsilon)*I + 2.0*mu*epsilon
+
+       def incompressibilityCondition(self, u):
+           from dolfin import div
+           return div(u)
+
+The rest of the script to run the simulation can be written as in the
+other examples where the three dictionaries are combined into one, and
+the problem and solver objects are created.

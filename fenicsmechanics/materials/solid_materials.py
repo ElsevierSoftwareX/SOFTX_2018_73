@@ -1,3 +1,15 @@
+"""
+This module contains classes that define the stress tensor for various
+solid materials. The parent class :class:`ElasticMaterial` is used for
+all class definitions. Then materials are separated into isotropic and
+anisotropic using :class:`IsotropicMaterial` and
+:class:`AnisotropicMaterial`.
+
+Parameters required by each constitutive equation is case-dependent.
+Thus, the user should check that particular documentation.
+
+
+"""
 import dolfin as dlf
 import ufl
 
@@ -34,12 +46,6 @@ class ElasticMaterial(object):
 
         material_name : str
             Name of the constitutive equation used.
-
-
-        Returns
-        -------
-
-        None
 
 
         """
@@ -216,7 +222,8 @@ class ElasticMaterial(object):
         Returns
         -------
 
-        UFL object defining the incompressibility condition.
+        Bvol : ufl.algebra.Product
+            UFL object defining the incompressibility condition.
 
         """
 
@@ -250,44 +257,50 @@ class LinearIsoMaterial(IsotropicMaterial):
     infinitesimal deformations, both compressible and incompressible. The
     stress tensor is given by
 
-    (Compressible)    T = la*tr(e)*I + 2*mu*e,
-    (Incompressible)  T = -p*I + 2*mu*e,
+    * Compressible: :math:`\mathbf{T} = \lambda\\text{tr}(\mathbf{e})\mathbf{I} \\
+      + 2\mu\mathbf{e}`,
+    * Incompressible: :math:`\mathbf{T} = -p\mathbf{I} + 2\mu\mathbf{e}`,
 
-    where la and mu are the Lame material parameters, e = sym(grad(u))
-    where u is the displacement, and p is the pressure in the case of an
-    incompressible material.
+    where :math:`\lambda` and :math:`\mu` are the Lame material parameters,
+    :math:`\mathbf{e} = \\text{sym}(\\text{grad}(\mathbf{u}))` where
+    :math:`\mathbf{u}` is the displacement, and :math:`p` is the pressure in
+    the case of an incompressible material.
 
     The inverse elastostatics formulation is also supported for this material
     model. In that case, the only change that must be accounted for is the
     fact that
 
-    e = sym(f^{-1}) - I,
+    .. math::
 
-    where f = F^{-1} is the deformation gradient from the current to the
-    reference configuration.
+       \mathbf{e} = \\text{sym}(\mathbf{f}^{-1}) - \mathbf{I},
+
+    where :math:`\mathbf{f} = \mathbf{F}^{-1}` is the deformation gradient from
+    the current to the reference configuration.
 
     At least two of the material constants from the list below must be provided
-    in the 'material' subdictionary of 'config' in addition to the values
-    already listed in the documentation of BaseMechanicsProblem.
+    in the :code:`'material'` subdictionary of :code:`config` in addition to the
+    values already listed in the docstring of :code:`fenicsmechanics`. The remaining
+    constants will be computed based on the parameters provided by the user.
 
-    * 'la' : float
+
+    Parameters
+    ----------
+
+    'la' : float
         The first Lame parameter used as shown in the equations above. Note:
         providing la and inv_la does not qualify as providing two material
         constants.
-    * 'mu' : float
+    'mu' : float
         The second Lame parameter used as shown in the equations above.
-    * 'kappa' : float
+    'kappa' : float
         The bulk modulus of the material.
-    * 'inv_la' : float
+    'inv_la' : float
         The reciprocal of the first Lame parameter, la. Note: providing la and
         inv_la does not qualify as providing two material constants.
-    * 'E' : float
+    'E' : float
         The Young's modulus of the material.
-    * 'nu' : float
+    'nu' : float
         The Poisson's ratio of the material.
-
-    The remaining constants will be computed based on the parameters provided
-    by the user.
 
 
     """
@@ -317,27 +330,24 @@ class LinearIsoMaterial(IsotropicMaterial):
 
     def stress_tensor(self, F, J, p=None, formulation=None):
         """
-        Return the Cauchy stress tensor for a linear material, namely
+        Return the Cauchy stress tensor for a linear material, namely:
 
-        (Compressible)    T = la*tr(e)*I + 2*mu*e,
-        (Incompressible)  T = -p*I + 2*mu*e,
-
-        where e = sym(grad(u)), I is the identity tensor, and la & mu are
-        the Lame parameters.
-
+        * Compressible: :math:`\mathbf{T} = \lambda\\text{tr}(\mathbf{e})\mathbf{I} \\
+          + 2\mu\mathbf{e}`,
+        * Incompressible: :math:`\mathbf{T} = -p\mathbf{I} + 2\mu\mathbf{e}`,
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The Jacobian, i.e. determinant of the deformation gradient. Note
             that this is not used for this material. It is solely a place holder
             to conform to the format of other materials.
-        p : (default, None)
+        p : dolfin.Coefficient (default, None)
             The UFL pressure function for incompressible materials.
-        formulation : (default, None)
+        formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
             to conform to the format of other materials.
 
@@ -345,7 +355,8 @@ class LinearIsoMaterial(IsotropicMaterial):
         Returns
         -------
 
-        T defined above.
+        T : ufl.algebra.Sum
+            The Cauchy stress tensor given by the equation above.
 
         """
 
@@ -371,20 +382,22 @@ class LinearIsoMaterial(IsotropicMaterial):
     def incompressibilityCondition(self, u):
         """
         Return the incompressibility condition for a linear material,
-        p = div(u).
+        :math:`p = \kappa\\text{div}(\mathbf{u})`.
 
 
         Parameters
         ----------
 
-        u :
+        u : dolfin.Function, ufl.tensors.ListTensor
             The displacement vector.
 
 
         Returns
         -------
 
-        UFL object defining the incompressibility condition.
+        Bvol : ufl.algebra.Product
+            UFL object defining the incompressibility condition.
+
 
         """
 
@@ -396,73 +409,97 @@ class NeoHookeMaterial(IsotropicMaterial):
     Return the first Piola-Kirchhoff stress tensor based on variations of the
     strain energy function
 
-    psi(C) = 0.5*mu*(tr(C) - n),
+    .. math::
 
-    where C = F.T*F, and n is the geometric dimension. For nearly incompressible
-    materials, the total strain energy function is given by
+       \psi(\mathbf{C}) = \\frac{1}{2}\mu(\\text{tr}(\mathbf{C}) - n),
 
-    W = U(J) + psi(C),
+    where :math:`\mathbf{C} = \mathbf{F}^T\mathbf{F}`, and :math:`n` is the
+    geometric dimension. For nearly incompressible materials, the total strain
+    energy function is given by
 
-    where U(J) corresponds to the strain energy in response to dilatation of
-    the material with J = det(F). The two forms of U(J) supported here are
+    .. math::
 
-    (square)  U(J) = 0.5*kappa*(J - 1)**2,
-    (log)     U(J) = 0.5*kappa*(ln(J))**2,
+       W = U(J) + \psi(\mathbf{C}),
 
-    where kappa is the bulk modulus of the material. This results in the first
-    Piola-Kirchhoff stress tensor given by
+    where :math:`U(J)` corresponds to the strain energy in response to dilatation
+    of the material with :math:`J = \det(\mathbf{F})`. The two forms of :math:`U(J)`
+    supported here are
 
-    P = J*(dU/dJ)*F^{-T} + mu*F.
+    * Square: :math:`U(J) = \\frac{1}{2}\kappa(J - 1)^2`,
+    * Log: :math:`U(J) = \\frac{1}{2}\kappa(\ln(J))^2`,
+
+    where :math:`\kappa` is the bulk modulus of the material. This results in the
+    first Piola-Kirchhoff stress tensor given by
+
+    .. math::
+
+       \mathbf{P} = J\\frac{dU}{dJ}\mathbf{F}^{-T} + \mu\mathbf{F}.
 
     In the case of an incompressible material, the total strain energy is
     assumed to be of the form
 
-    W = U(J) + psi(Cbar),
+    .. math::
 
-    where Cbar = J^{-2/n}*C. Furthermore, the pressure scalar field is defined
-    such that p = -dU/dJ. The resulting first Piola-Kirchhoff stress tensor
-    is then
+       W = U(J) + \psi(\\bar{\mathbf{C}}),
 
-    P = -[J*p + (1/n)*mu*J^{-2/n}*tr(C)]*F^{-T} + mu*J^{-2/n}*F.
+    where :math:`\\bar{\mathbf{C}} = J^{-2/n}\mathbf{C}`. Furthermore, the
+    pressure scalar field is defined such that :math:`p = -\\frac{dU}{dJ}`.
+    The resulting first Piola-Kirchhoff stress tensor is then
+
+    .. math::
+
+       \mathbf{P} = -\left[Jp + \\frac{1}{n}\mu J^{-2/n}\\text{tr}(\mathbf{C})
+             \\right]\mathbf{F}^{-T} + \mu J^{-2/n}\mathbf{F}.
 
     The inverse elastostatics formulation is also supported for this material
     model. In that case, the Cauchy stress tensor for compressible material is
 
-    T = -j^2*(dU/dj)*I + mu*c^{-1},
+    .. math::
+
+       \mathbf{T} = -j^2\\frac{dU}{dj}\mathbf{I} + \mu\mathbf{c}^{-1},
 
     and
 
-    T = -[p + (1/n)*mu*j^{-1/n}*i2]*I + mu*j^{5/n}*c^{-1},
+    .. math::
 
-    for incompressible material where j = det(f) = det(F^{-1}) = 1/J, c = f^T*f,
-    i2 is the second invariant of c, and p is the pressure in the latter case.
-    Note that f is the deformation gradient from the current configuration to
-    the reference configuration.
+       \mathbf{T} = -\left[p + \\frac{1}{n}\mu j^{-1/n}i_2\\right]\mathbf{I}
+             + \mu j^{5/n}\mathbf{c}^{-1},
+
+    for incompressible material where :math:`j = \det(\mathbf{f}) = \\
+    \det(\mathbf{F}^{-1}) = \\frac{1}{J}, \mathbf{c} = \mathbf{f}^T\mathbf{f}`,
+    :math:`i_2` is the second invariant of c, and p is the pressure in the latter
+    case. Note that :math:`\mathbf{f}` is the deformation gradient from the
+    current configuration to the reference configuration.
 
     At least two of the material constants from the list below must be provided
-    in the 'material' subdictionary of 'config' in addition to the values
-    already listed in the documentation of BaseMechanicsProblem.
+    in the :code:`'material'` subdictionary of :code:`config` in addition to the
+    values already listed in the docstring of :code:`fenicsmechanics`.
 
-    * 'la' : float
+    Parameters
+    ----------
+
+    'la' : float
         The first parameter used as shown in the equations above. Note: providing
-        la and inv_la does not qualify as providing two material parameters.
-    * 'mu' : float
+        :code:`la` and :code:`inv_la` does not qualify as providing two material
+        parameters.
+    'mu' : float
         The second material parameter used as shown in the equations above.
-    * 'kappa' : float
+    'kappa' : float
         The bulk modulus of the material.
-    * 'inv_la' : float
-        The reciprocal of the first parameter, la. Note: providing la and inv_la
-        does not qualify as providing two material parameters.
-    * 'E' : float
+    'inv_la' : float
+        The reciprocal of the first parameter, :code:`la`. Note: providing
+        :code:`la` and :code:`inv_la` does not qualify as providing two material
+        parameters.
+    'E' : float
         The Young's modulus of the material. Note: this is not entirely consistent
-        with the neo-Hookean formulation, but la and mu will be computed based
-        on the relation between the Young's modulus and the Lame parameters if
-        E is given.
-    * 'nu' : float
+        with the neo-Hookean formulation, but :code:`la` and :code:`mu` will be
+        computed based on the relation between the Young's modulus and the Lame
+        parameters if :code:`E` is given.
+    'nu' : float
         The Poisson's ratio of the material. Note: this is not entirely consistent
-        with the neo-Hookean formulation, but la and mu will be computed based
-        on the relation between the Poisson's ratio and the Lame parameters if
-        nu is given.
+        with the neo-Hookean formulation, but :code:`la` and :code:`mu` will be
+        computed based on the relation between the Poisson's ratio and the Lame
+        parameters if :code:`nu` is given.
 
 
     """
@@ -532,41 +569,53 @@ class NeoHookeMaterial(IsotropicMaterial):
         objective is to find the inverse displacement. The strain energy for a
         compressible material is defined by
 
-        W = 0.5*mu*(I1 - dim) + 0.5*la*(ln(J))**2 - mu*ln(J)
-          = 0.5*mu*(i2/i3 - dim) + 0.5*la*(ln(j))**2 - mu*ln(j),
+        .. math::
 
-        where I1 is the first invariant of C = F.T*F, while i2 and i3 are the
-        second and third invariants of c = f.T*f, with f = inv(F). For a
+           W = \\frac{1}{2}\mu(I_1 - n) + \\frac{1}{2}\lambda(\ln(J))^2
+                 - \mu\ln(J) \\\\
+             = \\frac{1}{2}\mu\left(\\frac{i_2}{i_3} - n\\right)
+                 + \\frac{1}{2}\lambda(\ln(j))^2 - \mu\ln(j),
+
+        where :math:`I_1` is the first invariant of :math:`\mathbf{C} = \\
+        \mathbf{F}^T\mathbf{F}`, while :math:`i_2` and :math:`i_3` are the
+        second and third invariants of :math:`\mathbf{c} = \mathbf{f}^T \\
+        \mathbf{f}`, with :math:`\mathbf{f} = \mathbf{F}^{-1}`. For a
         (nearly-)incompressible material, the strain energy is defined by
 
-        W = U(J) + 0.5*mu*(I1 - dim)
-          = U(j) + 0.5*mu*(i2/i3 - dim),
+        .. math::
 
-        where the invariants are now those of Cbar = J**(-2.0/dim)*C or cbar =
-        j**(-2.0/dim)*c, and dU/dJ = p for fully incompressible material, while
-        U(J) = kappa*phi(J), where the particular form of phi is given below.
+           W = U(J) + \\frac{1}{2}\mu(I_1 - n) \\\\
+             = U(j) + \\frac{1}{2}\mu(\\frac{i_2}{i_3} - n),
+
+        where the invariants are now those of :math:`\\bar{\mathbf{C}} = \\
+        J^{-2/n}\mathbf{C}` or :math:`\\bar{\mathbf{c}} = j^{-2/n}\mathbf{c}`,
+        and :math:`\\frac{dU}{dJ} = p` for fully incompressible material, while
+        :math:`U(J) = \kappa\phi(J)`. The two forms of :math:`\phi(J)` supported
+        here are
+
+        * Square: :math:`\phi(J) = \\frac{1}{2}(J - 1)^2`,
+        * Log: :math:`\phi(J) = \\frac{1}{2}(\ln(J))^2`.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The (forward or inverse) deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The jacobian, i.e. determinant of the deformation gradient given
             above.
-        formulation : (default, None)
+        formulation : str (default, None)
             The formulation used for the nearly-incompressible materials.
-            The accepted values are:
-
-            * square:     phi(J) = 0.5*kappa*(J - 1)**2
-            * log:        phi(J) = 0.5*kappa*(ln(J))**2
+            Value must either be :code:`'square'` or :code:`'log'`.
 
 
         Returns
         -------
 
-        The strain energy, W, defined above.
+        W : ufl.algebra.Sum
+            The strain energy defined above.
+
 
         """
 
@@ -581,24 +630,27 @@ class NeoHookeMaterial(IsotropicMaterial):
     def _forward_strain_energy(self, F, J, formulation=None):
         """
         Define the strain energy function for the Neo-Hookean material
-        based on the forward deformation gradient, dx/dX.
+        based on the forward deformation gradient,
+        :math:`\partial\mathbf{x}/\partial\mathbf{X}`.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The Jacobian, i.e. determinant of the deformation gradient.
-        p :
-            The pressure for incompressible materials.
+        formulation : str (default, None)
+            The formulation used for the nearly-incompressible materials.
+            Value must either be :code:`'square'` or :code:`'log'`.
 
 
         Returns
         -------
 
-        The strain energy for a forward deformation.
+        W : ufl.algebra.Sum
+            The strain energy of the forward problem.
 
 
         """
@@ -629,20 +681,28 @@ class NeoHookeMaterial(IsotropicMaterial):
     def _inverse_strain_energy(self, f, j, formulation=None):
         """
         Define the strain energy function for the Neo-Hookean material
-        based on the inverse deformation gradient, dX/dx.
+        based on the inverse deformation gradient,
+        :math:`\partial\mathbf{X}/\partial\mathbf{x}`.
 
 
         Parameters
         ----------
 
-        f :
+        f : ufl.algebra.Sum
             The deformation gradient from the current to the reference
             configuration.
-        j :
-            The Jacobian of the inverse deformation gradient, j = det(f).
-        formulation : str
+        j : ufl.tensoralgebra.Determinant
+            The Jacobian of the inverse deformation gradient.
+        formulation : str (default, None)
             The formulation used for the strain energy due to dilatation
             of the material.
+
+
+        Returns
+        -------
+
+        W : ufl.algebra.Sum
+            The strain energy of the forward problem.
 
 
         """
@@ -684,36 +744,60 @@ class NeoHookeMaterial(IsotropicMaterial):
         Return the first Piola-Kirchhoff stress tensor for a neo-Hookean
         material. The stress tensor is given by
 
-        (Compressible)    P = J*(dU/dJ)*F^{-T} + mu*F,
-        (Incompressible)  P = [-J*p - mu*J^(-2/n)/n*tr(C)]*F^{-T} + mu*J^{-2/n}*F,
+        * Compressible:
 
-        where F is the deformation gradient, J = det(F), C = F^T*F, and mu is
-        a material constant. If the problem is an inverse elastostatics problem,
-        the Cauchy stress tensor is given by
+          .. math::
 
-        (Compressible)   T = [-j^2*(dU/dj) - mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
-        (Incompressible) T = -[p + mu*j^{-1/n}/n*i2]*I + mu*j^{-5/n}*c^{-1}
+             \mathbf{P} = J\\frac{dU}{dJ}\mathbf{F}^{-T} + \mu\mathbf{F}
 
-        where f = F^{-1}, j = det(f), c = f^T*f, and n is the geometric dimension.
+        * Incompressible:
+
+          .. math::
+
+             \mathbf{P} = \left[-Jp - \\frac{\mu J^{-2/n}}{n}\\text{tr}(\mathbf{C}) \\
+                   \\right]\mathbf{F}^{-T} + \mu J^{-2/n}\mathbf{F},
+
+        where :math:`\mathbf{F}` is the deformation gradient, :math:`J = \\
+        \det(\mathbf{F})`, :math:`\mathbf{C} = \mathbf{F}^T\mathbf{F}`, and
+        :math:`\mu` is a material constant. If the problem is an inverse
+        elastostatics problem, the Cauchy stress tensor is given by
+
+        * Compressible:
+
+          .. math::
+
+             \mathbf{T} = \left[-j^2\\frac{dU}{dj} - \\frac{\mu j^{-1/n}}{n}i_2 \\
+                   \\right]\mathbf{I} + \mu j^{-5/n}\mathbf{c}^{-1}
+
+        * Incompressible:
+
+          .. math::
+
+             \mathbf{T} = -\left[p + \\frac{\mu j^{-1/n}}{n}i_2 \\
+                   \\right]\mathbf{I} + \mu j^{-5/n}\mathbf{c}^{-1}
+
+        where :math:`\mathbf{f} = \mathbf{F}^{-1}`, :math:`j = \det(\mathbf{f})`,
+        :math:`\mathbf{c} = \mathbf{f}^T\mathbf{f}`, and :math:`n` is the geometric
+        dimension.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The Jacobian, i.e. determinant of the deformation gradient.
-        p :
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure for incompressible materials.
-        formulation : str
+        formulation : str (default, None)
             The formulation used for the strain energy due to dilatation
             of the material.
 
         Returns
         -------
 
-        P :
+        P : ufl.algebra.Sum
             The first Piola-Kirchhoff stress tensor for forward problems and
             the Cauchy stress tensor for inverse elastostatics problems.
 
@@ -732,51 +816,50 @@ class NeoHookeMaterial(IsotropicMaterial):
         """
         Define the (first Piola-Kirchhoff or Cauchy) stress tensor based on the
         incompressibility of the material (fully or nearly incompressible, or
-        compressible), defined with respect to the deformation gradient, or by
-        its inverse if the objective is to find the inverse displacement. The
-        first Piola-Kirchhoff stress tensor for a compressible material is defined
-        by
+        compressible), defined with respect to the deformation gradient. The first
+        Piola-Kirchhoff stress tensor for a compressible material is defined by
 
-        P = [la*ln(J) - mu]*inv(F).T + mu*F
-          = -[la*ln(j) + mu]*f.T + mu*inv(f),
+        .. math::
 
-        where f = inv(F), and j = det(f) = 1.0/det(F). For a (nearly-)
-        incompressible material, the first Piola-Kirchhoff stress tensor is given
-        by
+           \mathbf{P} = \left[\lambda\ln(J) - \mu\\right]\mathbf{F}^{-T}
+                 + \mu\mathbf{F}.
 
-        P = [U'(J)]*inv(F).T
+        For a (nearly-)incompressible material, the first Piola-Kirchhoff stress
+        tensor is given by
 
-        W = U(J) + 0.5*mu*(I1 - dim)
-          = U(j) + 0.5*mu*(i2/i3 - dim),
+        .. math::
 
-        where the invariants are now those of Cbar = J**(-2.0/dim)*C or cbar =
-        j**(-2.0/dim)*c, and dU/dJ = p for fully incompressible material, while
-        U(J) = kappa*phi(J), where the particular form of phi is given below.
+           \mathbf{P} = J\\frac{dU}{dJ}\mathbf{F}^{-T} + \mu\mathbf{F},
+
+        where there are two formulations of :math:`U(J)` implemented. Namely,
+        :math:`U(J) = \kappa\phi(J)`, where the two forms of :math:`\phi(J)`
+        supported here are
+
+        * Square: :math:`\phi(J) = \\frac{1}{2}(J - 1)^2`,
+        * Log: :math:`\phi(J) = \\frac{1}{2}(\ln(J))^2`.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The jacobian, i.e. determinant of the deformation gradient given
             above.
-        p : (default, None)
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure scalar field. If it is set to None, the penalty method
             formulation will be used.
-        formulation : (default, None)
+        formulation : str (default, None)
             The formulation used for the nearly-incompressible materials.
-            The accepted values are:
-
-            * square:     U(J) = 0.5*kappa*(J - 1)**2
-            * log:        U(J) = 0.5*kappa*(ln(J))**2
+            Value must either be :code:`'square'` or :code:`'log'`.
 
 
         Returns
         -------
 
-        The stress tensor, P, defined above.
+        P : ufl.algebra.Sum
+            The stress tensor, P, defined above.
 
 
         """
@@ -867,7 +950,10 @@ class NeoHookeMaterial(IsotropicMaterial):
         """
         Define the strain energy function for the neo-Hookean model:
 
-        psi(C) = 0.5*mu*(tr(C) - 3)
+        .. math::
+
+           \psi(\mathbf{C}) = \\frac{1}{2}\mu\left(\\text{tr}(\mathbf{C})
+                 - 3\\right)
 
 
         Parameters
@@ -882,7 +968,8 @@ class NeoHookeMaterial(IsotropicMaterial):
         Returns
         -------
 
-        UFL object defining the strain energy given above.
+        W : ufl.algebra.Sum
+            UFL object defining the strain energy given above.
 
         """
 
@@ -897,17 +984,20 @@ class NeoHookeMaterial(IsotropicMaterial):
         Define additional terms for the strain energy of a compressible
         neo-Hookean model:
 
-        psi_hat(C) = 0.5*la*(ln(J))**2 - mu*ln(J)
+        .. math::
+
+            \hat{\psi}(\mathbf{C}) = \\frac{1}{2}\lambda(\ln(J))^2
+                 - \mu\ln(J)
 
 
         Parameters
         ----------
 
-        J :
+        J : ufl.tensoralgebra.Determinant
             Determinant of the deformation gradient.
-        la :
+        la : float
             Material constant.
-        mu :
+        mu : float
             Material constant.
 
 
@@ -919,8 +1009,7 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         """
 
-        return dlf.Constant(0.5)*la*(dlf.ln(J))**2 \
-            - mu*dlf.ln(J)
+        return dlf.Constant(0.5)*la*(dlf.ln(J))**2 - mu*dlf.ln(J)
 
 
     @staticmethod
@@ -928,7 +1017,9 @@ class NeoHookeMaterial(IsotropicMaterial):
         """
         The derivative of the isochoric component of the strain energy,
 
-        dU/dJ = (la*dlf.ln(J) - mu)/J.
+        .. math::
+
+           \\frac{dU}{dJ} = \\frac{1}{J}(\lambda\ln(J) - \mu).
 
 
         """
@@ -942,26 +1033,29 @@ class NeoHookeMaterial(IsotropicMaterial):
         Define the additional penalty component for the strain energy function
         a nearly incompressible material:
 
-        square: phi(C) = 0.5*kappa*(J - 1)**2
-        log:    phi(C) = 0.5*kappa*(ln(J))**2
+        * Square: :math:`U(J) = \\frac{1}{2}\kappa(J - 1)^2`
+        * Log: :math:`U(J) = \\frac{1}{2}\kappa(\ln(J))^2`
 
 
         Parameters
         ----------
 
-        J :
+        J : ufl.tensoralgebra.Determinant
             Determinant of the deformation gradient.
-        kappa :
-            Penalty constant.
-        formulation : "square", "log"
+        kappa : float
+            Bulk modulus of the material. Can also be interpreted as a penalty
+            constant.
+        formulation : str (default, 'square')
             String specifying which of the two above formulations to use.
 
 
         Returns
         -------
 
-        UFL object defining the penalty component of the strain energy function
-        given above.
+        U : ufl.algebra.Sum
+            UFL object defining the penalty component of the strain energy
+            function given above.
+
 
         """
 
@@ -982,25 +1076,35 @@ class NeoHookeMaterial(IsotropicMaterial):
         """
         Return the derivative of the volumetric component of strain energy,
 
-        (Square)  dU/dJ = kappa*(J - 1.0),
-        (Log)     dU/dJ = kappa*ln(J)/J.
+        * Square:
+
+        .. math::
+
+           \\frac{dU}{dJ} = \kappa\left(J - 1\\right)
+
+        * Log:
+
+        .. math::
+
+           \\frac{dU}{dJ} = \\frac{\kappa\ln(J)}{J}
 
 
         Parameters
         ----------
 
-        J :
+        J : ufl.tensoralgebra.Determinant
             Determinant of the deformation gradient.
-        kappa :
+        kappa : float
             Bulk modulus.
-        formulation : str (default "square")
+        formulation : str (default 'square')
             Choose between square and log formulation above.
 
 
         Returns
         -------
 
-        dU/dJ
+        dUdJ : ufl.algebra.Sum
+            The derivative of the volumetric component of strain energy.
 
 
         """
@@ -1023,24 +1127,28 @@ class NeoHookeMaterial(IsotropicMaterial):
         Define the first Piola-Kirchhoff stress tensor that corresponds to a
         basic neo-Hookean strain energy function,
 
-        psi(C) = 0.5*mu*(tr(C) - 3),
+        .. math::
 
-        namely, P = mu*F.
+           \psi(\mathbf{C}) = \\frac{1}{2}\mu(\\text{tr}(\mathbf{C}) - n),
+
+        namely, :math:`\mathbf{P} = \mu\mathbf{F}`.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             Deformation gradient.
-        mu :
+        mu : float
             Material constant.
 
 
         Returns
         -------
 
-        UFL object defining the above tensor, P.
+        P : ufl.algebra.Sum
+            UFL object defining the first Piola-Kirchhoff stress tensor.
+
 
         """
 
@@ -1053,28 +1161,31 @@ class NeoHookeMaterial(IsotropicMaterial):
         Define the additional terms of the first Piola-Kirchhoff stress tensor
         resulting from the strain energy component,
 
-        psi_hat(C) = 0.5*la*(ln(J))**2 - mu*ln(J),
+        .. math::
 
-        namely, P = (la*ln(J) - mu)*Finv.T.
+           \hat{\psi}(\mathbf{C}) = \\frac{1}{2}\lambda(\ln(J))^2 - \mu\ln(J),
+
+        namely, :math:`\mathbf{P} = (\lambda\ln(J) - \mu)\mathbf{F}^{-T}`.
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             Deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             Determinant of the deformation gradient.
-        la :
+        la : float
             Material constant.
-        mu :
+        mu : float
             Material constant.
 
 
         Returns
         -------
 
-        UFL object defining the above tensor, P.
+        P : ufl.algebra.Sum
+            UFL object defining the above tensor, P.
 
         """
 
@@ -1089,32 +1200,52 @@ class NeoHookeMaterial(IsotropicMaterial):
         Define the additional terms of the first Piola-Kirchhoff stress tensor
         from the strain energy component given by one of the two formulations,
 
-        square: phi(C) = 0.5*kappa*(J - 1)**2
-        log:    phi(C) = 0.5*kappa*(ln(J))**2
+        * Square:
+
+        .. math::
+
+           U(J) = \\frac{1}{2}\kappa(J - 1)^2
+
+        * Log:
+
+        ..  math::
+
+           U(J) = \\frac{1}{2}\kappa(\ln(J))^2
 
         namely,
 
-        square: P = kappa*J*(J - 1)*Finv.T
-        log:    P = kappa*ln(J)*Finv.T
+        * Square:
+
+        .. math::
+
+           \mathbf{P} = \kappa J(J - 1)\mathbf{F}^{-T}
+
+        * Log:
+
+        .. math::
+
+           \mathbf{P} = \kappa\ln(J)\mathbf{F}^{-T}
 
 
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             Deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             Determinant of the deformation gradient.
-        kappa :
+        kappa : float
             Penalty constant.
-        formulation : "square" (default), "log"
+        formulation : str (default, 'square')
             String specifying which of the two above formulations to use.
 
 
         Returns
         -------
 
-        UFL object defining the above tensor, P.
+        P : ufl.algebra.Sum
+            UFL object defining the above tensor, P.
+
 
         """
 
@@ -1141,19 +1272,23 @@ class AnisotropicMaterial(ElasticMaterial):
 
     In addition to the values listed in the documentation of BaseMechanicsProblem
     for the 'material' subdictionary of 'config', the user must provide a
-    subdictionary within 'material' named 'fibers' with the following values:
+    subdictionary within 'material' named 'fibers' with the values listed below.
 
-    * 'fiber_files' : str, list, tuple, dolfin.Coefficient
+    Note: all classes that are derived from this one require the :code:`'fibers'`
+    subdictionary.
+
+
+    Parameters
+    ----------
+
+    'fiber_files' : str, list, tuple, dolfin.Coefficient
         The name(s) of the files containing the vector field functions, or
         dolfin.Coefficient objects approximating the vector field.
-    * 'fiber_names' : str, list, tuple
+    'fiber_names' : str, list, tuple
         A name, or list of names, of all of the fiber direction fields.
-    * 'function_space' : dolfin.FunctionSpace
+    'function_space' : dolfin.FunctionSpace
         The function space used to approximate the vector fields tangent
         to the fiber directions.
-
-    Note: all classes that are derived from this one require the 'fibers'
-    subdictionary.
 
 
     """
@@ -1289,67 +1424,107 @@ class FungMaterial(AnisotropicMaterial):
     This class defines the stress tensor for Fung type materials which are
     based on the strain energy function given by
 
-    W = C*exp(Q),
+    .. math::
+
+       W = C\exp(Q),
 
     where
 
-    Q = d1*E11^2 + d2*E22^2 + d3*E33^2
-        + 2*(d4*E11*E22 + d5*E22*E33 + d6*E11*E33)
-        + d7*E12^2 + d8*E23^2 + d9*E13^2,
+    .. math::
 
-    and C and di, i = 1,...,9 are material constants. The Eij components are
-    the components of the Lagrangian strain tensor, E = 0.5*(F^T*F - I), with
-    respect to the orthonormal set {e1, e2, e3}, where e1 and e2 are two fiber
-    directions, and e3 = e1 x e2.
+       Q = d_1 E_{11}^2 + d_2 E_{22}^2 + d_3 E_{33}^2
+           + 2(d_4 E_{11}E_{22} + d_5 E_{22}E_{33} + d_6 E_{11}E_{33})
+           + d_7 E_{12}^2 + d_8 E_{23}^2 + d_9 E_{13}^2,
+
+    and :math:`C` and :math:`d_i, i = 1,...,9` are material constants. The
+    :math:`E_{ij}` components here are the components of the Lagrangian
+    strain tensor,
+
+    .. math::
+
+       \mathbf{E} = \\frac{1}{2}(\mathbf{F}^T\mathbf{F} - \mathbf{I}),
+
+    with respect to the orthonormal set :math:`\{\mathbf{e}_1, \mathbf{e}_2, \\
+    \mathbf{e}_3\}`, where :math:`\mathbf{e}_1` is a fiber direction,
+    :math:`\mathbf{e}_2` the direction normal to the fiber, and
+    :math:`\mathbf{e}_3 = \mathbf{e}_1 \\times \mathbf{e}_2`.
 
     The resulting first Piola-Kirchhoff stress tensor is then
 
-    P = P_vol + P_iso
+    .. math::
+
+       \mathbf{P} = \mathbf{P}_{vol} + \mathbf{P}_{iso}
 
     with
 
-    P_iso = J^{-2/n}*F*S_ - (1/n)*J^{-2/n}*tr(C*S_)*F^{-T},
+    .. math::
+
+       \mathbf{P}_{iso} = J^{-2/n}\mathbf{F}\hat{\mathbf{S}}
+             - \\frac{1}{n}J^{-2/n}\\text{tr}(\mathbf{C}\hat{\mathbf{S}})
+             \mathbf{F}^{-T},
 
     and
 
-    S_ = C*exp(Q)*((d1*E11 + d4*E22 + d6*E33)*outer(e1, e1)
-                 + (d4*E11 + d2*E22 + d5*E33)*outer(e2, e2)
-                 + (d6*E11 + d5*E22 + d3*E33)*outer(e3, e3)
-                 + d7*E12*(outer(e1, e2) + outer(e2, e1))
-                 + d9*E13*(outer(e1, e3) + outer(e3, e1))
-                 + d8*E23*(outer(e2, e3) + outer(e3, e2))).
+    .. math::
+
+       \hat{\mathbf{S}} = C\exp(Q)\left(
+             (d_1 E_{11} + d_4 E_{22} + d_6 E_{33})
+                \\text{outer}(\mathbf{e}_1, \mathbf{e}_1)
+           + (d_4 E_{11} + d_2 E_{22} + d_5 E_{33})
+                \\text{outer}(\mathbf{e}_2, \mathbf{e}_2)
+           + (d_6 E_{11} + d_5 E_{22} + d_3 E_{33})
+                \\text{outer}(\mathbf{e}_3, \mathbf{e}_3)
+           + d_7 E_{12}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
+                + \\text{outer}(\mathbf{e}_2, \mathbf{e}_1))
+           + d_9 E_{13}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
+                + \\text{outer}(\mathbf{e}_3, \mathbf{e}_1))
+           + d_8 E_{23}(\ttext{outer}(\mathbf{e}_2, \mathbf{e}_3)
+                + \\text{outer}(\mathbf{e}_3, \mathbf{e}_2))\\right).
 
     For compressible materials,
 
-    P_vol = 2*J*kappa*(J - 1/J)*F^{-T},
+    .. math::
+
+       \mathbf{P}_{vol} = 2J\kappa(J - \\frac{1}{J})\mathbf{F}^{-T},
 
     and
 
-    P_vol = -J*p*F^{-T}
+    .. math::
 
-    for incompressible, where kappa is the bulk modulus, and p is the pressure.
+       \mathbf{P}_{vol} = -Jp\mathbf{F}^{-T}
+
+    for incompressible, where :math:`\kappa` is the bulk modulus, and
+    :math:`p` is the pressure.
 
     The inverse elastostatics formulation for this material is supported. The
     constitutive equation remains the same, but the Lagrangian strain is
-    defined in terms of the f = F^{-1}, i.e.
+    defined in terms of the :math:`\mathbf{f} = \mathbf{F}^{-1}`, i.e.
 
-    E = 0.5*((f*f^T)^{-1} - I).
+    .. math::
 
-    Furthermore, F = f^{-1} is substituted, and the stress tensor returned
-    is the Cauchy stress tensor given by T = j*P*f^{-T}, where j = det(f).
+       \mathbf{E} = \\frac{1}{2}((\mathbf{ff}^T)^{-1} - \mathbf{I}).
 
-    In addition to the values listed in the documentation for BaseMechanicsProblem
+    Furthermore, :math:`\mathbf{F} = \mathbf{f}^{-1}` is substituted, and the
+    stress tensor returned is the Cauchy stress tensor given by :math:`\mathbf{T} \\
+    = j\mathbf{Pf}^{-T}`, where :math:`j = \det(\mathbf{f})`.
+
+    In addition to the values listed in the docstring of :code:`fenicsmechanics`
     for the 'material' subdictionary of 'config', the user must provide the
-    following values:
+    values listed below.
 
-    * 'fibers': dict
+
+    Parameters
+    ----------
+
+
+    'fibers': dict
         See AnisotropicMaterial for details.
-    * 'C' : float
+    'C' : float
         Material constant that can be thought of as "stiffness" in some
         limiting cases.
-    * 'd' : list, tuple
+    'd' : list, tuple
         A list containing the coefficients in the exponent, Q, defined above.
-    * 'kappa' : float
+    'kappa' : float
         The bulk modulus of the material.
 
 
@@ -1408,13 +1583,13 @@ class FungMaterial(AnisotropicMaterial):
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The Jacobian, i.e. the determinant of the deformation gradient.
-        p : (default, None)
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure function for incompressible materials.
-        formulation : (default, None)
+        formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
             to conform to the format of other materials.
 
@@ -1422,7 +1597,8 @@ class FungMaterial(AnisotropicMaterial):
         Returns
         -------
 
-        The stress tensor defined in the FungMaterial documentation.
+        P : ufl.algebra.Sum
+            The stress tensor defined in the FungMaterial documentation.
 
 
         """
@@ -1444,13 +1620,13 @@ class FungMaterial(AnisotropicMaterial):
         Parameters
         ----------
 
-        F :
+        F : ufl.algebra.Sum
             The deformation gradient.
-        J :
+        J : ufl.tensoralgebra.Determinant
             The Jacobian, i.e. the determinant of the deformation gradient.
-        p : (default, None)
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure function for incompressible materials.
-        formulation : (default, None)
+        formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
             to conform to the format of other materials.
 
@@ -1458,7 +1634,8 @@ class FungMaterial(AnisotropicMaterial):
         Returns
         -------
 
-        The stress tensor defined in the FungMaterial documentation.
+        P : ufl.algebra.Sum
+            The stress tensor defined in the FungMaterial documentation.
 
 
         """
@@ -1524,14 +1701,14 @@ class FungMaterial(AnisotropicMaterial):
         Parameters
         ----------
 
-        f :
+        f : ufl.algebra.Sum
             The deformation gradient from the current to the reference
             configuration.
-        j :
+        j : ufl.tensoralgebra.Determinant
             The determinant of f.
-        p : (default, None)
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure function for incompressible materials.
-        formulation : (default, None)
+        formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
             to conform to the format of other materials.
 
@@ -1539,7 +1716,8 @@ class FungMaterial(AnisotropicMaterial):
         Returns
         -------
 
-        The stress tensor defined in the FungMaterial documentation.
+        P : ufl.algebra.Sum
+            The stress tensor defined in the FungMaterial documentation.
 
 
         """
@@ -1604,30 +1782,36 @@ class GuccioneMaterial(FungMaterial):
     a subclass of Fung-type materials. The constitutive equation is the same
     as that found in the FungMaterial documentation, but with
 
-    Q = bf*E11^2 + bt*(E22^2 + E33^2 + 2*E23^2)
-        + 2*bfs*(E12^2 + E13^2),
+    .. math::
 
-    where bf, bt, and bfs are the material parameters. The relation between
-    these material constants and the di, i = 1,...,9 can be obtained in a
-    straight-forward manner.
+       Q = b_f E_{11}^2 + b_t (E_{22}^2 + E_{33}^2 + 2 E_{23}^2)
+           + 2b_{fs}(E_{12}^2 + E_{13}^2),
+
+    where :math:`b_f`, :math:`b_t`, and :math:`b_{fs}` are the material parameters.
+    The relation between these material constants and the :math:`d_i, i = 1,...,9`
+    can be obtained in a straight-forward manner.
 
     Note that the inverse elastostatics formulation is also supported since
     this class is derived from FungMaterial.
 
-    In addition to the values listed in the documentation for BaseMechanicsProblem
-    for the 'material' subdictionary of 'config', the user must provide the
+    In addition to the values listed in the documentation for :code:`fenicsmechanics`
+    for the :code:`'material'` subdictionary of 'config', the user must provide the
     following values:
 
-    * 'fibers' : dict
+
+    Parameters
+    ----------
+
+    'fibers' : dict
         See AnisotropicMaterial for details.
-    * 'C' : float
+    'C' : float
         Material constant that can be thought of as "stiffness" in some
         limiting cases.
-    * 'bf' : float
+    'bf' : float
         Material "stiffness" in the fiber direction.
-    * 'bt' : float
+    'bt' : float
         Material "stiffness" in transverse directions.
-    * 'bfs' : float
+    'bfs' : float
         Material rigidity under shear.
 
 
@@ -1653,16 +1837,17 @@ class GuccioneMaterial(FungMaterial):
         Parameters
         ----------
 
-        u :
+        u : dolfin.Funcion, ufl.tensors.ListTensor
             The displacement of the material.
-        p :
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
             The pressure for incompressible materials.
 
 
         Returns
         -------
 
-        The strain energy defined in the documentation of GuccioneMaterial.
+        W : ufl.algebra.Sum
+            The strain energy defined in the documentation of GuccioneMaterial.
 
 
         """
@@ -1843,7 +2028,8 @@ def load_fibers(fname, fiber_names, mesh):
     Returns
     -------
 
-    dolfin.MeshFunction object
+    fiber_mesh_function : dolfin.MeshFunction
+        Mesh function defining fiber directions object.
 
 
     """
@@ -1883,7 +2069,8 @@ def define_fiber_dir(fname, fiber_names, mesh, degree=0):
     Returns
     -------
 
-    dolfin.Coefficient object approximating the fiber vector fields.
+    c : dolfin.Coefficient
+        Representation of the fiber vector fields.
 
 
     """

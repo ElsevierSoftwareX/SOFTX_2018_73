@@ -1,0 +1,190 @@
+Mathematical Formulation
+************************
+
+In this example, we consider fluid flow through a pipe formulated as a
+two-dimensional problem. The domain is taken to be :math:`[0, 10]
+\times [0, 1]`. The mesh of the domain is shown in Figure
+:numref:`figure-pipe-mesh`.
+
+.. _figure-pipe-mesh:
+
+.. figure:: /_static/figures/pipe_flow-mesh.png
+   :scale: 50 %
+
+   Mesh generated with :code:`dolfin`.
+
+No slip conditions are imposed at :math:`y = 0` and
+:math:`y = 1`. Furthermore, a homogeneous Dirichlet boundary condition
+is imposed for the pressure at :math:`x = 10`. A traction boundary
+condition,
+
+.. math::
+
+   \bar{\mathbf{t}} = -\bar{p}\mathbf{n}
+
+with
+
+.. math::
+
+   \bar{p} = 1.0 + \sin\left(2\pi t\right),
+
+is imposed at the inlet (:math:`x = 0`).
+
+For this example, the fluid is assumed to be an incompressible
+Newtonian fluid, and the density and dynamic viscosity are taken to be
+:math:`\rho = 1` :math:`\mu = 0.1`, respectively.
+
+Both the velocity and the pressure are given a zero initial
+condition. We run the simulation for four cycles, :math:`t_0 = 0` to
+:math:`t_f = 4.0`, to see how the flow develops. The time step is
+taken as :math:`\Delta t = 0.01`, and a fully implicit scheme is used.
+
+In addition to demonstrating how to run a Fluid Mechanics simulation,
+we show how to generate a mesh and mark the boundaries with tools from
+:code:`dolfin`, and passing these objects to :code:`fenicsmechanics`.
+
+
+Code
+****
+
+As before, import :code:`fenicsmechanics` with the alias :code:`fm`.
+
+.. code-block:: python
+
+   import fenicsmechanics as fm
+
+Now, we import :code:`dolfin` with the alias :code:`dlf`, and create a
+rectangle mesh with 100 and 10 intervals along the :math:`x` and
+:math:`y` directions, respectively.
+
+.. code-block:: python
+
+   import dolfin as dlf
+   mesh = dlf.RectangleMesh(dlf.Point(), dlf.Point(10, 1), 100, 10)
+
+Next, we create a :code:`MeshFunction` object that we will use to mark
+the different boundary regions. We tag every facet with 0.
+
+.. code-block:: python
+
+   boundaries = dlf.MeshFunction("size_t", mesh, 1)
+   boundaries.set_all(0)
+
+Then, we use the :code:`CompiledSubDomain` class to define the inlet,
+outlet, and no-slip regions of the boundary.
+
+.. code-block:: python
+
+   inlet = dlf.CompiledSubDomain("near(x[0], 0.0)")
+   outlet = dlf.CompiledSubDomain("near(x[0], 10.0)")
+   no_slip = dlf.CompiledSubDomain("near(x[1], 0.0) || near(x[1], 1.0)")
+
+Once the different regions are defined, we can mark them with their
+own integer values for identification.
+
+.. code-block:: python
+
+   inlet.mark(boundaries, 1)
+   outlet.mark(boundaries, 2)
+   no_slip.mark(boundaries, 3)
+
+FEniCS Mechanics will accept :code:`dolfin.Mesh` and
+:code:`dolfin.MeshFunction` objects in place of strings specifying
+file names. Thus, we define the mesh dictionary with the following:
+
+.. code-block:: python
+
+   mesh_dict = {
+       'mesh_file': mesh,
+       'boundaries': boundaries
+   }
+
+Next, we define the material dictionary by choosing the type to be
+viscous, with the incompressible Newtonian constitutive equation for
+fluids, and the density and dynamic viscosity values of 1.0 and 0.01,
+respectively. Note that we can model Stokes' flow by switching
+:code:`'newtonian'` with :code:`'stokes'`.
+
+.. code-block:: python
+
+   material_dict = {
+       'type': 'viscous',
+       'const_eqn': 'newtonian',
+       'incompressible': True,
+       'density': 1, # kg/m^3
+       'mu': 0.01   # Pa*s
+   }
+
+We use quadratic and linear finite elements for the velocity and
+pressure fields, respectively, and tell FEniCS mechanics to use
+Eulerian coordinates to formulate the problem. We also specify
+parameters for the time integrator in the :code:`time` subdictionary.
+
+.. code-block:: python
+
+   formulation_dict = {
+       'element': 'p2-p1',
+       'domain': 'eulerian',
+       'time': {
+           'unsteady': True,
+           'interval': [0.0, 4.0],
+           'dt': 0.01
+       },
+
+Within the formulation dictionary, we specify the Dirichlet and
+Neumann boundary conditions. The Dirichlet boundary conditions are the
+no-slip conditions, and the zero pressure at the outlet. Note that the
+regions for pressure are specified under the key
+:code:`p_regions`. Thus, the Dirichlet boundary conditions for
+velocity and pressure need not be the same. We also specify the
+pressure traction at the inlet.
+
+.. code-block:: python
+
+       'bcs': {
+           'dirichlet': {
+               'velocity': [[0.0, 0.0]],
+               'regions': [3],
+               'pressure': [0.0],
+               'p_regions': [2]
+           },
+           'neumann': {
+               'values': ["1.0 + sin(2.0*pi*t)"],
+               'regions': [1],
+               'types': ['pressure']
+           }
+       }
+   }
+
+As the other examples, we combine all three dictionaries into one and
+call it :code:`config`.
+
+.. code-block:: python
+
+   config = {
+       'mesh': mesh_dict,
+       'material': material_dict,
+       'formulation': formulation_dict
+   }
+
+We then create the problem and solver objects, and ask FEniCS
+Mechanics to solve the problem we have defined.
+
+.. code-block:: python
+
+   problem = fm.FluidMechanicsProblem(config)
+   solver = fm.FluidMechanicsSolver(problem, fname_vel="results/v.pvd",
+                                    fname_pressure="results/p.pvd")
+   solver.full_solve()
+
+The velocity field at :math:`t = 4.0` is shown in the subdomain
+:math:`[0, 5] \times [0, 1]` in Figure :numref:`figure-pipe-soln`. As
+expected, we can see a symmetry with respect to the line :math:`y = 0.5`.
+
+.. _figure-pipe-soln:
+
+.. figure:: /_static/figures/pipe_flow-soln.png
+   :scale: 30 %
+
+   Velocity field at :math:`t = 4.0` for the subdomain :math:`[0, 5]
+   \times [0, 1]`

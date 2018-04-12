@@ -11,7 +11,7 @@ parser.add_argument('-bs', '--block-solver',
                     action='store_true')
 args = parser.parse_args()
 
-mesh_dir = '../meshfiles/lshape/'
+mesh_dir = '../../meshfiles/lshape/'
 mesh_file = mesh_dir + 'lshape-mesh.xml.gz'
 boundaries = mesh_dir + 'lshape-boundaries.xml.gz'
 

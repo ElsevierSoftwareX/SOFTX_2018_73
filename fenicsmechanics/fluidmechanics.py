@@ -18,9 +18,12 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
     are generated based on definitions provided by the user in a
     dictionary of sub-dictionaries.
 
-    *** Refer to the documentation of BaseMechanicsProblem ***
-    ***  for details on how to define a problem using the  ***
-    ***                'config' dictionary.                ***
+    Refer to the documentation of the FEniCS Mechanics package for
+    details on how to define a problem using the :code:`config`
+    dictionary.
+
+    >>> import fenicsmechanics as fm
+    >>> help(fm)
 
 
     """
@@ -107,25 +110,25 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         The names of the member data added to the instance of the
         SolidMechanicsProblem class are:
 
-        - sys_v : mixed function
-        - ufl_velocity : sub component corresponding to velocity
-        - velocity : copy of sub component for writing and assigning
-                     values
-        - ufl_pressure : sub component corresponding to pressure
-        - pressure : copy of sub component for writing and assigning values
-        - sys_du : mixed trial function
-        - trial_vector : sub component of mixed trial function
-        - trial_scalar : sub component of mixed trial function
-        - test_vector : sub component of mixed test function
-        - test_scalar : sub component of mixed test function
+        - :code:`sys_v`: mixed function
+        - :code:`ufl_velocity`: sub component corresponding to velocity
+        - :code:`velocity`: copy of sub component for writing and assigning
+          values
+        - :code:`ufl_pressure`: sub component corresponding to pressure
+        - :code:`pressure`: copy of sub component for writing and assigning values
+        - :code:`sys_du`: mixed trial function
+        - :code:`trial_vector`: sub component of mixed trial function
+        - :code:`trial_scalar`: sub component of mixed trial function
+        - :code:`test_vector`: sub component of mixed test function
+        - :code:`test_scalar`: sub component of mixed test function
 
         If problem is unsteady, the following are also added:
 
-        - sys_v0 : mixed function at previous time step
-        - ufl_velocity0 : sub component corresponding to velocity
-        - velocity0 : copy of sub component for writing and assigning values
-        - ufl_pressure0 : sub component at previous time step
-        - pressure0 : copy of sub component at previous time step
+        - :code:`sys_v0`: mixed function at previous time step
+        - :code:`ufl_velocity0`: sub component corresponding to velocity
+        - :code:`velocity0`: copy of sub component for writing and assigning values
+        - :code:`ufl_pressure0`: sub component at previous time step
+        - :code:`pressure0`: copy of sub component at previous time step
 
 
         """
@@ -178,7 +181,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
 
     def define_compressible_functions(self):
         """
-        COMPRESSIBLE FLUIDS ARE CURRENTLY NOT SUPPORTED.
+        **COMPRESSIBLE FLUIDS ARE CURRENTLY NOT SUPPORTED.**
 
 
         """
@@ -216,8 +219,8 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         The names of member data added to an instance of FluidMechanicsProblem
         class are:
 
-        - velocityGradient
-        - velocityGradient0
+        - :code:`velocityGradient`
+        - :code:`velocityGradient0`
 
 
         """
@@ -683,7 +686,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         """
 
         pressure_bcs = {'pressure': list()}
-        p_vals = dirichlet_bcs['pressure']
+        p_vals = dirichlet_dict['pressure']
         p_regions = dirichlet_dict['p_regions']
         for region, value in zip(p_regions, p_vals):
             bc = dlf.DirichletBC(W, value, boundaries, region)

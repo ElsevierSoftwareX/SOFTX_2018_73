@@ -12,7 +12,7 @@ dlf.parameters['form_compiler']['cpp_optimize'] = True
 dlf.parameters['form_compiler']['quadrature_degree'] = 3
 
 # Mesh files
-mesh_dir = '../meshfiles/unit_domain/'
+mesh_dir = '../../meshfiles/unit_domain/'
 mesh_file = mesh_dir + 'unit_domain-mesh-24x16x16.xml.gz'
 boundaries = mesh_dir + 'unit_domain-boundaries-24x16x16.xml.gz'
 

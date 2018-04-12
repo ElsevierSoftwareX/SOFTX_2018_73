@@ -1,0 +1,363 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mathematical Formulation &#8212; FEniCS Mechanics 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Code Structure and User Interface" href="architecture.html" />
+    <link rel="prev" title="Introduction" href="introduction.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="mathematical-formulation">
+<span id="math-formulation-label"></span><h1>Mathematical Formulation<a class="headerlink" href="#mathematical-formulation" title="Permalink to this headline">¶</a></h1>
+<p>A brief review of continuum mechanics, the finite element method for
+spatial discretization, and finite difference methods for time
+derivative discretization is presented here. For further details, the
+reader is referred to Chadwick <a class="reference internal" href="../index.html#chadwick-1999" id="id1">[Cha99]</a> and Hughes
+<a class="reference internal" href="../index.html#hughes-2007" id="id2">[Hug07]</a>.</p>
+<div class="section" id="continuum-mechanics">
+<span id="continuum-mechanics-label"></span><h2>Continuum Mechanics<a class="headerlink" href="#continuum-mechanics" title="Permalink to this headline">¶</a></h2>
+<p>The body of interest is assumed to occupy a subregion of
+three-dimensional Euclidean space at some initial time, <span class="math">\(t_0\)</span>,
+and denote with region by <span class="math">\(\mathcal{B}_0\)</span>. We refer to
+<span class="math">\(\mathcal{B}_0\)</span> as the reference configuration. The region
+occupied by the same body at a later time, <span class="math">\(t\)</span>, will be denoted
+by <span class="math">\(\mathcal{B}\)</span>, and referred to as the current
+configuration. Solving mechanics problems involves solving for the map
+(or its derivatives) that transforms the body from
+<span class="math">\(\mathcal{B}_0\)</span> to <span class="math">\(\mathcal{B}\)</span>. We will denote this map
+with <span class="math">\(\boldsymbol\varphi:\mathcal{B}_0\times\mathbb{R}
+\rightarrow \mathcal{B}\)</span>, where <span class="math">\(t \in \mathbb{R}\)</span>.</p>
+<p>The formulation of continuum mechanics that we will use is concerned
+with the deformation of the body at a local level, which is quantified
+by the deformation gradient</p>
+<div class="math">
+\[\mathbf{F}(\mathbf{X}, t) = \frac{\partial\boldsymbol\varphi}
+      {\partial\mathbf{X}},\]</div>
+<p>where <span class="math">\(\mathbf{X} \in \mathcal{B}_0\)</span> is the position vector of a
+material point at time <span class="math">\(t_0\)</span>. This tensor is used to define
+other tensors quantifying different strain measures – all of which
+can be used to study the kinematics of deformation.</p>
+<p>Once the kinematics of the deformation undergone by the body of
+interest has been mathematically formulated, they can be used to study
+the relationship between deformation and forces that either cause or
+result from it. These relations are referred to as dynamics. This
+leads to the concept of the Cauchy stress tensor, which we will denote
+by <span class="math">\(\mathbf{T}\)</span>. The Cauchy stress tensor maps the unit normal
+vector, <span class="math">\(\mathbf{n}\)</span>, on any surface within a continuum to the
+traction vector, <span class="math">\(\mathbf{t}\)</span>, which is the force per unit area
+at the point where <span class="math">\(\mathbf{T}\)</span> and <span class="math">\(\mathbf{n}\)</span> are
+evaluated. By Newton’s second law, and the Reynolds Transport Theorem,
+we get</p>
+<div class="math">
+\[\int_{\mathcal{B}} \rho\frac{d\mathbf{v}}{dt}\;dv =
+\int_{\partial\mathcal{B}}\mathbf{t}\;da + \int_{\mathcal{B}}
+\rho\mathbf{b}\;dv,\]</div>
+<p>where <span class="math">\(\mathbf{v} = \frac{d}{dt}\mathbf{u}\)</span> is the velocity
+field of the body, <span class="math">\(\mathbf{u}\)</span> is the displacement,
+<span class="math">\(\mathbf{b}\)</span> is the force applied per unit mass, and
+<span class="math">\(\partial \mathcal{B}\)</span> is the boundary of
+<span class="math">\(\mathcal{B}\)</span>. Making use of the Cauchy stress tensor, the
+divergence theorem, and the localization theorem, we get</p>
+<div class="math">
+\[\rho\dot{\mathbf{v}} = \text{div}\;\mathbf{T} + \rho\mathbf{b},\]</div>
+<p>where we have replaced the time derivative by the dot, and div is the
+divergence operator with respect to the spatial coodinates. FEniCS
+Mechanics uses this equation to formulate fluid mechanics problems.
+The equivalent equation in the reference coordinate system is</p>
+<div class="math">
+\[\rho_0\dot{\mathbf{v}} = \text{Div}\;\mathbf{P} +
+\rho_0\mathbf{b},\]</div>
+<p>where <span class="math">\(\rho_0 = \rho J\)</span> is the referential mass density,
+<span class="math">\(\mathbf{P} = J\mathbf{TF}^{-T}\)</span> is the first Piola-Kirchhoff
+stress tensor, <span class="math">\(J = \det\mathbf{F}\)</span> is the Jacobian, and Div is
+the divergence operator with respect to the referential coordinates,
+<span class="math">\(\mathbf{X}\)</span>. This equation is used to formulate solid mechanics
+problems.</p>
+<p>Note that we have not limited the formulation to a specific type of
+material, e.g. rubber or water, and thus these equations are
+applicable to all materials that satisfy the continuity assumptions of
+the classical continuum mechanics formulation. Specific relations
+between strain tensors and the Cauchy tensor are known as constitutive
+equations and depend on the material being modelled. For further
+details on constitutive equations, the reader is referred to Chadwick
+<a class="reference internal" href="../index.html#chadwick-1999" id="id3">[Cha99]</a>.</p>
+<div class="section" id="incompressibility-constraint">
+<span id="local-constraints-label"></span><h3>Incompressibility Constraint<a class="headerlink" href="#incompressibility-constraint" title="Permalink to this headline">¶</a></h3>
+<p>Many materials are modeled as incompressible. In order to satisfy
+incompressibility, we must formulate it as a constraint that the
+displacement and/or velocity must satisfy. This results in an
+additional equation, making the system over-determined. Thus, we need
+an additional variable, a Lagrange multiplier, to solve the
+system. This Lagrange multiplier ends up being the pressure within the
+material, be it a solid or fluid.</p>
+<p>If a material is modeled as incompressible, the stress tensor will now
+depend on the displacement field for solids, velocity field for
+fluids, and the pressure for both. I.e.,</p>
+<div class="math">
+\[\mathbf{P} = \mathbf{G}(\mathbf{u}, p)\]</div>
+<p>for solids, and</p>
+<div class="math">
+\[\mathbf{T} = \mathbf{H}(\mathbf{v}, p)\]</div>
+<p>for fluids. The constraint equation will also depend on the relevant
+vector field, and the scalar field <span class="math">\(p\)</span>. Thus,</p>
+<div class="math">
+\[G(\mathbf{u}, p) = 0\]</div>
+<p>or</p>
+<div class="math">
+\[H(\mathbf{v}, p) = 0.\]</div>
+<p>The constraint equation for solid materials is of the form</p>
+<div class="math">
+\[G(\mathbf{u}, p) = \phi(\mathbf{u}) - \frac{1}{\kappa}p,\]</div>
+<p>where <span class="math">\(\kappa\)</span> is the bulk modulus. For linear materials, we
+take</p>
+<div class="math">
+\[\phi(\mathbf{u}) = \text{div}\;\mathbf{u}.\]</div>
+<p>On the other hand,</p>
+<div class="math">
+\[\phi(\mathbf{u}) = \frac{1}{J} \ln(J)\]</div>
+<p>is the default expression for nonlinear materials.</p>
+<p>The incompressibility constraint for fluid mechanics is</p>
+<div class="math">
+\[H(\mathbf{v}, p) = \text{div}\;\mathbf{v}.\]</div>
+</div>
+</div>
+<div class="section" id="finite-element-method">
+<span id="fem-label"></span><h2>Finite Element Method<a class="headerlink" href="#finite-element-method" title="Permalink to this headline">¶</a></h2>
+<p>The finite element method (FEM) requires a variational form. Thus, we
+must convert the governing equations from
+<a class="reference internal" href="#continuum-mechanics-label"><span class="std std-ref">Continuum Mechanics</span></a> to a variational form. This involves
+taking the dot product of the equation of interest with an arbitrary
+vector field, <span class="math">\(\boldsymbol\xi\)</span>, using the product rule, and
+divergence theorem to obtain</p>
+<div class="math">
+\[\int_{\mathcal{B}}\boldsymbol\xi\cdot\rho\dot{\mathbf{v}}\;dv
+  + \int_{\mathcal{B}}\frac{\partial\boldsymbol\xi}
+    {\partial\mathbf{x}}\cdot\mathbf{T}\;dv
+  = \int_{\mathcal{B}}\boldsymbol\xi\cdot\rho\mathbf{b}\;dv
+  + \int_{\Gamma_q}\boldsymbol\xi\cdot\bar{\mathbf{t}}\;da,\]</div>
+<p>where <span class="math">\(\bar{\mathbf{t}}\)</span> is a specified traction on
+<span class="math">\(\Gamma_q \in \partial\mathcal{B}\)</span>. Applying the chain rule to
+the material time derivative of the velocity yields</p>
+<div class="math">
+\[\int_{\mathcal{B}}\boldsymbol\xi\cdot\rho
+    \frac{\partial\mathbf{v}}{\partial t}\;dv
+  + \int_{\mathcal{B}}\boldsymbol\xi\cdot
+    \frac{\partial\mathbf{v}}{\partial\mathbf{x}}\mathbf{v}\;dv
+  + \int_{\mathcal{B}}\frac{\partial\boldsymbol\xi}
+    {\partial\mathbf{x}}\cdot\mathbf{T}\;dv
+  = \int_{\mathcal{B}}\boldsymbol\xi\cdot\rho\mathbf{b}\;dv
+  + \int_{\Gamma_q}\boldsymbol\xi\cdot\bar{\mathbf{t}}\;da.\]</div>
+<p>Note that this is the most general variational form of the governing
+equation for the balance of momentum, and can thus be used to
+provide a general formulation for computational mechanics
+problems. FEniCS Mechanics does just this, and changes the physical
+meaning of the variables in the above weak form when necessary. E.g.,
+the stress tensor <span class="math">\(\mathbf{T}\)</span> is replaced by the first
+Piola-Kirchhoff stress tensor <span class="math">\(\mathbf{P}\)</span> when formulating a
+solid mechanics problem.</p>
+<p>Suppose that the true solution to the variational forms belongs to a
+function space <span class="math">\(\mathcal{F}\)</span>. The FEM uses a subspace of
+<span class="math">\(\mathcal{F}\)</span> with finite size to approximate the solution to
+the boundary value problem. We denote this finite function space by
+<span class="math">\(\mathcal{F}^h\)</span>, which is spanned by polynomials of order
+<span class="math">\(n \in \mathbb{N}\)</span>, with <span class="math">\(n \leq 2\)</span> in most cases. Thus,
+the approximation of a function <span class="math">\(\mathbf{u}\)</span> would be a linear
+combination of a set of polynomials, i.e.</p>
+<div class="math">
+\[\mathbf{u} = \sum_{i = 1}^{N_n} \hat{\mathbf{u}}_i
+      \phi_i(\mathbf{x}),\]</div>
+<p>where <span class="math">\(\hat{\mathbf{u}}_i\)</span> are the coefficients of the
+approximation, <span class="math">\(\{\phi_i\}_{i = 1}^{N_n}\)</span> is the set of basis
+functions for <span class="math">\(\mathcal{F}^h\)</span>, and <span class="math">\(N_n\)</span> is the
+cardinality of <span class="math">\(\mathcal{F}^h\)</span>. We substitute approximations for
+all functions in the weak form, resulting in a system of ordinary
+differential equations (ODEs) in which we will solve for
+<span class="math">\(\hat{\mathbf{u}}_i\)</span>. We will write this system of ODEs as</p>
+<div class="math">
+\[\begin{split}\dot{u} = v \\
+M\dot{v} + C(v) + R(u,v,p) = F_b(t) + F_q(u,t) \\
+G(u, v, p) = 0,\end{split}\]</div>
+<p>where each of these terms is the approximation of the terms given in
+the general variational form provided above. FEniCS Mechanics parses
+a user-provided dictionary to determine which terms in the above
+system of ODEs need to be computed and how.</p>
+</div>
+<div class="section" id="finite-difference-methods">
+<span id="finite-difference-label"></span><h2>Finite Difference Methods<a class="headerlink" href="#finite-difference-methods" title="Permalink to this headline">¶</a></h2>
+<p>Once spatial discretization has been achieved with the FEM, we must
+discretize the time derivatives in the system of ODEs given above. The
+time integrators implemented in FEniCS Mechanics are currently
+single-step methods.</p>
+<div class="section" id="first-order-odes">
+<span id="first-order-odes-label"></span><h3>First Order ODEs<a class="headerlink" href="#first-order-odes" title="Permalink to this headline">¶</a></h3>
+<p>Consider the system of ODEs</p>
+<div class="math">
+\[\dot{y} = f(y, t),\]</div>
+<p>where <span class="math">\(y \in \mathbb{R}^N\)</span> for some <span class="math">\(N\in\mathbb{N}\)</span>, and
+<span class="math">\(t \in \mathcal{T} \in \mathbb{R}\)</span>. A general single-step,
+single-stage numerical method for approximating the solution to such a
+differential equation takes the form</p>
+<div class="math">
+\[\frac{y_{n+1} - y_n}{\Delta t} = \theta f(y_{n+1}, t_{n+1}) +
+      \left(1 - \theta\right)f(y_n, t_n)\]</div>
+<p>Applying the generalized <span class="math">\(\theta\)</span>-method to the system of ODEs,
+we get</p>
+<div class="math">
+\[\begin{split}f_1(u_{n+1},v_{n+1}, p_{n+1}) = 0, \\
+f_2(u_{n+1},v_{n+1}, p_{n+1}) = 0,\end{split}\]</div>
+<p>and</p>
+<div class="math">
+\[f_3(u_{n+1}, v_{n+1}, p_{n+1}) = 0,\]</div>
+<p>where</p>
+<div class="math">
+\[f_1(u_{n+1}, v_{n+1}, p_{n+1}) = u_{n+1} - \theta\Delta t v_{n+1}
+      - u_n - \Delta(1 - \theta)v_n,\]</div>
+<div class="math">
+\[\begin{split}f_2(u_{n+1},v_{n+1}) = Mv_{n+1} + \theta\Delta t\left[C(v_{n+1})
+      + R(u_{n+1},v_{n+1}, p_{n+1}) - F_b(t_{n+1})
+      - F_q(u_{n+1},t_{n+1})\right] \\
+      - Mv_n
+      + \Delta t(1-\theta)\left[C(v_n)  + R(u_n,v_n, p_n)
+      - F_b(t_n) - F_q(u_n,t_n)\right],\end{split}\]</div>
+<p>and <span class="math">\(f_3\)</span> is the discrete variational form of the
+incompressibility constraint. This discretization is used by
+<code class="xref py py-class docutils literal"><span class="pre">MechanicsProblem</span></code> and <code class="xref py py-class docutils literal"><span class="pre">MechanicsBlockSolver</span></code>, which is
+only available when FEniCS is installed with python 2, and CBC-Block
+is also installed. It is also used by <code class="xref py py-class docutils literal"><span class="pre">FluidMechanicsProblem</span></code>
+and <code class="xref py py-class docutils literal"><span class="pre">FluidMechanicsSolver</span></code> without the dependency on
+displacement, <span class="math">\(u_n\)</span>, and without <span class="math">\(f_1\)</span>.</p>
+</div>
+<div class="section" id="second-order-odes">
+<h3>Second Order ODEs<a class="headerlink" href="#second-order-odes" title="Permalink to this headline">¶</a></h3>
+<p>Alternatively, one can discretize a system of second-order
+ODEs. First, we substitute <span class="math">\(v = \dot{u}\)</span> into the ODE that
+results from the balance of linear momentum. This gives</p>
+<div class="math">
+\[M\ddot{u} + R(u, p) = F_b(t) + F_q(u,t),\]</div>
+<p>and</p>
+<div class="math">
+\[G(u, p) = 0,\]</div>
+<p>where we also made use of the fact that solid mechanics problems are
+formulated with respect to the reference configuration. For this
+problem, we use the Newmark scheme to discretize the second-order time
+derivative. The Newmark scheme is given by</p>
+<div class="math">
+\[\dot{u}_{n+1} = \dot{u}_n + \Delta t\left[(1 - \gamma)\ddot{u}_n
+      + \gamma\ddot{u}_{n+1}\right],\]</div>
+<p>and</p>
+<div class="math">
+\[u_{n+1} = u_n + \Delta t\dot{u}_n + \frac{1}{2}(\Delta t)^2
+      \left[(1 - 2\beta)\ddot{u}_n + 2\beta\ddot{u}_{n+1}\right].\]</div>
+<p>We then solve for <span class="math">\(\ddot{u}_{n+1}\)</span> in the above equations, and
+substitute into the ODE given above. Then we solve the system for
+<span class="math">\(u_{n+1}\)</span> (with a nonlinear solver if necessary).</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Mathematical Formulation</a><ul>
+<li><a class="reference internal" href="#continuum-mechanics">Continuum Mechanics</a><ul>
+<li><a class="reference internal" href="#incompressibility-constraint">Incompressibility Constraint</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#finite-element-method">Finite Element Method</a></li>
+<li><a class="reference internal" href="#finite-difference-methods">Finite Difference Methods</a><ul>
+<li><a class="reference internal" href="#first-order-odes">First Order ODEs</a></li>
+<li><a class="reference internal" href="#second-order-odes">Second Order ODEs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="introduction.html" title="previous chapter">Introduction</a></li>
+      <li>Next: <a href="architecture.html" title="next chapter">Code Structure and User Interface</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/chapters/mathformulation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Miguel A. Rodriguez.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/chapters/mathformulation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
