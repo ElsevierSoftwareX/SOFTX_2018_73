@@ -9,7 +9,6 @@ pages:
   - cd doc
   - make html
   - cd ../
-  - mkdir public
   - mv doc/build/html/ public/
   artifacts:
     paths:
