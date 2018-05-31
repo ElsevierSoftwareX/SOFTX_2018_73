@@ -1,12 +1,9 @@
-image: alpine
+image: fenicsproject/stable
 
 pages:
   script:
-  - apk --no-cache add py3-pip python3-dev
   - pip3 install sphinx
   - pip3 install sphinxcontrib-bibtex
-  - apk --no-cache add make
-  - pip3 install fenics
   - cd doc
   - make html
   - cd ../
