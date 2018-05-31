@@ -13,5 +13,6 @@ pages:
   artifacts:
     paths:
     - public
+    - fenicsmechanics
   only:
   - master
