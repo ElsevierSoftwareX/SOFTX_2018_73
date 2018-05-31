@@ -15,3 +15,6 @@ parameters = {
 }
 
 NonlinearVariationalSolver = object
+
+def mpi_comm_world():
+    return None
