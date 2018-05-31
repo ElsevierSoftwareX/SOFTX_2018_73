@@ -1,11 +1,9 @@
-image: ubuntu
+image: continuumio/miniconda3:latest
 
 before_script:
-  - apt install software-properties-common
-  - apt repository ppa:fenics-packages/fenics
-  - apt update
-  - apt install --no-install-recommends fenics
-  - apt dist-upgrade
+  - conda env create -f environment.yml
+  - conda create -n fenicsproject -c conda-forge fenics
+  - source activate fenicsproject
 
 pages:
   script:
