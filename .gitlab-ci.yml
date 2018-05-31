@@ -11,14 +11,13 @@ pages:
   - mkdir dummy_imports/mpi4py
   - mkdir dummy_imports/petsc4py
   - mkdir dummy_imports/numpy
-  - ls -a dummy_imports
   - touch dummy_imports/dolfin/__init__.py
   - touch dummy_imports/numpy/__init__.py
   - echo $'Form = None' > dummy_imports/ufl/__init__.py
   - echo $'MPI = None' > dummy_imports/mpi4py/__init__.py
   - echo $'PETSc = None' > dummy_imports/petsc4py/__init__.py
   - export PYTHONPATH=$PWD/dummy_imports:$PYTHONPATH
-  - cd ../doc
+  - cd doc
   - make html
   - cd ../
   - mv doc/build/html/ public/
