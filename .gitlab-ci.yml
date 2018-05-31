@@ -6,12 +6,17 @@ pages:
   - pip3 install sphinx
   - pip3 install sphinxcontrib-bibtex
   - apk --no-cache add make
-  - mkdir -p dummy_imports/{dolfin,ufl,mpi4py,petsc4py,numpy}
+  - mkdir -p dummy_imports/dolfin
+  - mkdir dummy_imports/ufl
+  - mkdir dummy_imports/mpi4py,
+  - mkdir dummy_imports/petsc4py,
+  - mkdir dummy_imports/numpy
   - ls -a dummy_imports
-  - touch dummy_imports/{dolfin,numpy}/__init__.py
-  - echo $'Form' > dummy_imports/ufl/__init__.py
-  - echo $'MPI' > dummy_imports/mpi4py/__init__.py
-  - echo $'PETSc' > dummy_imports/petsc4py/__init__.py
+  - touch dummy_imports/dolfin/__init__.py
+  - touch dummy_imports/numpy/__init__.py
+  - echo $'Form = None' > dummy_imports/ufl/__init__.py
+  - echo $'MPI = None' > dummy_imports/mpi4py/__init__.py
+  - echo $'PETSc = None' > dummy_imports/petsc4py/__init__.py
   - export PYTHONPATH=$PWD/dummy_imports:$PYTHONPATH
   - cd ../doc
   - make html
