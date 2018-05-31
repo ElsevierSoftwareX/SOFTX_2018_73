@@ -1,12 +1,13 @@
-image: alpine
+image: continuumio/miniconda3:latest
+
+before_script:
+  - conda create -n fenicsproject -c conda-forge fenics
+  - source activate fenicsproject
+  - pip install sphinx
+  - pip install sphinxcontrib-bibtex
 
 pages:
   script:
-  - apk --no-cache add py3-pip python3-dev
-  - pip3 install sphinx
-  - pip3 install sphinxcontrib-bibtex
-  - apk --no-cache add make
-  - pip3 install DOLFIN
   - cd doc
   - make html
   - cd ../
