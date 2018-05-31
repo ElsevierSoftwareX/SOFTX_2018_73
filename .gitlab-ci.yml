@@ -1,4 +1,4 @@
-image: fenicsproject/stable
+image: fenics/base
 
 pages:
   script:
