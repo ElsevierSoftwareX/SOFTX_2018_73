@@ -2,7 +2,6 @@ image: continuumio/miniconda3:latest
 
 before_script:
   - conda update -n base conda
-  - conda update --all
   - conda install -v gcc
   - conda create -n fenicsproject -c conda-forge fenics
   - source activate fenicsproject
