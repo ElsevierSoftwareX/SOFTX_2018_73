@@ -13,3 +13,5 @@ parameters = {
         'optimize': None
     }
 }
+
+NonlinearVariationalSolver = object
