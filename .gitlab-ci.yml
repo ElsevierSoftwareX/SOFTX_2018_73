@@ -7,6 +7,7 @@ pages:
   - pip3 install sphinxcontrib-bibtex
   - apk --no-cache add make
   - mkdir -p dummy_imports/{dolfin,ufl,mpi4py,petsc4py,numpy}
+  - ls -a dummy_imports
   - touch dummy_imports/{dolfin,numpy}/__init__.py
   - echo $'Form' > dummy_imports/ufl/__init__.py
   - echo $'MPI' > dummy_imports/mpi4py/__init__.py
