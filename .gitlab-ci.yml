@@ -1,7 +1,6 @@
 image: continuumio/miniconda3:latest
 
 before_script:
-  - conda env create -f environment.yml
   - conda create -n fenicsproject -c conda-forge fenics
   - source activate fenicsproject
 
