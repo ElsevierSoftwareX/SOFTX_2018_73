@@ -6,14 +6,15 @@ pages:
   - pip3 install sphinx
   - pip3 install sphinxcontrib-bibtex
   - apk --no-cache add make
-  - cd doc
-  - make html
+  - cd fenicsmechanics
+  - touch dolfin.py
+  - touch ufl.py
+  - cd ../doc
   - make html
   - cd ../
   - mv doc/build/html/ public/
   artifacts:
     paths:
     - public
-    - fenicsmechanics
   only:
   - master
