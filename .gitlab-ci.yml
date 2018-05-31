@@ -1,11 +1,14 @@
-image: alpine
+image: ubuntu
+
+before_script:
+  - apt install software-properties-common
+  - apt repository ppa:fenics-packages/fenics
+  - apt update
+  - apt install --no-install-recommends fenics
+  - apt dist-upgrade
 
 pages:
   script:
-  - apk --no-cache add py3-pip python3-dev
-  - pip3 install sphinx
-  - pip3 install sphinxcontrib-bibtex
-  - apk --no-cache add make
   - cd doc
   - make html
   - cd ../
