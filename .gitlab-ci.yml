@@ -1,12 +1,13 @@
-image: alpine
+image: continuumio/miniconda3:latest
+
+before_script:
+  - conda update -n base conda
+  - conda uninstall gcc
+  - conda create -n fenicsproject -c conda-forge fenics
+  - source activate fenicsproject
 
 pages:
   script:
-  - apk --no-cache add py3-pip python3-dev
-  - pip3 install sphinx
-  - pip3 install sphinxcontrib-bibtex
-  - apk --no-cache add make
-  - export PYTHONPATH=$PWD/.dummy_imports:$PYTHONPATH
   - cd doc
   - make html
   - cd ../
