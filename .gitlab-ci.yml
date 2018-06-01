@@ -6,6 +6,7 @@ pages:
   - pip3 install sphinx
   - pip3 install sphinxcontrib-bibtex
   - apk --no-cache add make
+  - export PYTHONPATH=$PWD/.dummy_imports:$PYTHONPATH
   - cd doc
   - make html
   - cd ../
