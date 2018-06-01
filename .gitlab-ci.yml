@@ -1,10 +1,12 @@
-image: fenicsproject/stable
-
-before_script:
-  - ps -p$$ -ocmd=
+image: alpine
 
 pages:
   script:
+  - apk --no-cache add py3-pip python3-dev
+  - pip3 install sphinx
+  - pip3 install sphinxcontrib-bibtex
+  - apk --no-cache add make
+  - export PYTHONPATH=$PWD/.dummy_imports:$PYTHONPATH
   - cd doc
   - make html
   - cd ../
