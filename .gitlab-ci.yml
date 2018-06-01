@@ -1,5 +1,8 @@
 image: fenicsproject/stable
 
+before_script:
+  - ps -p$$ -ocmd=
+
 pages:
   script:
   - cd doc
