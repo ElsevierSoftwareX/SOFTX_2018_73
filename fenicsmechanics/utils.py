@@ -277,7 +277,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         for tval,f,key in zip(t, f_objects, sorted(kwargs.keys())):
             val = kwargs[key]
             if (f is not None) and (val is not None):
-                _write_objects(f, t=tval, close=close, key=val)
+                _write_objects(f, t=tval, close=close, **{key: val})
                 if rank == 0:
                     print("* '%s' saved *" % key)
     elif hasattr(f_objects, "__iter__"):
@@ -289,7 +289,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         for f,key in zip(f_objects, sorted(kwargs.keys())):
             val = kwargs[key]
             if (f is not None) and (val != 0):
-                _write_objects(f, t=t, close=close, key=val)
+                _write_objects(f, t=t, close=close, **{key: val})
                 if rank == 0:
                     print("* '%s' saved *" % key)
 
