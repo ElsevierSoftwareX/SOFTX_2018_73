@@ -3,6 +3,7 @@ import dolfin as dlf
 from . import materials
 from .utils import duplicate_expressions
 from .basemechanicsproblem import BaseMechanicsProblem
+from .exceptions import *
 
 from inspect import isclass
 
@@ -350,7 +351,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         elif const_eqn == 'newtonian' or const_eqn == 'stokes':
             mat_class = materials.fluids.NewtonianFluid
         else:
-            raise NotImplementedError("Shouldn't be in here...")
+            raise InvalidCombination("Shouldn't be in here...")
 
         # Create an instance of the material class and store
         # as member data.
@@ -401,10 +402,10 @@ class MechanicsProblem(BaseMechanicsProblem):
             p_regions = self.config['formulation']['bcs']['dirichlet']['p_regions']
         elif 'pressure' in self.config['formulation']['bcs']['dirichlet']:
             s = "Values for pressure were specified, but the regions were not."
-            raise ValueError(s)
+            raise RequiredParameter(s)
         elif 'p_regions' in self.config['formulation']['bcs']['dirichlet']:
             s = "The regions for pressure were specified, but the values were not."
-            raise ValueError(s)
+            raise RequiredParameter(s)
         else:
             pressure_vals = None
             p_regions = None
@@ -708,7 +709,6 @@ class MechanicsProblem(BaseMechanicsProblem):
         else:
             stress_tensor = self._material.stress_tensor(self.velocityGradient,
                                                          self.pressure)
-            # raise NotImplementedError("Shouldn't be in here...")
 
         xi = self.test_vector
         self.ufl_stress_work = dlf.inner(dlf.grad(xi), stress_tensor)*dlf.dx
@@ -720,7 +720,6 @@ class MechanicsProblem(BaseMechanicsProblem):
             else:
                 stress_tensor0 = self._material.stress_tensor(self.velocityGradient,
                                                               self.pressure)
-                # raise NotImplementedError("Shouldn't be in here...")
             self.ufl_stress_work0 = dlf.inner(dlf.grad(xi), stress_tensor0)*dlf.dx
         else:
             self.ufl_stress_work0 = 0
