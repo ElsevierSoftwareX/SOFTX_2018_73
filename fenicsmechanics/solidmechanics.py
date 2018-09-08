@@ -332,7 +332,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         else:
             s = "The material '%s' has not been implemented. A class for such" \
                 + " material must be provided."
-            raise ValueError(s % self.config['material']['const_eqn'])
+            raise NotImplementedError(s % self.config['material']['const_eqn'])
 
         try:
             fiber_file = self.config['mesh']['fiber_file']

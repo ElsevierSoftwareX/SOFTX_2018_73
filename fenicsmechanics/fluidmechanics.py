@@ -186,7 +186,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        raise ValueError("Compressible fluids are not yet supported.")
+        raise NotImplementedError("Compressible fluids are not yet supported.")
 
         return None
 
@@ -260,7 +260,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         else:
             s = "The material '%s' has not been implemented. A class for such" \
                 + " material must be provided."
-            raise ValueError(s % const_eqn)
+            raise NotImplementedError(s % const_eqn)
 
         self._material = mat_class(**self.config['material'])
 
