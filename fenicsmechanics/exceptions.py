@@ -19,3 +19,6 @@ class DimensionMismatch(ValueError):
 
 class RequiredParameter(Exception):
     pass
+
+class SoftwareNotAvailable(Exception):
+    pass
