@@ -2,6 +2,8 @@ from __future__ import print_function
 
 import dolfin as dlf
 
+from .exceptions import *
+
 def load_mesh(mesh_file):
     """
     Load the mesh file specified by the user. The file may be
@@ -98,7 +100,7 @@ def __load_mesh_hdf5(mesh_file):
     # Check dolfin for HDF5 support
     if not dlf.has_hdf5():
         s1 = 'The current installation of dolfin does not support HDF5 files.'
-        raise Exception(s1)
+        raise SoftwareNotAvailable(s1)
 
     # Check file extension
     if mesh_file[-3:] == '.h5':
@@ -136,7 +138,7 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
     # Check dolfin for HDF5 support
     if not dlf.has_hdf5():
         s1 = 'The current installation of dolfin does not support HDF5 files.'
-        raise Exception(s1)
+        raise SoftwareNotAvailable(s1)
 
     # Check file extension
     if mesh_function[-3:] == '.h5':
@@ -271,8 +273,8 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         # Save each object to its own separate file and using its own time stamp.
 
         if len(f_objects) != len(kwargs) != len(t):
-            raise ValueError("The length of 'f_objects', " \
-                             + "'kwargs', and 't' must be the same.")
+            raise InconsistentCombination("The length of 'f_objects', " \
+                                          + "'kwargs', and 't' must be the same.")
 
         for tval,f,key in zip(t, f_objects, sorted(kwargs.keys())):
             val = kwargs[key]
@@ -283,8 +285,8 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
     elif hasattr(f_objects, "__iter__"):
         # Save each object to its own separate file using the same time stamp.
         if len(f_objects) != len(kwargs):
-            raise ValueError("The length of 'f_objects' and " \
-                             + "'kwargs' must be the same.")
+            raise InconsistentCombination("The length of 'f_objects' and " \
+                                          + "'kwargs' must be the same.")
 
         for f,key in zip(f_objects, sorted(kwargs.keys())):
             val = kwargs[key]
@@ -294,7 +296,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
                     print("* '%s' saved *" % key)
 
     else:
-        raise ValueError("'f_objects' must be a file object.")
+        raise TypeError("'f_objects' must be a file object.")
 
     return None
 
@@ -311,7 +313,7 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
     elif isinstance(fname, dlf.HDF5File):
         f = fname
     else:
-        raise ValueError("'fname' provided is not a valid type.")
+        raise TypeError("'fname' provided is not a valid type.")
 
     if mode == "r":
         func = f.read
@@ -355,7 +357,7 @@ def _write_xdmf(fname, args, tspan=None):
     elif isinstance(fname, dlf.XDMFFile):
         f = fname
     else:
-        raise ValueError("'fname' provided is not a valid type.")
+        raise TypeError("'fname' provided is not a valid type.")
 
     if tspan is not None:
         if isinstance(tspan, (float, int)):
@@ -364,7 +366,8 @@ def _write_xdmf(fname, args, tspan=None):
             len_tspan = len(tspan)
 
         if (len_tspan > 1) and (len_tspan != len(args)):
-            raise ValueError("Number of time stamps and objects given to save must be the same.")
+            raise InconsistentCombination("Number of time stamps and objects " \
+                                          + "given to save must be the same.")
         elif len_tspan == 1:
             tspan = [tspan]*len(args)
 
