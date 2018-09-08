@@ -5,6 +5,7 @@ import dolfin as dlf
 
 from .utils import load_mesh, load_mesh_function, _read_write_hdf5
 from .__CONSTANTS__ import dict_implemented as _implemented
+from .exceptions import *
 from inspect import isclass
 
 __all__ = ['BaseMechanicsProblem']
@@ -90,7 +91,7 @@ class BaseMechanicsProblem(object):
 
         # Check if the finite element type is provided.
         if 'element' not in config['formulation']:
-            raise ValueError('You need to specify the type of element(s) to use.')
+            raise RequiredParameter('You need to specify the type of element(s) to use.')
 
         # Make sure at most two element types are specified.
         if isinstance(config['formulation']['element'], str):
@@ -107,11 +108,11 @@ class BaseMechanicsProblem(object):
             s1 = 'Only one element type, \'%s\', was specified ' \
                  % config['formulation']['element'] \
                  + 'for an incompressible material.'
-            raise ValueError(s1)
+            raise InconsistentCombination(s1)
         elif len_fe_list == 2 and not config['material']['incompressible']:
             s1 = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
                  +'for a compressible material.'
-            raise ValueError(s1)
+            raise InconsistentCombination(s1)
         else:
             # Replace with list in case it was originally a string
             config['formulation']['element'] = fe_list
@@ -123,7 +124,7 @@ class BaseMechanicsProblem(object):
 
         # All strings should have the same number of characters.
         if not len(str_len) == 1:
-            raise ValueError(s1)
+            raise InvalidCombination(s1)
 
         # All strings should consist of two characters.
         str_len_val = str_len.pop()
@@ -139,9 +140,14 @@ class BaseMechanicsProblem(object):
         # Check domain formulation.
         domain = config['formulation']['domain']
         if not domain in ['lagrangian', 'eulerian']:
-            s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' \
-                 % config['formulation']['domain']
-            raise ValueError(s1)
+            if domain.lower() == "ale":
+                s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' \
+                     % config['formulation']['domain']
+                raise NotImplementedError(s1)
+            else:
+                s1 = 'Formulation with respect to \'%s\' coordinates is not recognized.' \
+                     % config['formulation']['domain']
+                raise InvalidOption(s1)
 
         # Check the parameters given for time integration.
         self.check_time_params(config)
@@ -214,7 +220,7 @@ class BaseMechanicsProblem(object):
                         + "interval, 'interval', in the 'time' subdictionary " \
                         + "of 'formulation' in order to run a time-dependent " \
                         + "simulation."
-                    raise ValueError(s)
+                    raise RequiredParameter(s)
 
         # Set theta and dt to 1 if the problem is steady, and exit this
         # function.
@@ -316,7 +322,7 @@ class BaseMechanicsProblem(object):
             s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
                  % const_eqn \
                  + 'within the material type, \'%s\'.' % config['material']['type']
-            raise NotImplementedError(s1)
+            raise InvalidCombination(s1)
 
         if 'inverse' not in config['formulation']:
             config['formulation']['inverse'] = False
@@ -391,6 +397,7 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['dirichlet'] = None
 
         if config['formulation']['bcs']['dirichlet'] is None:
+            # USE THE WARNINGS MODULE HERE.
             print('*** No Dirichlet BCs were specified. ***')
             return None
 
@@ -414,22 +421,22 @@ class BaseMechanicsProblem(object):
                     s1 = s1 % disp
                 else:
                     s1 = s1 % vel
-                raise ValueError(s1)
+                raise RequiredParameter(s1)
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
                      + ' displacement when solving a quasi-static elastic problem.'
-                raise ValueError(s1)
+                raise RequiredParameter(s1)
         elif config['material']['type'] == 'viscous':
             if vel not in subconfig:
                 s1 = 'Dirichlet boundary conditions must be specified for ' \
                      + ' velocity when solving a quasi-static viscous problem.'
-                raise ValueError(s1)
+                raise RequiredParameter(s1)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(subconfig):
-            raise ValueError('The number of Dirichlet boundary regions and ' \
-                             + 'values for not match!')
+            raise InvalidCombination('The number of Dirichlet boundary regions ' \
+                                     + 'and values for not match!')
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -487,15 +494,19 @@ class BaseMechanicsProblem(object):
             return None
 
         # Make sure that a list for all keys was provided (types, regions, values).
+        keys_not_included = list()
         for t in ['types','regions','values']:
             if t not in config['formulation']['bcs']['neumann']:
-                s1 = 'A list of values for %s must be provided.' % t
-                raise ValueError(s1)
+                keys_not_included.append(t)
+
+        if keys_not_included:
+            s1 = 'A list of values for %s must be provided.' % keys_not_included
+            raise RequiredParameter(s1)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
-            raise ValueError('The number of Neumann boundary regions, types ' \
-                             + 'and values do not match!')
+            raise InconsistentCombination('The number of Neumann boundary ' \
+                                          + 'regions, types and values do not match!')
 
         # Make sure all Neumann BC types are supported with domain specified.
         # Make sure they're all lower case. (python 3 does not return a list object here)
