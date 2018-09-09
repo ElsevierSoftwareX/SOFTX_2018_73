@@ -855,13 +855,10 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
                                    close=False, v=v, p=p)
 
             # Hack to avoid rounding errors.
-            while t < (tf - dt/10.0):
+            while t <= (tf - dt/10.0):
 
                 # Advance the time.
                 t += dt
-
-                # Assign and update all vectors.
-                self.update_assign()
 
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
@@ -873,6 +870,9 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Solver current time step.
                 self.step()
+
+                # Assign and update all vectors.
+                self.update_assign()
 
                 t0 = t
                 count += 1
