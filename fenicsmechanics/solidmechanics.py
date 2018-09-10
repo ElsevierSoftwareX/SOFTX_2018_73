@@ -330,9 +330,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
         else:
-            s = "The material '%s' has not been implemented. A class for such" \
-                + " material must be provided."
-            raise NotImplementedError(s % self.config['material']['const_eqn'])
+            msg = "The material '%s' has not been implemented. A class for such" \
+                  + " material must be provided."
+            raise NotImplementedError(msg % self.config['material']['const_eqn'])
 
         try:
             fiber_file = self.config['mesh']['fiber_file']

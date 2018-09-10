@@ -1066,9 +1066,9 @@ class NeoHookeMaterial(IsotropicMaterial):
         elif formulation == 'log':
             f = (dlf.ln(J))**2
         else:
-            s = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
-                + " function is not recognized."
-            raise NotImplementedError(s)
+            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                  + " function is not recognized."
+            raise NotImplementedError(msg)
 
         return dlf.Constant(0.5)*kappa*f
 
@@ -1116,9 +1116,9 @@ class NeoHookeMaterial(IsotropicMaterial):
         elif formulation == 'log':
             dfdJ = dlf.ln(J)/J
         else:
-            s = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
-                + " function is not recognized."
-            raise NotImplementedError(s)
+            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                  + " function is not recognized."
+            raise NotImplementedError(msg)
 
         return kappa*dfdJ
 
@@ -1257,9 +1257,9 @@ class NeoHookeMaterial(IsotropicMaterial):
         elif formulation == 'log':
             g = dlf.ln(J)
         else:
-            s = "Formulation, \"%s\" of the penalty function is not recognized." \
-                % formulation
-            raise NotImplementedError(s)
+            msg = "Formulation, \"%s\" of the penalty function is not recognized." \
+                  % formulation
+            raise NotImplementedError(msg)
 
         return kappa*g*Finv.T
 
@@ -1301,19 +1301,19 @@ class AnisotropicMaterial(ElasticMaterial):
         ElasticMaterial.set_material_class(self, 'transversely isotropic')
 
         # Extract fiber file information
-        s = "A value must be given for '%s' within the 'fibers' " \
+        msg = "A value must be given for '%s' within the 'fibers' " \
             + "sub-dictionary of the material dictionary."
         try:
             fiber_files = fiber_dict['fiber_files']
         except KeyError as err:
-            err.args += (s % 'fiber_files',)
+            err.args += (msg % 'fiber_files',)
             raise
 
         # Extract fiber names
         try:
             fiber_names = fiber_dict['fiber_names']
         except KeyError as err:
-            err.args += (s % 'fiber_names',)
+            err.args += (msg % 'fiber_names',)
             raise
 
         if 'element' in fiber_dict:
@@ -1326,7 +1326,7 @@ class AnisotropicMaterial(ElasticMaterial):
             else:
                 element_type = 'p1'
         else:
-            raise KeyError(s % '{element-wise,element}')
+            raise KeyError(msg % '{element-wise,element}')
 
         # Element type should only be None if dolfin.Coefficient objects
         # were already provided.
@@ -1385,8 +1385,8 @@ class AnisotropicMaterial(ElasticMaterial):
             self._fiber_directions[key % 1] = fiber_files
         else:
             if len(fiber_files) != len(fiber_names):
-                s = "The number of files and fiber family names must be the same."
-                raise InconsistentCombination(s)
+                msg = "The number of files and fiber family names must be the same."
+                raise InconsistentCombination(msg)
 
             self._fiber_directions = dict()
             for i,f in enumerate(fiber_files):

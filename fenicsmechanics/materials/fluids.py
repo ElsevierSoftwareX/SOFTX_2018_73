@@ -205,8 +205,8 @@ class NewtonianFluid(Fluid):
         convert_viscosity(self._parameters)
 
         if not self._incompressible:
-            s = "Compressible flows have not been implemented."
-            raise NotImplementedError(s)
+            msg = "Compressible flows have not been implemented."
+            raise NotImplementedError(msg)
 
 
     @staticmethod

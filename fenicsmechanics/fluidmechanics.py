@@ -258,9 +258,9 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         elif const_eqn in ["newtonian", "stokes"]:
             mat_class = materials.fluids.NewtonianFluid
         else:
-            s = "The material '%s' has not been implemented. A class for such" \
-                + " material must be provided."
-            raise NotImplementedError(s % const_eqn)
+            msg = "The material '%s' has not been implemented. A class for such" \
+                  + " material must be provided."
+            raise NotImplementedError(msg % const_eqn)
 
         self._material = mat_class(**self.config['material'])
 

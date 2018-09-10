@@ -99,8 +99,8 @@ def __load_mesh_hdf5(mesh_file):
 
     # Check dolfin for HDF5 support
     if not dlf.has_hdf5():
-        s1 = 'The current installation of dolfin does not support HDF5 files.'
-        raise SoftwareNotAvailable(s1)
+        msg = 'The current installation of dolfin does not support HDF5 files.'
+        raise SoftwareNotAvailable(msg)
 
     # Check file extension
     if mesh_file[-3:] == '.h5':
@@ -109,8 +109,8 @@ def __load_mesh_hdf5(mesh_file):
         f.read(mesh, 'mesh', False)
         f.close()
     else:
-        s1 = 'The file extension provided must be \'.h5\'.'
-        raise ValueError(s1)
+        msg = 'The file extension provided must be \'.h5\'.'
+        raise ValueError(msg)
 
     return mesh
 
@@ -137,8 +137,8 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
 
     # Check dolfin for HDF5 support
     if not dlf.has_hdf5():
-        s1 = 'The current installation of dolfin does not support HDF5 files.'
-        raise SoftwareNotAvailable(s1)
+        msg = 'The current installation of dolfin does not support HDF5 files.'
+        raise SoftwareNotAvailable(msg)
 
     # Check file extension
     if mesh_function[-3:] == '.h5':
@@ -147,8 +147,8 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
         f.read(mesh_func, 'boundaries')
         f.close()
     else:
-        s1 = 'The file extension provided must be \'.h5\'.'
-        raise ValueError(s1)
+        msg = 'The file extension provided must be \'.h5\'.'
+        raise ValueError(msg)
 
     return mesh_func
 

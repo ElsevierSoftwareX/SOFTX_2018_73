@@ -351,7 +351,7 @@ class MechanicsProblem(BaseMechanicsProblem):
         elif const_eqn == 'newtonian' or const_eqn == 'stokes':
             mat_class = materials.fluids.NewtonianFluid
         else:
-            raise InvalidCombination("Shouldn't be in here...")
+            raise NotImplementedError("Shouldn't be in here...")
 
         # Create an instance of the material class and store
         # as member data.
@@ -401,11 +401,11 @@ class MechanicsProblem(BaseMechanicsProblem):
             pressure_vals = self.config['formulation']['bcs']['dirichlet']['pressure']
             p_regions = self.config['formulation']['bcs']['dirichlet']['p_regions']
         elif 'pressure' in self.config['formulation']['bcs']['dirichlet']:
-            s = "Values for pressure were specified, but the regions were not."
-            raise RequiredParameter(s)
+            msg = "Values for pressure were specified, but the regions were not."
+            raise RequiredParameter(msg)
         elif 'p_regions' in self.config['formulation']['bcs']['dirichlet']:
-            s = "The regions for pressure were specified, but the values were not."
-            raise RequiredParameter(s)
+            msg = "The regions for pressure were specified, but the values were not."
+            raise RequiredParameter(msg)
         else:
             pressure_vals = None
             p_regions = None
