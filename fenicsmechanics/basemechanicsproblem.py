@@ -101,53 +101,53 @@ class BaseMechanicsProblem(object):
 
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
-            s1 = 'The current formulation allows 1 or 2 fields.\n'
-            s2 = 'You provided %i. Check config[\'formulation\'][\'element\'].' % len_fe_list
-            raise NotImplementedError(s1 + s2)
+            msg = 'The current formulation allows 1 or 2 fields.\n'
+            msg += 'You provided %i. Check config[\'formulation\'][\'element\'].' % len_fe_list
+            raise NotImplementedError(msg)
         elif len_fe_list == 1 and config['material']['incompressible']:
-            s1 = 'Only one element type, \'%s\', was specified ' \
-                 % config['formulation']['element'] \
-                 + 'for an incompressible material.'
-            raise InconsistentCombination(s1)
+            msg = 'Only one element type, \'%s\', was specified ' \
+                  % config['formulation']['element'] \
+                  + 'for an incompressible material.'
+            raise InconsistentCombination(msg)
         elif len_fe_list == 2 and not config['material']['incompressible']:
-            s1 = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
-                 +'for a compressible material.'
-            raise InconsistentCombination(s1)
+            msg = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
+                  +'for a compressible material.'
+            raise InconsistentCombination(msg)
         else:
             # Replace with list in case it was originally a string
             config['formulation']['element'] = fe_list
 
         # Check to make sure all strings are only 2 characters long.
         str_len = set(map(len, config['formulation']['element']))
-        s1 = 'Element types must be of the form \'p<int>\', where <int> ' \
-             + 'is the polynomial degree to be used.' # error string
+        msg = 'Element types must be of the form \'p<int>\', where <int> ' \
+              + 'is the polynomial degree to be used.' # error string
 
         # All strings should have the same number of characters.
         if not len(str_len) == 1:
-            raise InvalidCombination(s1)
+            raise InvalidCombination(msg)
 
         # All strings should consist of two characters.
         str_len_val = str_len.pop()
         if not str_len_val == 2:
-            raise ValueError(s1)
+            raise ValueError(msg)
 
         # Check to make sure first character is 'p'
         if not fe_list[0][0] == 'p':
-            s1 = 'The finite element family, \'%s\', has not been implemented.' \
-                 % fe_list[0][0]
-            raise NotImplementedError(s1)
+            msg = 'The finite element family, \'%s\', has not been implemented.' \
+                  % fe_list[0][0]
+            raise NotImplementedError(msg)
 
         # Check domain formulation.
         domain = config['formulation']['domain']
         if not domain in ['lagrangian', 'eulerian']:
             if domain.lower() == "ale":
-                s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' \
-                     % config['formulation']['domain']
-                raise NotImplementedError(s1)
+                msg = 'Formulation with respect to \'%s\' coordinates is not supported.' \
+                      % config['formulation']['domain']
+                raise NotImplementedError(msg)
             else:
-                s1 = 'Formulation with respect to \'%s\' coordinates is not recognized.' \
-                     % config['formulation']['domain']
-                raise InvalidOption(s1)
+                msg = 'Formulation with respect to \'%s\' coordinates is not recognized.' \
+                      % config['formulation']['domain']
+                raise InvalidOption(msg)
 
         # Check the parameters given for time integration.
         self.check_time_params(config)
@@ -216,11 +216,11 @@ class BaseMechanicsProblem(object):
                     config['formulation']['time']['unsteady'] = True
                     steady = False
                 else:
-                    s = "Need to specify a time step, 'dt', and a time " \
-                        + "interval, 'interval', in the 'time' subdictionary " \
-                        + "of 'formulation' in order to run a time-dependent " \
-                        + "simulation."
-                    raise RequiredParameter(s)
+                    msg = "Need to specify a time step, 'dt', and a time " \
+                          + "interval, 'interval', in the 'time' subdictionary " \
+                          + "of 'formulation' in order to run a time-dependent " \
+                          + "simulation."
+                    raise RequiredParameter(msg)
 
         # Set theta and dt to 1 if the problem is steady, and exit this
         # function.
@@ -231,9 +231,9 @@ class BaseMechanicsProblem(object):
             return None
 
         if not isinstance(config['formulation']['time']['dt'], (float,dlf.Constant)):
-            s1 = 'The \'dt\' parameter must be a scalar value of type: ' \
-                 + 'dolfin.Constant, float'
-            raise TypeError(s1)
+            msg = 'The \'dt\' parameter must be a scalar value of type: ' \
+                  + 'dolfin.Constant, float'
+            raise TypeError(msg)
 
         # Get rank to only print from process 0
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
@@ -243,10 +243,10 @@ class BaseMechanicsProblem(object):
         try:
             theta = config['formulation']['time']['theta']
             if theta < 0.0 or theta > 1.0:
-                s1 = 'The value of theta for the generalized theta ' \
-                     + 'method must be between 0 and 1. The value ' \
-                     + 'provided was: %.4f ' % theta
-                raise ValueError(s1)
+                msg = 'The value of theta for the generalized theta ' \
+                      + 'method must be between 0 and 1. The value ' \
+                      + 'provided was: %.4f ' % theta
+                raise ValueError(msg)
         except KeyError:
             if rank == 0:
                 print("No value was provided for 'theta'. A value of 1.0 (fully " \
@@ -303,15 +303,15 @@ class BaseMechanicsProblem(object):
 
         # Exit if value is neither a class or string.
         if not isinstance(config['material']['const_eqn'], str):
-            s = 'The value of \'const_eqn\' must be a class ' \
-                + 'or string.'
-            raise TypeError(s)
+            msg = 'The value of \'const_eqn\' must be a class ' \
+                  + 'or string.'
+            raise TypeError(msg)
 
         # Check if the material type is implemented.
         if config['material']['type'] not in _implemented['materials']:
-            s1 = 'The class of materials, \'%s\', has not been implemented.' \
-                 % config['material']['type']
-            raise NotImplementedError(s1)
+            msg = 'The class of materials, \'%s\', has not been implemented.' \
+                  % config['material']['type']
+            raise NotImplementedError(msg)
 
         mat_subdict = _implemented['materials'][config['material']['type']]
         const_eqn = config['material']['const_eqn']
@@ -319,10 +319,10 @@ class BaseMechanicsProblem(object):
         # Check if the constitutive equation is implemented under the
         # type specified.
         if const_eqn not in mat_subdict:
-            s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
-                 % const_eqn \
-                 + 'within the material type, \'%s\'.' % config['material']['type']
-            raise InvalidCombination(s1)
+            msg = 'The constitutive equation, \'%s\', has not been implemented ' \
+                  % const_eqn \
+                  + 'within the material type, \'%s\'.' % config['material']['type']
+            raise InvalidCombination(msg)
 
         if 'inverse' not in config['formulation']:
             config['formulation']['inverse'] = False
@@ -414,29 +414,29 @@ class BaseMechanicsProblem(object):
            and config['material']['type'] == 'elastic' \
            and self.class_name == "MechanicsProblem":
             if (vel not in subconfig) or (disp not in subconfig):
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + 'both velocity and displacement when the problem is ' \
-                     + 'unsteady. Only %s BCs were provided.'
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + 'both velocity and displacement when the problem is ' \
+                      + 'unsteady. Only %s BCs were provided.'
                 if vel not in subconfig:
-                    s1 = s1 % disp
+                    msg = msg % disp
                 else:
-                    s1 = s1 % vel
-                raise RequiredParameter(s1)
+                    msg = msg % vel
+                raise RequiredParameter(msg)
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + ' displacement when solving a quasi-static elastic problem.'
-                raise RequiredParameter(s1)
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + ' displacement when solving a quasi-static elastic problem.'
+                raise RequiredParameter(msg)
         elif config['material']['type'] == 'viscous':
             if vel not in subconfig:
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + ' velocity when solving a quasi-static viscous problem.'
-                raise RequiredParameter(s1)
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + ' velocity when solving a quasi-static viscous problem.'
+                raise RequiredParameter(msg)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(subconfig):
-            raise InvalidCombination('The number of Dirichlet boundary regions ' \
-                                     + 'and values for not match!')
+            raise InconsistentCombination('The number of Dirichlet boundary regions ' \
+                                          + 'and values for not match!')
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -500,8 +500,8 @@ class BaseMechanicsProblem(object):
                 keys_not_included.append(t)
 
         if keys_not_included:
-            s1 = 'A list of values for %s must be provided.' % keys_not_included
-            raise RequiredParameter(s1)
+            msg = 'A list of values for %s must be provided.' % keys_not_included
+            raise RequiredParameter(msg)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
@@ -517,14 +517,14 @@ class BaseMechanicsProblem(object):
         valid_types = {'pressure', 'cauchy', 'piola'}
         union = valid_types.union(neumann_types)
         if len(union) > 3:
-            s1 = 'At least one Neumann BC type is unrecognized. The type string must'
-            s2 = ' be one of the three: ' + ', '.join(list(valid_types))
-            raise NotImplementedError(s1 + s2)
+            msg = 'At least one Neumann BC type is unrecognized. The type string must'
+            msg += ' be one of the three: ' + ', '.join(list(valid_types))
+            raise NotImplementedError(msg)
 
         domain = config['formulation']['domain']
         if domain == 'eulerian' and 'piola' in neumann_types:
-            s1 = 'Piola traction in an Eulerian formulation is not supported.'
-            raise NotImplementedError(s1)
+            msg = 'Piola traction in an Eulerian formulation is not supported.'
+            raise NotImplementedError(msg)
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -570,9 +570,9 @@ class BaseMechanicsProblem(object):
                 else:
                     new_values.append(dlf.Constant(val))
             else:
-                s = "The type '%s' cannot be used to create a dolfin.Coefficient " \
-                    + "object." % val.__class__
-                raise TypeError(s)
+                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                      + "object." % val.__class__
+                raise TypeError(msg)
 
         return new_values
 
