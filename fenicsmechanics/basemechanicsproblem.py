@@ -63,7 +63,7 @@ class BaseMechanicsProblem(object):
         based on the current capabilities of the package. An exception
         is raised when a parameter (or combination of parameters) is
         (are) found to be invalid. Please see the documentation of
-        BaseMechanicsProblem for detailed information on the required
+        fenicsmechanics for detailed information on the required
         values.
 
 
@@ -89,29 +89,81 @@ class BaseMechanicsProblem(object):
         # Use a copy to avoid altering the original object
         config = user_config.copy()
 
+        # Check the finite element specified.
+        self.check_finite_element(config)
+
+        # Check the material type specified.
+        self.check_material_type(config)
+
+        # Check if the domain specified is implemented for the material type.
+        self.check_domain(config)
+
+        # Check if material type has been implemented.
+        self.check_material_const_eqn(config)
+
+        # Check the parameters given for time integration.
+        self.check_time_params(config)
+
+        # Make sure that the BC dictionaries have the same
+        # number of regions, values, etc., if any were
+        # specified. If they are not specified, set them to None.
+        self.check_bcs(config)
+
+        # Check if body force was provided. Assume zero if not.
+        if 'body_force' not in config['formulation']:
+            config['formulation']['body_force'] = None
+
+        self.check_initial_condition(config)
+
+        return config
+
+
+    def check_finite_element(self, config):
+        """
+        Check the finite element specified for the numerical formulation of
+        the problem.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
         # Check if the finite element type is provided.
         if 'element' not in config['formulation']:
-            raise RequiredParameter('You need to specify the type of element(s) to use.')
+            raise RequiredParameter("You need to specify the type of finite " \
+                                    + "element(s) to use.")
 
         # Make sure at most two element types are specified.
         if isinstance(config['formulation']['element'], str):
-            fe_list = re.split('-|_| ', config['formulation']['element'])
+            fe_list = re.split("-|_| ", config['formulation']['element'])
         else:
             fe_list = config['formulation']['element']
 
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
-            msg = 'The current formulation allows 1 or 2 fields.\n'
-            msg += 'You provided %i. Check config[\'formulation\'][\'element\'].' % len_fe_list
+            msg = "The current formulation allows 1 or 2 fields.\n"
+            msg += "You provided %i. Check config['formulation']['element']." % len_fe_list
             raise NotImplementedError(msg)
         elif len_fe_list == 1 and config['material']['incompressible']:
-            msg = 'Only one element type, \'%s\', was specified ' \
+            msg = "Only one element type, '%s', was specified " \
                   % config['formulation']['element'] \
-                  + 'for an incompressible material.'
+                  + "for an incompressible material."
             raise InconsistentCombination(msg)
         elif len_fe_list == 2 and not config['material']['incompressible']:
-            msg = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
-                  +'for a compressible material.'
+            msg = "Two element types, '%s', were specified " % config['formulation']['element'] \
+                  + "for a compressible material."
             raise InconsistentCombination(msg)
         else:
             # Replace with list in case it was originally a string
@@ -119,8 +171,8 @@ class BaseMechanicsProblem(object):
 
         # Check to make sure all strings are only 2 characters long.
         str_len = set(map(len, config['formulation']['element']))
-        msg = 'Element types must be of the form \'p<int>\', where <int> ' \
-              + 'is the polynomial degree to be used.' # error string
+        msg = "Element types must be of the form 'p<int>', where <int> " \
+              + "is the polynomial degree to be used." # error string
 
         # All strings should have the same number of characters.
         if not len(str_len) == 1:
@@ -132,14 +184,84 @@ class BaseMechanicsProblem(object):
             raise ValueError(msg)
 
         # Check to make sure first character is 'p'
-        if not fe_list[0][0] == 'p':
-            msg = 'The finite element family, \'%s\', has not been implemented.' \
+        if not fe_list[0][0] == "p":
+            msg = "The finite element family, '%s', has not been implemented." \
                   % fe_list[0][0]
             raise NotImplementedError(msg)
 
-        # Check domain formulation.
+        return None
+
+
+    def check_material_type(self, config):
+        """
+        Check if the material type specified is supported.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        if 'type' not in config['material']:
+            num_types = len(_implemented['materials'])
+            msg = "The material type must be specified. Types currently " \
+                  + "supported are: " + ", ".join(["%s"]*num_types) \
+                  % tuple(_implemented['materials'].keys())
+            raise RequiredParameter(msg)
+
+        # Check if the material type is implemented.
+        if config['material']['type'] not in _implemented['materials']:
+            msg = "The class of materials, '%s', has not been implemented." \
+                  % config['material']['type']
+            raise NotImplementedError(msg)
+
+        return None
+
+
+    def check_domain(self, config):
+        """
+        Check if the domain formulation specified is implemented for the
+        material type.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
+        # Material type should have already been checked, so there should be
+        # no issues here.
+        mat_type = config['material']['type']
+
+        if 'domain' not in config['formulation']:
+            msg = "The domain formulation must be specified. " \
+                  "Formulations currently supported are: eulerian, lagrangian"
+            raise RequiredParameter(msg)
         domain = config['formulation']['domain']
-        if not domain in ['lagrangian', 'eulerian']:
+        if domain not in ["lagrangian", "eulerian"]:
             if domain.lower() == "ale":
                 msg = 'Formulation with respect to \'%s\' coordinates is not supported.' \
                       % config['formulation']['domain']
@@ -149,24 +271,78 @@ class BaseMechanicsProblem(object):
                       % config['formulation']['domain']
                 raise InvalidOption(msg)
 
-        # Check the parameters given for time integration.
-        self.check_time_params(config)
+        if ((mat_type == "elastic") and (domain == "eulerian")) \
+           or ((mat_type == "viscous") and (domain == "lagrangian")):
+            msg = "%s formulation for %s materials is not supported." \
+                  % (domain.capitalize(), mat_type)
+            raise NotImplementedError(msg)
 
-        # Make sure that the BC dictionaries have the same
-        # number of regions, values, etc., if any were
-        # specified. If they are not specified, set them to None.
-        self.check_bcs(config)
+        return None
 
-        # Check if material type has been implemented.
-        self.check_material_const_eqn(config)
 
-        # Check if body force was provided. Assume zero if not.
-        if 'body_force' not in config['formulation']:
-            config['formulation']['body_force'] = None
+    def check_material_const_eqn(self, config):
+        """
+        Check if the material type and the specific constitutive equation
+        specified in the config dictionary are implemented, unless a class
+        is provided. An exception is raised if an unknown material type
+        and/or constitutive equation name is provided.
 
-        self.check_initial_condition(config)
 
-        return config
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        # Exit if user provided a material class.
+        if isclass(config['material']['const_eqn']):
+            return None
+
+        # Exit if value is neither a class or string.
+        if not isinstance(config['material']['const_eqn'], str):
+            msg = 'The value of \'const_eqn\' must be a class ' \
+                  + 'or string.'
+            raise TypeError(msg)
+
+        # if 'type' not in config['material']:
+        #     num_types = len(_implemented['materials'])
+        #     msg = "The material type must be specified. Types currently " \
+        #           + "supported are: " + ", ".join(["%s"]*num_types) \
+        #           % tuple(_implemented['materials'].keys())
+        #     raise RequiredParameter(msg)
+
+        # # Check if the material type is implemented.
+        # if config['material']['type'] not in _implemented['materials']:
+        #     msg = 'The class of materials, \'%s\', has not been implemented.' \
+        #           % config['material']['type']
+        #     raise NotImplementedError(msg)
+
+        mat_subdict = _implemented['materials'][config['material']['type']]
+        const_eqn = config['material']['const_eqn']
+
+        # Check if the constitutive equation is implemented under the
+        # type specified.
+        if const_eqn not in mat_subdict:
+            msg = 'The constitutive equation, \'%s\', has not been implemented ' \
+                  % const_eqn \
+                  + 'within the material type, \'%s\'.' % config['material']['type']
+            raise InvalidCombination(msg)
+
+        if 'inverse' not in config['formulation']:
+            config['formulation']['inverse'] = False
+
+        return None
 
 
     def check_time_params(self, config):
@@ -268,64 +444,6 @@ class BaseMechanicsProblem(object):
                     print("No value was provided for 'gamma'. A value of 0.5 will be " \
                           + "used for the Newmark integration scheme.")
                 config['formulation']['time']['gamma'] = 0.5
-
-        return None
-
-
-    def check_material_const_eqn(self, config):
-        """
-        Check if the material type and the specific constitutive equation
-        specified in the config dictionary are implemented, unless a class
-        is provided. An exception is raised if an unknown material type
-        and/or constitutive equation name is provided.
-
-
-        Parameters
-        ----------
-
-        config : dict
-            Dictionary describing the formulation of the mechanics
-            problem to be simulated. Check the documentation of
-            BaseMechanicsProblem to see the format of the dictionary.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        # Exit if user provided a material class.
-        if isclass(config['material']['const_eqn']):
-            return None
-
-        # Exit if value is neither a class or string.
-        if not isinstance(config['material']['const_eqn'], str):
-            msg = 'The value of \'const_eqn\' must be a class ' \
-                  + 'or string.'
-            raise TypeError(msg)
-
-        # Check if the material type is implemented.
-        if config['material']['type'] not in _implemented['materials']:
-            msg = 'The class of materials, \'%s\', has not been implemented.' \
-                  % config['material']['type']
-            raise NotImplementedError(msg)
-
-        mat_subdict = _implemented['materials'][config['material']['type']]
-        const_eqn = config['material']['const_eqn']
-
-        # Check if the constitutive equation is implemented under the
-        # type specified.
-        if const_eqn not in mat_subdict:
-            msg = 'The constitutive equation, \'%s\', has not been implemented ' \
-                  % const_eqn \
-                  + 'within the material type, \'%s\'.' % config['material']['type']
-            raise InvalidCombination(msg)
-
-        if 'inverse' not in config['formulation']:
-            config['formulation']['inverse'] = False
 
         return None
 
