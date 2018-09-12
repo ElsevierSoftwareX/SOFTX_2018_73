@@ -96,35 +96,3 @@ def test_wrong_domain(default_config, class_name):
         problem = problem_class(config)
     # problem = problem_class(config)
     return None
-
-
-@pytest.mark.parametrize("class_name", problem_classes)
-@pytest.mark.parametrize("subdict, rm_key", (("material", "type"),
-                                             ("material", "const_eqn"),
-                                             ("material", "incompressible"),
-                                             ("mesh", "mesh_file"),
-                                             ("mesh", "boundaries"),
-                                             ("formulation", "element"),
-                                             ("formulation", "domain"),
-                                             ("formulation/time", "interval"),
-                                             ("formulation/time", "dt")))
-def test_required_parameters(default_config, class_name, subdict, rm_key):
-    config = default_config(class_name)
-    if "time" in subdict:
-        _insert_time_key(config, rm_key)
-    else:
-        _ = config[subdict].pop(rm_key)
-
-    problem_class = getattr(fm, class_name)
-    with pytest.raises(fm.exceptions.RequiredParameter) as e:
-        problem_class(config)
-    return None
-
-
-def _insert_time_key(config, rm_key):
-    config['formulation']['time']['unsteady'] = True
-    if rm_key == "dt":
-        config['formulation']['time']['interval'] = [0., 1.]
-    else:
-        config['formulation']['time']['dt'] = 0.01
-    return None
