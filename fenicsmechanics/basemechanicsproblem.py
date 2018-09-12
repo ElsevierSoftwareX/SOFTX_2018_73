@@ -161,6 +161,9 @@ class BaseMechanicsProblem(object):
         if 'element' not in config['formulation']:
             raise RequiredParameter("You need to specify the type of finite " \
                                     + "element(s) to use.")
+        else:
+            _check_type(config['formulation']['element'],
+                        (str, list, tuple), "element")
 
         # Make sure at most two element types are specified.
         if isinstance(config['formulation']['element'], str):
@@ -171,6 +174,9 @@ class BaseMechanicsProblem(object):
         if 'incompressible' not in config['material']:
             msg = "You must specify if the material is incompressible or not."
             raise RequiredParameter(msg)
+        else:
+            _check_type(config['material']['incompressible'],
+                        (bool,), "incompressible")
 
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
@@ -241,6 +247,8 @@ class BaseMechanicsProblem(object):
                   + "supported are: " + ", ".join(["%s"]*num_types) \
                   % tuple(_implemented['materials'].keys())
             raise RequiredParameter(msg)
+        else:
+            _check_type(config['material']['type'], (str,), 'type')
 
         # Check if the material type is implemented.
         if config['material']['type'] not in _implemented['materials']:
@@ -281,6 +289,9 @@ class BaseMechanicsProblem(object):
             msg = "The domain formulation must be specified. " \
                   "Formulations currently supported are: eulerian, lagrangian"
             raise RequiredParameter(msg)
+        else:
+            _check_type(config['formulation']['domain'], (str,), 'domain')
+
         domain = config['formulation']['domain']
         if domain not in ["lagrangian", "eulerian"]:
             if domain.lower() == "ale":
@@ -912,6 +923,9 @@ class BaseMechanicsProblem(object):
 
         """
 
+        for key, val in bc_dict.items():
+            _check_type(val, (list, tuple), "formulation/bcs/../%s" % key)
+
         values = bc_dict.values()
         lengths = map(len, values)
         if len(set(lengths)) == 1:
@@ -1074,3 +1088,11 @@ class BaseMechanicsProblem(object):
             function0.assign(init_value)
 
         return None
+
+
+def _check_type(obj, valid_types, key):
+    if not isinstance(obj, valid_types):
+        msg = "The value given for '%s' must be one of the following " % key \
+              + "types: %s" % str(tuple(obj.__name__ for obj in valid_types))
+        raise TypeError(msg)
+    return None
