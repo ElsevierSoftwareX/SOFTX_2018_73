@@ -89,6 +89,9 @@ class BaseMechanicsProblem(object):
         # Use a copy to avoid altering the original object
         config = user_config.copy()
 
+        # Check mesh file names given.
+        self.check_mesh(config)
+
         # Check the finite element specified.
         self.check_finite_element(config)
 
@@ -116,6 +119,20 @@ class BaseMechanicsProblem(object):
         self.check_initial_condition(config)
 
         return config
+
+
+    def check_mesh(self, config):
+        """
+
+
+        """
+
+        if 'mesh_file' not in config['mesh']:
+            msg = "The name of a mesh file, or a dolfin.Mesh object, " \
+                  + "must be provided."
+            raise RequiredParameter(msg)
+
+        return None
 
 
     def check_finite_element(self, config):
@@ -150,6 +167,10 @@ class BaseMechanicsProblem(object):
             fe_list = re.split("-|_| ", config['formulation']['element'])
         else:
             fe_list = config['formulation']['element']
+
+        if 'incompressible' not in config['material']:
+            msg = "You must specify if the material is incompressible or not."
+            raise RequiredParameter(msg)
 
         len_fe_list = len(fe_list)
         if len_fe_list == 0 or len_fe_list > 2:
@@ -275,7 +296,7 @@ class BaseMechanicsProblem(object):
            or ((mat_type == "viscous") and (domain == "lagrangian")):
             msg = "%s formulation for %s materials is not supported." \
                   % (domain.capitalize(), mat_type)
-            raise NotImplementedError(msg)
+            raise InvalidCombination(msg)
 
         return None
 
@@ -305,6 +326,11 @@ class BaseMechanicsProblem(object):
 
         """
 
+        if 'const_eqn' not in config['material']:
+            msg = "The constitutive equation must be specified under the key " \
+                  + "'const_eqn' of the 'material' subdictionary."
+            raise RequiredParameter(msg)
+
         # Exit if user provided a material class.
         if isclass(config['material']['const_eqn']):
             return None
@@ -314,19 +340,6 @@ class BaseMechanicsProblem(object):
             msg = 'The value of \'const_eqn\' must be a class ' \
                   + 'or string.'
             raise TypeError(msg)
-
-        # if 'type' not in config['material']:
-        #     num_types = len(_implemented['materials'])
-        #     msg = "The material type must be specified. Types currently " \
-        #           + "supported are: " + ", ".join(["%s"]*num_types) \
-        #           % tuple(_implemented['materials'].keys())
-        #     raise RequiredParameter(msg)
-
-        # # Check if the material type is implemented.
-        # if config['material']['type'] not in _implemented['materials']:
-        #     msg = 'The class of materials, \'%s\', has not been implemented.' \
-        #           % config['material']['type']
-        #     raise NotImplementedError(msg)
 
         mat_subdict = _implemented['materials'][config['material']['type']]
         const_eqn = config['material']['const_eqn']
@@ -406,6 +419,16 @@ class BaseMechanicsProblem(object):
             config['formulation']['time']['dt'] = 1
             return None
 
+        # The check for 'dt' and 'interval' should only catch errors when
+        # the problem is unsteady since the values for the steady case were
+        # already updated above.
+        if 'dt' not in config['formulation']['time']:
+            msg = "The time step size, 'dt', must be specified."
+            raise RequiredParameter(msg)
+        if 'interval' not in config['formulation']['time']:
+            msg = "The time interval must be specified."
+            raise RequiredParameter(msg)
+
         if not isinstance(config['formulation']['time']['dt'], (float,dlf.Constant)):
             msg = 'The \'dt\' parameter must be a scalar value of type: ' \
                   + 'dolfin.Constant, float'
@@ -480,6 +503,12 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['neumann'] = None
             print('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
+        else:
+            if 'boundaries' not in config['mesh']:
+                msg = "A facet function must be provided under the 'boundaries'" \
+                      + " key of the 'mesh' subdictionary when specifying " \
+                      + "boundary conditions for the problem."
+                raise RequiredParameter(msg)
 
         self.check_dirichlet(config)
         self.check_neumann(config)
