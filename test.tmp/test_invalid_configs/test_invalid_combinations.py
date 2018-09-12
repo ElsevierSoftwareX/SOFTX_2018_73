@@ -3,12 +3,16 @@ import pytest
 
 import fenicsmechanics as fm
 
+# Testing UI problem classes since the user will likely not use
+# BaseMechanicsProblem directly.
+# problem_classes = ("BaseMechanicsProblem",)
+problem_classes = ("MechanicsProblem",
+                   "SolidMechanicsProblem",
+                   "FluidMechanicsProblem")
 
 # Testing that fm catches when user provides a different number objects
 # under the BCs sub dictionary.
-@pytest.mark.parametrize("class_name", ("MechanicsProblem",
-                                        "SolidMechanicsProblem",
-                                        "FluidMechanicsProblem"))
+@pytest.mark.parametrize("class_name", problem_classes)
 @pytest.mark.parametrize("bc_type, key",
                          (("dirichlet", "regions"),
                           ("dirichlet", "displacement"),
@@ -29,9 +33,7 @@ def test_nonmatching_bc_lengths(default_config, class_name, bc_type, key):
 
 
 # This should not raise any exceptions.
-@pytest.mark.parametrize("class_name", ("MechanicsProblem",
-                                        "SolidMechanicsProblem",
-                                        "FluidMechanicsProblem"))
+@pytest.mark.parametrize("class_name", problem_classes)
 def test_matching_bc_lengths(default_config, class_name):
     config = default_config(class_name)
     problem_class = getattr(fm, class_name)
@@ -40,9 +42,7 @@ def test_matching_bc_lengths(default_config, class_name):
 
 # Testing that fm catches when the user specifies the wrong number
 # of elements based on whether the material is incompressible or not.
-@pytest.mark.parametrize("class_name", ("MechanicsProblem",
-                                        "SolidMechanicsProblem",
-                                        "FluidMechanicsProblem"))
+@pytest.mark.parametrize("class_name", problem_classes)
 @pytest.mark.parametrize("incompressible, element",
                          ((True, "p2"), (False, "p2-p1")))
 def test_invalid_incompressible_elements(default_config, class_name,
@@ -63,9 +63,7 @@ def test_invalid_incompressible_elements(default_config, class_name,
 
 
 # This should not raise any exceptions.
-@pytest.mark.parametrize("class_name", ("MechanicsProblem",
-                                        "SolidMechanicsProblem",
-                                        "FluidMechanicsProblem"))
+@pytest.mark.parametrize("class_name", problem_classes)
 @pytest.mark.parametrize("incompressible, element",
                          ((True, "p2-p1"), (False, "p2")))
 def test_valid_incompressible_elements(default_config, class_name,
@@ -73,27 +71,20 @@ def test_valid_incompressible_elements(default_config, class_name,
     config = default_config(class_name)
     config['formulation']['element'] = element
     config['material']['incompressible'] = incompressible
-
-    # Exiting in this case since compressible fluids have not been
-    # implemented, and hence a different exception will be raised.
-    if (class_name == "FluidMechanicsProblem") and (not incompressible):
-        return None
-
     problem_class = getattr(fm, class_name)
-    problem = problem_class(config)
+
+    # Compressible fluids should raise an error since they have not
+    # been implemented.
+    if (class_name == "FluidMechanicsProblem") and (not incompressible):
+        with pytest.raises(NotImplementedError) as e:
+            problem = problem_class(config)
+    else:
+        problem = problem_class(config)
     return None
 
 
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# THIS TEST IS NOT PERFORMING AS EXPECTED...
-#
-# THIS IS CAUSING THE DEFORMATION GRADIENT TO BE SET TO ZERO, WHICH CAUSES A
-# 'ZeroDivisionError' DOWN THE LINE WHEN THE INVERSE OF THE GRADIENT IS DEFINED.
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-@pytest.mark.parametrize("class_name", ("MechanicsProblem",
-                                        "SolidMechanicsProblem",
-                                        "FluidMechanicsProblem"))
-def _test_wrong_domain(default_config, class_name):
+@pytest.mark.parametrize("class_name", problem_classes)
+def test_wrong_domain(default_config, class_name):
     config = default_config(class_name)
     if config['material']['type'] == "elastic":
         config['formulation']['domain'] = "eulerian"
@@ -101,7 +92,39 @@ def _test_wrong_domain(default_config, class_name):
         config['formulation']['domain'] = "lagrangian"
 
     problem_class = getattr(fm, class_name)
-    # with pytest.raises(fm.exceptions.InvalidCombination) as e:
-    #     problem = problem_class(config)
-    problem = problem_class(config)
+    with pytest.raises(fm.exceptions.InvalidCombination) as e:
+        problem = problem_class(config)
+    # problem = problem_class(config)
+    return None
+
+
+@pytest.mark.parametrize("class_name", problem_classes)
+@pytest.mark.parametrize("subdict, rm_key", (("material", "type"),
+                                             ("material", "const_eqn"),
+                                             ("material", "incompressible"),
+                                             ("mesh", "mesh_file"),
+                                             ("mesh", "boundaries"),
+                                             ("formulation", "element"),
+                                             ("formulation", "domain"),
+                                             ("formulation/time", "interval"),
+                                             ("formulation/time", "dt")))
+def test_required_parameters(default_config, class_name, subdict, rm_key):
+    config = default_config(class_name)
+    if "time" in subdict:
+        _insert_time_key(config, rm_key)
+    else:
+        _ = config[subdict].pop(rm_key)
+
+    problem_class = getattr(fm, class_name)
+    with pytest.raises(fm.exceptions.RequiredParameter) as e:
+        problem_class(config)
+    return None
+
+
+def _insert_time_key(config, rm_key):
+    config['formulation']['time']['unsteady'] = True
+    if rm_key == "dt":
+        config['formulation']['time']['interval'] = [0., 1.]
+    else:
+        config['formulation']['time']['dt'] = 0.01
     return None
