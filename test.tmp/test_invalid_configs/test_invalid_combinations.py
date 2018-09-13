@@ -22,8 +22,8 @@ problem_classes = ("MechanicsProblem",
                           ("neumann", "types")))
 def test_nonmatching_bc_lengths(default_config, class_name, bc_type, key):
     # Adding another object to the list to provoke an exception.
-    config = default_config(class_name)
-    config['formulation']['bcs'][bc_type][key] += [None]
+    config = default_config(class_name, unsteady=False)
+    config['formulation']['bcs'][bc_type][key] += [10 if key == "regions" else 13.0]
 
     # Extracting the specific problem class.
     problem_class = getattr(fm, class_name)
