@@ -253,7 +253,6 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
     """
     import os
     from .__CONSTANTS__ import base_mesh_dir
-    print("base_mesh_dir = ", base_mesh_dir)
     if geometry not in os.listdir(base_mesh_dir):
         raise FileNotFoundError("A mesh for '%s' is not available." % geometry)
 
