@@ -131,6 +131,19 @@ class BaseMechanicsProblem(object):
             msg = "The name of a mesh file, or a dolfin.Mesh object, " \
                   + "must be provided."
             raise RequiredParameter(msg)
+        _check_type(config['mesh']['mesh_file'], (str, dlf.Mesh), "mesh/mesh_file")
+
+        valid_meshfunction_types = (str, dlf.MeshFunctionBool, dlf.MeshFunctionDouble,
+                                    dlf.MeshFunctionInt, dlf.MeshFunctionSizet)
+        if 'boundaries' in config['mesh']:
+            _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
+                        "mesh/boundaries")
+
+        # This check is for future use. Marked cell domains are currently not
+        # used in any cases.
+        if 'cells' in config['mesh']:
+            _check_type(config['mesh']['cells'], valid_meshfunction_types,
+                        "mesh/cells")
 
         return None
 
@@ -292,12 +305,17 @@ class BaseMechanicsProblem(object):
         else:
             _check_type(config['formulation']['domain'], (str,), 'domain')
 
+        config['formulation']['domain'] = config['formulation']['domain'].lower()
         domain = config['formulation']['domain']
         if domain not in ["lagrangian", "eulerian"]:
-            if domain.lower() == "ale":
+            if domain == "ale":
                 msg = 'Formulation with respect to \'%s\' coordinates is not supported.' \
                       % config['formulation']['domain']
                 raise NotImplementedError(msg)
+            elif domain == "reference":
+                config['formulation']['domain'] = "lagrangian"
+            elif domain == "current":
+                config['formulation']['domain'] = "eulerian"
             else:
                 msg = 'Formulation with respect to \'%s\' coordinates is not recognized.' \
                       % config['formulation']['domain']
@@ -344,9 +362,11 @@ class BaseMechanicsProblem(object):
 
         # Exit if user provided a material class.
         if isclass(config['material']['const_eqn']):
+            # Should do an additional check to make sure the user defined the
+            # functions 'stress_tensor', and 'incompressibilityCondition'.
             return None
 
-        # Exit if value is neither a class or string.
+        # Raise an error if value is neither a class or string.
         if not isinstance(config['material']['const_eqn'], str):
             msg = 'The value of \'const_eqn\' must be a class ' \
                   + 'or string.'
