@@ -83,9 +83,13 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("formulation/bcs/dirichlet/regions", "left"),
                           ("formulation/bcs/dirichlet/displacement", [["x[0]", 1.0, 0.0]]),
                           ("formulation/bcs/dirichlet/velocity", [["x[0]", 0.0, 1.0]]),
-                          ("formulation/bcs/dirichlet/regions", ["left"])))
+                          ("formulation/bcs/dirichlet/regions", ["left"]),
+                          ("formulation/time/dt", "0.1")))
 def test_invalid_types(default_config, class_name, key, new_value):
-    config = default_config(class_name, unsteady=False)
+    if 'time' in key:
+        config = default_config(class_name, unsteady=True)
+    else:
+        config = default_config(class_name, unsteady=False)
     subconfig, last_key = _get_subdict(key, config, ret_last_key=True)
     subconfig[last_key] = new_value
 

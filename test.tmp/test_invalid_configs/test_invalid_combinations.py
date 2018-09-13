@@ -94,5 +94,4 @@ def test_wrong_domain(default_config, class_name):
     problem_class = getattr(fm, class_name)
     with pytest.raises(fm.exceptions.InvalidCombination) as e:
         problem = problem_class(config)
-    # problem = problem_class(config)
     return None
