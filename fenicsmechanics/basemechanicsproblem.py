@@ -470,18 +470,17 @@ class BaseMechanicsProblem(object):
 
         # Check the theta value provided. If none is provided, it is
         # set to 1.0.
-        try:
-            theta = config['formulation']['time']['theta']
-            if theta < 0.0 or theta > 1.0:
-                msg = 'The value of theta for the generalized theta ' \
-                      + 'method must be between 0 and 1. The value ' \
-                      + 'provided was: %.4f ' % theta
-                raise ValueError(msg)
-        except KeyError:
+        if 'theta' not in config['formulation']['time']:
             if rank == 0:
                 print("No value was provided for 'theta'. A value of 1.0 (fully " \
                       + "implicit) was used.")
             config['formulation']['time']['theta'] = 1.0
+
+        if theta < 0.0 or theta > 1.0:
+            msg = 'The value of theta for the generalized theta ' \
+                  + 'method must be between 0 and 1. The value ' \
+                  + 'provided was: %.4f ' % theta
+            raise ValueError(msg)
 
         # Provide a default value for Newmark scheme parameters
         # if not given. This is only for the SolidMechanicsProblem
@@ -716,6 +715,8 @@ class BaseMechanicsProblem(object):
         return None
 
 
+    # Should be able to use this function for more than just BCs. E.g.
+    # 'initial_condition' and 'body_force'. Might require some tweaking.
     @staticmethod
     def __convert_bc_values(values, t0, degree=1):
         """
@@ -763,7 +764,7 @@ class BaseMechanicsProblem(object):
                     if "t" in val:
                         expr = dlf.Expression(val, t=t0, degree=degree)
                     else:
-                        expr = dlf.Expression(val, t=t0, degree=degree)
+                        expr = dlf.Expression(val, degree=degree)
                     new_values.append(expr)
                 else:
                     new_values.append(dlf.Constant(val))
@@ -970,7 +971,8 @@ class BaseMechanicsProblem(object):
         # The only valid string is "all".
         for i, r_id in enumerate(bc_dict['regions']):
             if r_id != "everywhere":
-                _check_type(r_id, (int, float, bool), "regions[%i]" % i)
+                _check_type(r_id, (int, float, bool),
+                            "formulation/bcs/../regions[%i]" % i)
 
         values = bc_dict.values()
         lengths = map(len, values)
