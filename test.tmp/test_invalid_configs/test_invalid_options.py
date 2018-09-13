@@ -40,7 +40,9 @@ def test_required_parameters(default_config, class_name, subdict, rm_key):
 @pytest.mark.parametrize("key, new_value", (("material/type", "plastic"),
                                             ("material/const_eqn", "rivlin"),
                                             ("formulation/element", "d1-d2"),
+                                            ("formulation/element", "p2-p1-p0"),
                                             ("formulation/domain", "taylor"),
+                                            ("formulation/domain", "ALE"),
                                             ("formulation/bcs/neumann/types", ["force", "load"])))
 def test_unrecognized_parameters(default_config, class_name, key, new_value):
     config = default_config(class_name, unsteady=False)
@@ -64,7 +66,9 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("material/const_eqn", 1),
                           ("material/incompressible", "yes"),
                           ("mesh/mesh_file", [0.3]),
+                          ("mesh/mesh_file", 1),
                           ("mesh/boundaries", False),
+                          ("mesh/boundaries", 2),
                           ("formulation/element", 1.1),
                           ("formulation/domain", set(range(10))),
                           ("formulation/bcs/neumann/types", "my_bcs"),
