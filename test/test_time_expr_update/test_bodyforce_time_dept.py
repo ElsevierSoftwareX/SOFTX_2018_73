@@ -1,9 +1,12 @@
+from __future__ import print_function
+
 import numpy as np
 import dolfin as dlf
+import fenicsmechanics as fm
 import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
-boundaries = '../meshfiles/unit_domain/unit_domain-boundaries-2x2.xml.gz'
+mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
+                                                refinements=(2, 2))
 
 body_force = dlf.Expression(['log(1.0+t)', 'exp(t)'],
                             t=0.0, degree=2)
@@ -57,9 +60,9 @@ while t <= tf:
 
     expected = np.array([np.log(1.0 + t), np.exp(t)])
 
-    print '************************************************************'
-    print 't = %.2f' % t
-    print '\n'
-    print 'vals      = ', vals
-    print 'expected  = ', expected
-    print '\n'
+    print('*'*60)
+    print('t = %.2f' % t)
+    print('\n')
+    print('vals      = ', vals)
+    print('expected  = ', expected)
+    print('\n')
