@@ -1,24 +1,25 @@
 __all__ = ["InvalidOption", "InvalidCombination", "InconsistentCombination",
            "DimensionMismatch", "RequiredParameter"]
 
-class InvalidOption(ValueError):
+# Base class to allow catching any exception raised within FEniCS Mechanics.
+# Current code does not make use of this.
+class FEniCSMechanicsError(Exception):
     pass
-    # def __init__(self, message):
-    #     super().__init__(message)
+
+class InvalidOption(FEniCSMechanicsError, ValueError):
+    pass
 
 class InvalidCombination(InvalidOption):
     pass
-    # def __init__(self, message):
-    #     super().__init__(message)
 
-class InconsistentCombination(Exception):
+class InconsistentCombination(FEniCSMechanicsError):
     pass
 
-class DimensionMismatch(ValueError):
+class DimensionMismatch(FEniCSMechanicsError):
     pass
 
-class RequiredParameter(Exception):
+class RequiredParameter(FEniCSMechanicsError):
     pass
 
-class SoftwareNotAvailable(Exception):
+class SoftwareNotAvailable(FEniCSMechanicsError):
     pass
