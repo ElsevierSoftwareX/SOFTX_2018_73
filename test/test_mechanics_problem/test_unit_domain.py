@@ -107,11 +107,6 @@ ALL_ELSE = 0
 CLIP = 1
 TRACTION = 2
 
-if args.material == 'lin_elastic':
-    domain = 'eulerian'
-else:
-    domain = 'lagrangian'
-
 # Material subdictionary
 material_dict = {'const_eqn': args.material,
                  'type': 'elastic',
@@ -148,7 +143,7 @@ mesh_dict = {'mesh_file': mesh_file,
 
 # Formulation subdictionary
 formulation_dict = {'element': element_type,
-                    'domain': domain,
+                    'domain': 'lagrangian',
                     'inverse': args.inverse,
                     'body_force': dlf.Constant([0.0]*args.dim),
                     'bcs': {
