@@ -719,7 +719,27 @@ class BaseMechanicsProblem(object):
             elif isinstance(val, (float, int)):
                 new_values.append(dlf.Constant(val))
             elif isinstance(val, (list, tuple)):
-                if isinstance(val[0], str):
+                # Make sure that all objects in list/tuple are of the same type.
+                # (Either all strings, or all scalars)
+                component_types = set(list(map(type, val)))
+                if len(component_types) != 1:
+                    # Raise an error if different types were given in the same
+                    # list/tuple.
+                    msg = "All components of an expression/constant must " \
+                          + "be of the same type."
+                    raise TypeError(msg)
+                else:
+                    # Raise a TypeError if the components are not float,
+                    # int, or str.
+                    component_type = component_types.pop()
+                    valid_types = (float, int, str)
+                    if component_type not in valid_types:
+                        msg = "The components of each value must be one of the " \
+                              + "following types: %s" \
+                              % str(obj.__name__ for obj in valid_types)
+                        raise TypeError(msg)
+
+                if component_type == str:
                     if "t" in val:
                         expr = dlf.Expression(val, t=t0, degree=degree)
                     else:
@@ -926,6 +946,12 @@ class BaseMechanicsProblem(object):
         for key, val in bc_dict.items():
             _check_type(val, (list, tuple), "formulation/bcs/../%s" % key)
 
+        # Make sure the regions list is only ints, floats, bools, or strings.
+        # The only valid string is "all".
+        for i, r_id in enumerate(bc_dict['regions']):
+            if r_id != "everywhere":
+                _check_type(r_id, (int, float, bool), "regions[%i]" % i)
+
         values = bc_dict.values()
         lengths = map(len, values)
         if len(set(lengths)) == 1:
@@ -1007,12 +1033,7 @@ class BaseMechanicsProblem(object):
 
         for region, tt, value in zipped_vals:
 
-            if region == 'all':
-                ds_region = dlf.ds
-            else:
-                ds_region = dlf.ds(region, domain=mesh,
-                                   subdomain_data=boundaries)
-
+            ds_region = dlf.ds(region, domain=mesh, subdomain_data=boundaries)
             if tt == 'pressure':
                 val = -dlf.dot(xi, value*n)*ds_region
             elif tt == 'cauchy' and domain == 'lagrangian':
