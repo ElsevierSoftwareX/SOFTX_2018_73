@@ -59,19 +59,27 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
 # Purposely passing in invalid types to make sure they are caught.
 # Should include more tests for values within deeper subdictionaries.
 @pytest.mark.parametrize("class_name", problem_classes)
-@pytest.mark.parametrize("key, new_value", (("material/type", True),
-                                            ("material/const_eqn", 1),
-                                            ("material/incompressible", "yes"),
-                                            ("mesh/mesh_file", [0.3]),
-                                            ("mesh/boundaries", False),
-                                            ("formulation/element", 1.1),
-                                            ("formulation/domain", set(range(10))),
-                                            ("formulation/bcs/neumann/types", "my_bcs"),
-                                            ("formulation/bcs/neumann/values", 3.0),
-                                            ("formulation/bcs/neumann/regions", 3),
-                                            ("formulation/bcs/dirichlet/displacement", 0.0),
-                                            ("formulation/bcs/dirichlet/velocity", "fast"),
-                                            ("formulation/bcs/dirichlet/regions", "left")))
+@pytest.mark.parametrize("key, new_value",
+                         (("material/type", True),
+                          ("material/const_eqn", 1),
+                          ("material/incompressible", "yes"),
+                          ("mesh/mesh_file", [0.3]),
+                          ("mesh/boundaries", False),
+                          ("formulation/element", 1.1),
+                          ("formulation/domain", set(range(10))),
+                          ("formulation/bcs/neumann/types", "my_bcs"),
+                          ("formulation/bcs/neumann/values", 3.0),
+                          ("formulation/bcs/neumann/regions", 3),
+                          ("formulation/bcs/neumann/types", [True, "piola"]),
+                          ("formulation/bcs/neumann/values", [["x[0]", 3.0, 0.0],
+                                                              ["x[0]", "1.0", "0.0"]]),
+                          ("formulation/bcs/neumann/regions", ["right", "top"]),
+                          ("formulation/bcs/dirichlet/displacement", 0.0),
+                          ("formulation/bcs/dirichlet/velocity", "fast"),
+                          ("formulation/bcs/dirichlet/regions", "left"),
+                          ("formulation/bcs/dirichlet/displacement", [["x[0]", 1.0, 0.0]]),
+                          ("formulation/bcs/dirichlet/velocity", [["x[0]", 0.0, 1.0]]),
+                          ("formulation/bcs/dirichlet/regions", ["left"])))
 def test_invalid_types(default_config, class_name, key, new_value):
     config = default_config(class_name, unsteady=False)
     subconfig, last_key = _get_subdict(key, config, ret_last_key=True)
