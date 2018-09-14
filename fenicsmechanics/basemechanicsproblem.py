@@ -476,6 +476,7 @@ class BaseMechanicsProblem(object):
                       + "implicit) was used.")
             config['formulation']['time']['theta'] = 1.0
 
+        theta = config['formulation']['time']['theta']
         if theta < 0.0 or theta > 1.0:
             msg = 'The value of theta for the generalized theta ' \
                   + 'method must be between 0 and 1. The value ' \
