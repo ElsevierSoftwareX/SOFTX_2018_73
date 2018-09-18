@@ -15,19 +15,19 @@ not provided are listed at the very bottom.
 
 
 'material':
-   * 'type' : str
+    * 'type' : str
         The class of material that will be used, e.g. elastic, viscous,
         viscoelastic, etc.
-   * 'const_eqn' : str, class
+    * 'const_eqn' : str, class
         The name of the constitutive equation to be used. User may provide
         their own class which defines a material instead of using those
         implemented in fenicsmechanics.materials. For a list of implemented
         materials, call :code:`fenicsmechanics.list_implemented_materials()`.
-   * 'incompressible' : bool
+    * 'incompressible' : bool
         True if the material is incompressible. An
         additional weak form for the incompressibility
         constraint will be added to the problem.
-   * 'density' : float, int
+    * 'density' : float, int
         Scalar specifying the density of the material.
 
 Additional material parameters:
@@ -38,11 +38,11 @@ Additional material parameters:
 
 
 'mesh':
-   * 'mesh_file' : str, dolfin.Mesh
+    * 'mesh_file' : str, dolfin.Mesh
         Name of the file containing the mesh information of
         the problem geometry, or a dolfin.Mesh object. Supported
         file formats are *.xml, *.xml.gz, and *.h5.
-   * 'boundaries' : str, dolfin.MeshFunction
+    * 'boundaries' : str, dolfin.MeshFunction
         Name of the file containing the mesh function to mark different
         boundary regions of the geometry, or a dolfin.MeshFunction object.
         Supported file formats are *.xml, *.xml.gz, and *.h5. This mesh
@@ -85,7 +85,7 @@ Additional material parameters:
         * 'pressure' : dolfin.Coefficient (OPTIONAL)
             A dolfin.Coefficient object specifying the initial value for
             the pressure.
-   * 'element' : str
+    * 'element' : str
         Name of the finite element to be used for the discrete
         function space. Currently, elements of the form 'p<n>-p<m>'
         are supported, where <n> is the degree used for the vector
@@ -209,7 +209,7 @@ else:
 del _sys, _dlf, _rank
 
 # Users can still create a MechanicsProblem object, but will
-# not be able to use the MechanicsBlockSolver is version < 3.
+# not be able to use the MechanicsBlockSolver in version < 3.
 from .mechanicsproblem import MechanicsProblem
 
 
