@@ -466,7 +466,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
 
         # Create a copy of the body force term to use at a different time step.
         if self.config['formulation']['time']['unsteady'] and hasattr(b,'t'):
-            b0 = duplicate_expressions(b)
+            b0, = duplicate_expressions(b)
             self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
         elif self.config['formulation']['time']['unsteady']:
             self.ufl_body_force0 = dlf.dot(xi, rho*b)*dlf.dx
