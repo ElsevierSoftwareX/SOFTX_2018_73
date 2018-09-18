@@ -186,7 +186,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        raise ValueError("Compressible fluids are not yet supported.")
+        raise NotImplementedError("Compressible fluids are not yet supported.")
 
         return None
 
@@ -258,9 +258,9 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         elif const_eqn in ["newtonian", "stokes"]:
             mat_class = materials.fluids.NewtonianFluid
         else:
-            s = "The material '%s' has not been implemented. A class for such" \
-                + " material must be provided."
-            raise ValueError(s % const_eqn)
+            msg = "The material '%s' has not been implemented. A class for such" \
+                  + " material must be provided."
+            raise NotImplementedError(msg % const_eqn)
 
         self._material = mat_class(**self.config['material'])
 
@@ -466,7 +466,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
 
         # Create a copy of the body force term to use at a different time step.
         if self.config['formulation']['time']['unsteady'] and hasattr(b,'t'):
-            b0 = duplicate_expressions(b)
+            b0, = duplicate_expressions(b)
             self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
         elif self.config['formulation']['time']['unsteady']:
             self.ufl_body_force0 = dlf.dot(xi, rho*b)*dlf.dx
@@ -855,13 +855,10 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
                                    close=False, v=v, p=p)
 
             # Hack to avoid rounding errors.
-            while t < (tf - dt/10.0):
+            while t <= (tf - dt/10.0):
 
                 # Advance the time.
                 t += dt
-
-                # Assign and update all vectors.
-                self.update_assign()
 
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
@@ -873,6 +870,9 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Solver current time step.
                 self.step()
+
+                # Assign and update all vectors.
+                self.update_assign()
 
                 t0 = t
                 count += 1

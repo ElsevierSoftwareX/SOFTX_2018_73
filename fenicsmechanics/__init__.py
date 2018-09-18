@@ -15,19 +15,19 @@ not provided are listed at the very bottom.
 
 
 'material':
-   * 'type' : str
+    * 'type' : str
         The class of material that will be used, e.g. elastic, viscous,
         viscoelastic, etc.
-   * 'const_eqn' : str, class
+    * 'const_eqn' : str, class
         The name of the constitutive equation to be used. User may provide
         their own class which defines a material instead of using those
         implemented in fenicsmechanics.materials. For a list of implemented
         materials, call :code:`fenicsmechanics.list_implemented_materials()`.
-   * 'incompressible' : bool
+    * 'incompressible' : bool
         True if the material is incompressible. An
         additional weak form for the incompressibility
         constraint will be added to the problem.
-   * 'density' : float, int
+    * 'density' : float, int
         Scalar specifying the density of the material.
 
 Additional material parameters:
@@ -38,11 +38,11 @@ Additional material parameters:
 
 
 'mesh':
-   * 'mesh_file' : str, dolfin.Mesh
+    * 'mesh_file' : str, dolfin.Mesh
         Name of the file containing the mesh information of
         the problem geometry, or a dolfin.Mesh object. Supported
         file formats are *.xml, *.xml.gz, and *.h5.
-   * 'boundaries' : str, dolfin.MeshFunction
+    * 'boundaries' : str, dolfin.MeshFunction
         Name of the file containing the mesh function to mark different
         boundary regions of the geometry, or a dolfin.MeshFunction object.
         Supported file formats are *.xml, *.xml.gz, and *.h5. This mesh
@@ -85,7 +85,7 @@ Additional material parameters:
         * 'pressure' : dolfin.Coefficient (OPTIONAL)
             A dolfin.Coefficient object specifying the initial value for
             the pressure.
-   * 'element' : str
+    * 'element' : str
         Name of the finite element to be used for the discrete
         function space. Currently, elements of the form 'p<n>-p<m>'
         are supported, where <n> is the degree used for the vector
@@ -209,7 +209,7 @@ else:
 del _sys, _dlf, _rank
 
 # Users can still create a MechanicsProblem object, but will
-# not be able to use the MechanicsBlockSolver is version < 3.
+# not be able to use the MechanicsBlockSolver in version < 3.
 from .mechanicsproblem import MechanicsProblem
 
 
@@ -220,6 +220,76 @@ def init(quad_degree=2):
     dlf.parameters['form_compiler']['quadrature_degree'] = quad_degree
     dlf.parameters['form_compiler']['optimize'] = True
 
+
 init()
+
+
+def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
+                         ret_dir=False, ext="xml.gz", refinements=[12, 12]):
+    """
+    Helper function to get the file names of meshes provided. Will raise
+    a FileNotFoundError if files do not exist.
+
+
+    Parameters
+    ----------
+
+    geometry : str
+    ret_facets : bool
+    ret_cells : bool
+    ret_dir : bool
+    ext: str (Default "xml.gz")
+    *refinements : int
+
+
+    Returns
+    -------
+
+    mesh_file : str
+    facets_file : str
+    cells_file : str
+    mesh_dir : str
+
+    """
+    import os
+    from .__CONSTANTS__ import base_mesh_dir
+    if geometry not in os.listdir(base_mesh_dir):
+        raise FileNotFoundError("A mesh for '%s' is not available." % geometry)
+
+    mesh_dir = os.path.join(base_mesh_dir, geometry)
+    base_name = "{geometry}-{name}{refinements}.{ext}"
+    if geometry == "unit_domain":
+        str_refinements = "-" + "x".join(list(map(str, refinements)))
+    else:
+        str_refinements = ""
+    mesh_file = base_name.format(geometry=geometry, name="mesh",
+                                 refinements=str_refinements, ext=ext)
+    facets_file = base_name.format(geometry=geometry, name="boundaries",
+                                   refinements=str_refinements, ext=ext)
+    cells_file = base_name.format(geometry=geometry, name="cells",
+                                  refinements=str_refinements, ext=ext)
+
+    mesh_file = os.path.join(mesh_dir, mesh_file)
+    facets_file = os.path.join(mesh_dir, facets_file)
+    cells_file = os.path.join(mesh_dir, cells_file)
+
+    ret = (mesh_file,)
+    if ret_facets:
+        ret += (facets_file,)
+    if ret_cells:
+        ret += (cells_file,)
+    if ret_dir:
+        ret += (mesh_dir,)
+
+    # Check if files exist.
+    for f in ret:
+        if not (os.path.isfile(f) or os.path.isdir(f)):
+            raise FileNotFoundError(f)
+
+    # Return name instead of tuple if only one value is being returned.
+    if len(ret) == 1:
+        ret = ret[0]
+    return ret
+
 
 __version__ = "1.0.0"

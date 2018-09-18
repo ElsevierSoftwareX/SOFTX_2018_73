@@ -1,10 +1,1 @@
-*.vtu
-*.pvd
-*.pvtu
-*.xdmf
-*.h5
-!/meshfiles/**/*.vtu
-!/meshfiles/**/*.pvd
-!/meshfiles/**/*.pvtu
-!/meshfiles/**/*.xdmf
-!/meshfiles/**/*.h5
+.cache

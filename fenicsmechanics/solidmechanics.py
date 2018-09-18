@@ -330,9 +330,9 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
         else:
-            s = "The material '%s' has not been implemented. A class for such" \
-                + " material must be provided."
-            raise ValueError(s % self.config['material']['const_eqn'])
+            msg = "The material '%s' has not been implemented. A class for such" \
+                  + " material must be provided."
+            raise NotImplementedError(msg % self.config['material']['const_eqn'])
 
         try:
             fiber_file = self.config['mesh']['fiber_file']
@@ -887,13 +887,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                                    close=False, u=u, p=p)
 
             # Hack to avoid rounding errors.
-            while t < (tf - dt/10.0):
+            while t <= (tf - dt/10.0):
 
                 # Advance the time.
                 t += dt
-
-                # Assign and update all vectors.
-                self.update_assign()
 
                 # Update expressions that depend on time.
                 problem.update_time(t, t0)
@@ -905,6 +902,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
                 # Solver current time step.
                 self.step()
+
+                # Assign and update all vectors.
+                self.update_assign()
 
                 t0 = t
                 count += 1

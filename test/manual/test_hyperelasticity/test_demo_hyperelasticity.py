@@ -61,7 +61,7 @@ config = {'material':
                   },
                   'neumann':
                   {
-                      'regions': ['all'],
+                      'regions': ['everywhere'],
                       'types': ['piola'],
                       'values': [traction]
                   }

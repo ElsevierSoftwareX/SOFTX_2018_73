@@ -1,6 +1,8 @@
 import ufl
 import dolfin as dlf
 
+from ..exceptions import *
+
 __all__ = ['Fluid', 'NewtonianFluid']
 
 
@@ -203,8 +205,8 @@ class NewtonianFluid(Fluid):
         convert_viscosity(self._parameters)
 
         if not self._incompressible:
-            s = "Compressible flows have not been implemented."
-            raise NotImplementedError(s)
+            msg = "Compressible flows have not been implemented."
+            raise NotImplementedError(msg)
 
 
     @staticmethod
@@ -313,7 +315,7 @@ def convert_viscosity(param):
         else:
             raise ValueError("A positive value must be provided for 'mu'.")
     else:
-        raise ValueError('Two material parameters must be specified.')
+        raise RequiredParameter('Two material parameters must be specified.')
 
     s = 'Parameter \'%s\' was changed due to contradictory settings.'
     if (param['nu'] is not None) and (param['nu'] != nu):

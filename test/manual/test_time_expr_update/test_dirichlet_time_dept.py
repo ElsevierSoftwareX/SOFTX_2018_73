@@ -1,9 +1,12 @@
+from __future__ import print_function
+
 import numpy as np
 import dolfin as dlf
+import fenicsmechanics as fm
 import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file = '../meshfiles/unit_domain/unit_domain-mesh-2x2.xml.gz'
-boundaries = '../meshfiles/unit_domain/unit_domain-boundaries-2x2.xml.gz'
+mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
+                                                refinements=(2, 2))
 
 # Region IDs
 ALL_ELSE = 0
@@ -70,8 +73,8 @@ while t <= tf:
 
     expected = v1 + t*v2
 
-    print '************************************************************'
-    print 't = %.2f' % t
-    print 'vals     = ', vals
-    print 'expected = ', expected
-    print '\n'
+    print('*'*60)
+    print('t = %.2f' % t)
+    print('vals     = ', vals)
+    print('expected = ', expected)
+    print('\n')

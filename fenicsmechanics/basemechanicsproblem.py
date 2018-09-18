@@ -5,6 +5,7 @@ import dolfin as dlf
 
 from .utils import load_mesh, load_mesh_function, _read_write_hdf5
 from .__CONSTANTS__ import dict_implemented as _implemented
+from .exceptions import *
 from inspect import isclass
 
 __all__ = ['BaseMechanicsProblem']
@@ -62,7 +63,7 @@ class BaseMechanicsProblem(object):
         based on the current capabilities of the package. An exception
         is raised when a parameter (or combination of parameters) is
         (are) found to be invalid. Please see the documentation of
-        BaseMechanicsProblem for detailed information on the required
+        fenicsmechanics for detailed information on the required
         values.
 
 
@@ -88,60 +89,20 @@ class BaseMechanicsProblem(object):
         # Use a copy to avoid altering the original object
         config = user_config.copy()
 
-        # Check if the finite element type is provided.
-        if 'element' not in config['formulation']:
-            raise ValueError('You need to specify the type of element(s) to use.')
+        # Check mesh file names given.
+        self.check_mesh(config)
 
-        # Make sure at most two element types are specified.
-        if isinstance(config['formulation']['element'], str):
-            fe_list = re.split('-|_| ', config['formulation']['element'])
-        else:
-            fe_list = config['formulation']['element']
+        # Check the finite element specified.
+        self.check_finite_element(config)
 
-        len_fe_list = len(fe_list)
-        if len_fe_list == 0 or len_fe_list > 2:
-            s1 = 'The current formulation allows 1 or 2 fields.\n'
-            s2 = 'You provided %i. Check config[\'formulation\'][\'element\'].' % len_fe_list
-            raise NotImplementedError(s1 + s2)
-        elif len_fe_list == 1 and config['material']['incompressible']:
-            s1 = 'Only one element type, \'%s\', was specified ' \
-                 % config['formulation']['element'] \
-                 + 'for an incompressible material.'
-            raise ValueError(s1)
-        elif len_fe_list == 2 and not config['material']['incompressible']:
-            s1 = 'Two element types, \'%s\', were specified ' % config['formulation']['element'] \
-                 +'for a compressible material.'
-            raise ValueError(s1)
-        else:
-            # Replace with list in case it was originally a string
-            config['formulation']['element'] = fe_list
+        # Check the material type specified.
+        self.check_material_type(config)
 
-        # Check to make sure all strings are only 2 characters long.
-        str_len = set(map(len, config['formulation']['element']))
-        s1 = 'Element types must be of the form \'p<int>\', where <int> ' \
-             + 'is the polynomial degree to be used.' # error string
+        # Check if the domain specified is implemented for the material type.
+        self.check_domain(config)
 
-        # All strings should have the same number of characters.
-        if not len(str_len) == 1:
-            raise ValueError(s1)
-
-        # All strings should consist of two characters.
-        str_len_val = str_len.pop()
-        if not str_len_val == 2:
-            raise ValueError(s1)
-
-        # Check to make sure first character is 'p'
-        if not fe_list[0][0] == 'p':
-            s1 = 'The finite element family, \'%s\', has not been implemented.' \
-                 % fe_list[0][0]
-            raise NotImplementedError(s1)
-
-        # Check domain formulation.
-        domain = config['formulation']['domain']
-        if not domain in ['lagrangian', 'eulerian']:
-            s1 = 'Formulation with respect to \'%s\' coordinates is not supported.' \
-                 % config['formulation']['domain']
-            raise ValueError(s1)
+        # Check if material type has been implemented.
+        self.check_material_const_eqn(config)
 
         # Check the parameters given for time integration.
         self.check_time_params(config)
@@ -151,9 +112,6 @@ class BaseMechanicsProblem(object):
         # specified. If they are not specified, set them to None.
         self.check_bcs(config)
 
-        # Check if material type has been implemented.
-        self.check_material_const_eqn(config)
-
         # Check if body force was provided. Assume zero if not.
         if 'body_force' not in config['formulation']:
             config['formulation']['body_force'] = None
@@ -161,6 +119,274 @@ class BaseMechanicsProblem(object):
         self.check_initial_condition(config)
 
         return config
+
+
+    def check_mesh(self, config):
+        """
+
+
+        """
+
+        if 'mesh_file' not in config['mesh']:
+            msg = "The name of a mesh file, or a dolfin.Mesh object, " \
+                  + "must be provided."
+            raise RequiredParameter(msg)
+        _check_type(config['mesh']['mesh_file'], (str, dlf.Mesh), "mesh/mesh_file")
+
+        valid_meshfunction_types = (str, dlf.MeshFunctionBool, dlf.MeshFunctionDouble,
+                                    dlf.MeshFunctionInt, dlf.MeshFunctionSizet)
+        if 'boundaries' in config['mesh']:
+            _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
+                        "mesh/boundaries")
+
+        # This check is for future use. Marked cell domains are currently not
+        # used in any cases.
+        if 'cells' in config['mesh']:
+            _check_type(config['mesh']['cells'], valid_meshfunction_types,
+                        "mesh/cells")
+
+        return None
+
+
+    def check_finite_element(self, config):
+        """
+        Check the finite element specified for the numerical formulation of
+        the problem.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
+        # Check if the finite element type is provided.
+        if 'element' not in config['formulation']:
+            raise RequiredParameter("You need to specify the type of finite " \
+                                    + "element(s) to use.")
+        else:
+            _check_type(config['formulation']['element'],
+                        (str, list, tuple), "element")
+
+        # Make sure at most two element types are specified.
+        if isinstance(config['formulation']['element'], str):
+            fe_list = re.split("-|_| ", config['formulation']['element'])
+        else:
+            fe_list = config['formulation']['element']
+
+        if 'incompressible' not in config['material']:
+            msg = "You must specify if the material is incompressible or not."
+            raise RequiredParameter(msg)
+        else:
+            _check_type(config['material']['incompressible'],
+                        (bool,), "incompressible")
+
+        len_fe_list = len(fe_list)
+        if len_fe_list == 0 or len_fe_list > 2:
+            msg = "The current formulation allows 1 or 2 fields.\n"
+            msg += "You provided %i. Check config['formulation']['element']." % len_fe_list
+            raise NotImplementedError(msg)
+        elif len_fe_list == 1 and config['material']['incompressible']:
+            msg = "Only one element type, '%s', was specified " \
+                  % config['formulation']['element'] \
+                  + "for an incompressible material."
+            raise InconsistentCombination(msg)
+        elif len_fe_list == 2 and not config['material']['incompressible']:
+            msg = "Two element types, '%s', were specified " % config['formulation']['element'] \
+                  + "for a compressible material."
+            raise InconsistentCombination(msg)
+        else:
+            # Replace with list in case it was originally a string
+            config['formulation']['element'] = fe_list
+
+        # Check to make sure all strings are only 2 characters long.
+        str_len = set(map(len, config['formulation']['element']))
+        msg = "Element types must be of the form 'p<int>', where <int> " \
+              + "is the polynomial degree to be used." # error string
+
+        # All strings should have the same number of characters.
+        if not len(str_len) == 1:
+            raise InvalidCombination(msg)
+
+        # All strings should consist of two characters.
+        str_len_val = str_len.pop()
+        if not str_len_val == 2:
+            raise ValueError(msg)
+
+        # Check to make sure first character is 'p'
+        if not fe_list[0][0] == "p":
+            msg = "The finite element family, '%s', has not been implemented." \
+                  % fe_list[0][0]
+            raise NotImplementedError(msg)
+
+        return None
+
+
+    def check_material_type(self, config):
+        """
+        Check if the material type specified is supported.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        if 'type' not in config['material']:
+            num_types = len(_implemented['materials'])
+            msg = "The material type must be specified. Types currently " \
+                  + "supported are: " + ", ".join(["%s"]*num_types) \
+                  % tuple(_implemented['materials'].keys())
+            raise RequiredParameter(msg)
+        else:
+            _check_type(config['material']['type'], (str,), 'type')
+
+        # Check if the material type is implemented.
+        if config['material']['type'] not in _implemented['materials']:
+            msg = "The class of materials, '%s', has not been implemented." \
+                  % config['material']['type']
+            raise NotImplementedError(msg)
+
+        return None
+
+
+    def check_domain(self, config):
+        """
+        Check if the domain formulation specified is implemented for the
+        material type.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
+        # Material type should have already been checked, so there should be
+        # no issues here.
+        mat_type = config['material']['type']
+
+        if 'domain' not in config['formulation']:
+            msg = "The domain formulation must be specified. " \
+                  "Formulations currently supported are: eulerian, lagrangian"
+            raise RequiredParameter(msg)
+        else:
+            _check_type(config['formulation']['domain'], (str,), 'domain')
+
+        config['formulation']['domain'] = config['formulation']['domain'].lower()
+        domain = config['formulation']['domain']
+        if domain not in ["lagrangian", "eulerian"]:
+            if domain == "ale":
+                msg = 'Formulation with respect to \'%s\' coordinates is not supported.' \
+                      % config['formulation']['domain']
+                raise NotImplementedError(msg)
+            elif domain == "reference":
+                config['formulation']['domain'] = "lagrangian"
+            elif domain == "current":
+                config['formulation']['domain'] = "eulerian"
+            else:
+                msg = 'Formulation with respect to \'%s\' coordinates is not recognized.' \
+                      % config['formulation']['domain']
+                raise InvalidOption(msg)
+
+        if ((mat_type == "elastic") and (domain == "eulerian")) \
+           or ((mat_type == "viscous") and (domain == "lagrangian")):
+            msg = "%s formulation for %s materials is not supported." \
+                  % (domain.capitalize(), mat_type)
+            raise InvalidCombination(msg)
+
+        return None
+
+
+    def check_material_const_eqn(self, config):
+        """
+        Check if the material type and the specific constitutive equation
+        specified in the config dictionary are implemented, unless a class
+        is provided. An exception is raised if an unknown material type
+        and/or constitutive equation name is provided.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        if 'const_eqn' not in config['material']:
+            msg = "The constitutive equation must be specified under the key " \
+                  + "'const_eqn' of the 'material' subdictionary."
+            raise RequiredParameter(msg)
+
+        # Exit if user provided a material class.
+        if isclass(config['material']['const_eqn']):
+            # Should do an additional check to make sure the user defined the
+            # functions 'stress_tensor', and 'incompressibilityCondition'.
+            return None
+
+        # Raise an error if value is neither a class or string.
+        if not isinstance(config['material']['const_eqn'], str):
+            msg = 'The value of \'const_eqn\' must be a class ' \
+                  + 'or string.'
+            raise TypeError(msg)
+
+        mat_subdict = _implemented['materials'][config['material']['type']]
+        const_eqn = config['material']['const_eqn']
+
+        # Check if the constitutive equation is implemented under the
+        # type specified.
+        if const_eqn not in mat_subdict:
+            msg = 'The constitutive equation, \'%s\', has not been implemented ' \
+                  % const_eqn \
+                  + 'within the material type, \'%s\'.' % config['material']['type']
+            raise InvalidCombination(msg)
+
+        if 'inverse' not in config['formulation']:
+            config['formulation']['inverse'] = False
+
+        return None
 
 
     def check_time_params(self, config):
@@ -210,11 +436,11 @@ class BaseMechanicsProblem(object):
                     config['formulation']['time']['unsteady'] = True
                     steady = False
                 else:
-                    s = "Need to specify a time step, 'dt', and a time " \
-                        + "interval, 'interval', in the 'time' subdictionary " \
-                        + "of 'formulation' in order to run a time-dependent " \
-                        + "simulation."
-                    raise ValueError(s)
+                    msg = "Need to specify a time step, 'dt', and a time " \
+                          + "interval, 'interval', in the 'time' subdictionary " \
+                          + "of 'formulation' in order to run a time-dependent " \
+                          + "simulation."
+                    raise RequiredParameter(msg)
 
         # Set theta and dt to 1 if the problem is steady, and exit this
         # function.
@@ -224,28 +450,38 @@ class BaseMechanicsProblem(object):
             config['formulation']['time']['dt'] = 1
             return None
 
+        # The check for 'dt' and 'interval' should only catch errors when
+        # the problem is unsteady since the values for the steady case were
+        # already updated above.
+        if 'dt' not in config['formulation']['time']:
+            msg = "The time step size, 'dt', must be specified."
+            raise RequiredParameter(msg)
+        if 'interval' not in config['formulation']['time']:
+            msg = "The time interval must be specified."
+            raise RequiredParameter(msg)
+
         if not isinstance(config['formulation']['time']['dt'], (float,dlf.Constant)):
-            s1 = 'The \'dt\' parameter must be a scalar value of type: ' \
-                 + 'dolfin.Constant, float'
-            raise TypeError(s1)
+            msg = 'The \'dt\' parameter must be a scalar value of type: ' \
+                  + 'dolfin.Constant, float'
+            raise TypeError(msg)
 
         # Get rank to only print from process 0
         rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         # Check the theta value provided. If none is provided, it is
         # set to 1.0.
-        try:
-            theta = config['formulation']['time']['theta']
-            if theta < 0.0 or theta > 1.0:
-                s1 = 'The value of theta for the generalized theta ' \
-                     + 'method must be between 0 and 1. The value ' \
-                     + 'provided was: %.4f ' % theta
-                raise ValueError(s1)
-        except KeyError:
+        if 'theta' not in config['formulation']['time']:
             if rank == 0:
                 print("No value was provided for 'theta'. A value of 1.0 (fully " \
                       + "implicit) was used.")
             config['formulation']['time']['theta'] = 1.0
+
+        theta = config['formulation']['time']['theta']
+        if theta < 0.0 or theta > 1.0:
+            msg = 'The value of theta for the generalized theta ' \
+                  + 'method must be between 0 and 1. The value ' \
+                  + 'provided was: %.4f ' % theta
+            raise ValueError(msg)
 
         # Provide a default value for Newmark scheme parameters
         # if not given. This is only for the SolidMechanicsProblem
@@ -262,64 +498,6 @@ class BaseMechanicsProblem(object):
                     print("No value was provided for 'gamma'. A value of 0.5 will be " \
                           + "used for the Newmark integration scheme.")
                 config['formulation']['time']['gamma'] = 0.5
-
-        return None
-
-
-    def check_material_const_eqn(self, config):
-        """
-        Check if the material type and the specific constitutive equation
-        specified in the config dictionary are implemented, unless a class
-        is provided. An exception is raised if an unknown material type
-        and/or constitutive equation name is provided.
-
-
-        Parameters
-        ----------
-
-        config : dict
-            Dictionary describing the formulation of the mechanics
-            problem to be simulated. Check the documentation of
-            BaseMechanicsProblem to see the format of the dictionary.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        # Exit if user provided a material class.
-        if isclass(config['material']['const_eqn']):
-            return None
-
-        # Exit if value is neither a class or string.
-        if not isinstance(config['material']['const_eqn'], str):
-            s = 'The value of \'const_eqn\' must be a class ' \
-                + 'or string.'
-            raise TypeError(s)
-
-        # Check if the material type is implemented.
-        if config['material']['type'] not in _implemented['materials']:
-            s1 = 'The class of materials, \'%s\', has not been implemented.' \
-                 % config['material']['type']
-            raise NotImplementedError(s1)
-
-        mat_subdict = _implemented['materials'][config['material']['type']]
-        const_eqn = config['material']['const_eqn']
-
-        # Check if the constitutive equation is implemented under the
-        # type specified.
-        if const_eqn not in mat_subdict:
-            s1 = 'The constitutive equation, \'%s\', has not been implemented ' \
-                 % const_eqn \
-                 + 'within the material type, \'%s\'.' % config['material']['type']
-            raise NotImplementedError(s1)
-
-        if 'inverse' not in config['formulation']:
-            config['formulation']['inverse'] = False
 
         return None
 
@@ -356,6 +534,12 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['neumann'] = None
             print('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
+        else:
+            if 'boundaries' not in config['mesh']:
+                msg = "A facet function must be provided under the 'boundaries'" \
+                      + " key of the 'mesh' subdictionary when specifying " \
+                      + "boundary conditions for the problem."
+                raise RequiredParameter(msg)
 
         self.check_dirichlet(config)
         self.check_neumann(config)
@@ -391,6 +575,7 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['dirichlet'] = None
 
         if config['formulation']['bcs']['dirichlet'] is None:
+            # USE THE WARNINGS MODULE HERE.
             print('*** No Dirichlet BCs were specified. ***')
             return None
 
@@ -407,29 +592,29 @@ class BaseMechanicsProblem(object):
            and config['material']['type'] == 'elastic' \
            and self.class_name == "MechanicsProblem":
             if (vel not in subconfig) or (disp not in subconfig):
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + 'both velocity and displacement when the problem is ' \
-                     + 'unsteady. Only %s BCs were provided.'
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + 'both velocity and displacement when the problem is ' \
+                      + 'unsteady. Only %s BCs were provided.'
                 if vel not in subconfig:
-                    s1 = s1 % disp
+                    msg = msg % disp
                 else:
-                    s1 = s1 % vel
-                raise ValueError(s1)
+                    msg = msg % vel
+                raise RequiredParameter(msg)
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + ' displacement when solving a quasi-static elastic problem.'
-                raise ValueError(s1)
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + ' displacement when solving a quasi-static elastic problem.'
+                raise RequiredParameter(msg)
         elif config['material']['type'] == 'viscous':
             if vel not in subconfig:
-                s1 = 'Dirichlet boundary conditions must be specified for ' \
-                     + ' velocity when solving a quasi-static viscous problem.'
-                raise ValueError(s1)
+                msg = 'Dirichlet boundary conditions must be specified for ' \
+                      + ' velocity when solving a quasi-static viscous problem.'
+                raise RequiredParameter(msg)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(subconfig):
-            raise ValueError('The number of Dirichlet boundary regions and ' \
-                             + 'values for not match!')
+            raise InconsistentCombination('The number of Dirichlet boundary regions ' \
+                                          + 'and values for not match!')
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -444,12 +629,12 @@ class BaseMechanicsProblem(object):
         if 'velocity' in config['formulation']['bcs']['dirichlet']:
             vels = config['formulation']['bcs']['dirichlet']['velocity']
             vals = self.__convert_bc_values(vels, t0)
-            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+            config['formulation']['bcs']['dirichlet']['velocity'] = vals
 
         if 'pressure' in config['formulation']['bcs']['dirichlet']:
             pressures = config['formulation']['bcs']['dirichlet']['pressure']
             vals = self.__convert_bc_values(pressures, t0)
-            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+            config['formulation']['bcs']['dirichlet']['pressure'] = vals
 
         return None
 
@@ -487,15 +672,19 @@ class BaseMechanicsProblem(object):
             return None
 
         # Make sure that a list for all keys was provided (types, regions, values).
+        keys_not_included = list()
         for t in ['types','regions','values']:
             if t not in config['formulation']['bcs']['neumann']:
-                s1 = 'A list of values for %s must be provided.' % t
-                raise ValueError(s1)
+                keys_not_included.append(t)
+
+        if keys_not_included:
+            msg = 'A list of values for %s must be provided.' % keys_not_included
+            raise RequiredParameter(msg)
 
         # Make sure the length of all the lists match.
         if not self.__check_bc_params(config['formulation']['bcs']['neumann']):
-            raise ValueError('The number of Neumann boundary regions, types ' \
-                             + 'and values do not match!')
+            raise InconsistentCombination('The number of Neumann boundary ' \
+                                          + 'regions, types and values do not match!')
 
         # Make sure all Neumann BC types are supported with domain specified.
         # Make sure they're all lower case. (python 3 does not return a list object here)
@@ -506,14 +695,14 @@ class BaseMechanicsProblem(object):
         valid_types = {'pressure', 'cauchy', 'piola'}
         union = valid_types.union(neumann_types)
         if len(union) > 3:
-            s1 = 'At least one Neumann BC type is unrecognized. The type string must'
-            s2 = ' be one of the three: ' + ', '.join(list(valid_types))
-            raise NotImplementedError(s1 + s2)
+            msg = 'At least one Neumann BC type is unrecognized. The type string must'
+            msg += ' be one of the three: ' + ', '.join(list(valid_types))
+            raise NotImplementedError(msg)
 
         domain = config['formulation']['domain']
         if domain == 'eulerian' and 'piola' in neumann_types:
-            s1 = 'Piola traction in an Eulerian formulation is not supported.'
-            raise NotImplementedError(s1)
+            msg = 'Piola traction in an Eulerian formulation is not supported.'
+            raise NotImplementedError(msg)
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -527,6 +716,8 @@ class BaseMechanicsProblem(object):
         return None
 
 
+    # Should be able to use this function for more than just BCs. E.g.
+    # 'initial_condition' and 'body_force'. Might require some tweaking.
     @staticmethod
     def __convert_bc_values(values, t0, degree=1):
         """
@@ -550,18 +741,43 @@ class BaseMechanicsProblem(object):
             elif isinstance(val, (float, int)):
                 new_values.append(dlf.Constant(val))
             elif isinstance(val, (list, tuple)):
-                if isinstance(val[0], str):
-                    if "t" in val:
-                        expr = dlf.Expression(val, t=t0, degree=degree)
+                # Make sure that all objects in list/tuple are of the same type.
+                # (Either all strings, or all scalars)
+                component_types = set(list(map(type, val)))
+                if len(component_types) != 1:
+                    # Raise an error if different types were given in the same
+                    # list/tuple.
+                    msg = "All components of an expression/constant must " \
+                          + "be of the same type."
+                    raise TypeError(msg)
+                else:
+                    # Raise a TypeError if the components are not float,
+                    # int, or str.
+                    component_type = component_types.pop()
+                    valid_types = (float, int, str)
+                    if component_type not in valid_types:
+                        msg = "The components of each value must be one of the " \
+                              + "following types: %s" \
+                              % str(obj.__name__ for obj in valid_types)
+                        raise TypeError(msg)
+
+                if component_type == str:
+                    no_t = True
+                    for v in val:
+                        if "t" in v:
+                            no_t = False
+                            break
+                    if no_t:
+                        expr = dlf.Expression(val, degree=degree)
                     else:
                         expr = dlf.Expression(val, t=t0, degree=degree)
                     new_values.append(expr)
                 else:
                     new_values.append(dlf.Constant(val))
             else:
-                s = "The type '%s' cannot be used to create a dolfin.Coefficient " \
-                    + "object." % val.__class__
-                raise TypeError(s)
+                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                      + "object." % val.__class__
+                raise TypeError(msg)
 
         return new_values
 
@@ -754,6 +970,16 @@ class BaseMechanicsProblem(object):
 
         """
 
+        for key, val in bc_dict.items():
+            _check_type(val, (list, tuple), "formulation/bcs/../%s" % key)
+
+        # Make sure the regions list is only ints, floats, bools, or strings.
+        # The only valid string is "all".
+        for i, r_id in enumerate(bc_dict['regions']):
+            if r_id != "everywhere":
+                _check_type(r_id, (int, float, bool),
+                            "formulation/bcs/../regions[%i]" % i)
+
         values = bc_dict.values()
         lengths = map(len, values)
         if len(set(lengths)) == 1:
@@ -835,12 +1061,7 @@ class BaseMechanicsProblem(object):
 
         for region, tt, value in zipped_vals:
 
-            if region == 'all':
-                ds_region = dlf.ds
-            else:
-                ds_region = dlf.ds(region, domain=mesh,
-                                   subdomain_data=boundaries)
-
+            ds_region = dlf.ds(region, domain=mesh, subdomain_data=boundaries)
             if tt == 'pressure':
                 val = -dlf.dot(xi, value*n)*ds_region
             elif tt == 'cauchy' and domain == 'lagrangian':
@@ -916,3 +1137,11 @@ class BaseMechanicsProblem(object):
             function0.assign(init_value)
 
         return None
+
+
+def _check_type(obj, valid_types, key):
+    if not isinstance(obj, valid_types):
+        msg = "The value given for '%s' must be one of the following " % key \
+              + "types: %s" % str(tuple(obj.__name__ for obj in valid_types))
+        raise TypeError(msg)
+    return None
