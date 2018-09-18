@@ -629,12 +629,12 @@ class BaseMechanicsProblem(object):
         if 'velocity' in config['formulation']['bcs']['dirichlet']:
             vels = config['formulation']['bcs']['dirichlet']['velocity']
             vals = self.__convert_bc_values(vels, t0)
-            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+            config['formulation']['bcs']['dirichlet']['velocity'] = vals
 
         if 'pressure' in config['formulation']['bcs']['dirichlet']:
             pressures = config['formulation']['bcs']['dirichlet']['pressure']
             vals = self.__convert_bc_values(pressures, t0)
-            config['formulation']['bcs']['dirichlet']['displacement'] = vals
+            config['formulation']['bcs']['dirichlet']['pressure'] = vals
 
         return None
 
@@ -762,10 +762,15 @@ class BaseMechanicsProblem(object):
                         raise TypeError(msg)
 
                 if component_type == str:
-                    if "t" in val:
-                        expr = dlf.Expression(val, t=t0, degree=degree)
-                    else:
+                    no_t = True
+                    for v in val:
+                        if "t" in v:
+                            no_t = False
+                            break
+                    if no_t:
                         expr = dlf.Expression(val, degree=degree)
+                    else:
+                        expr = dlf.Expression(val, t=t0, degree=degree)
                     new_values.append(expr)
                 else:
                     new_values.append(dlf.Constant(val))
