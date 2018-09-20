@@ -717,7 +717,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
 
         pressure_bcs = {'pressure': list()}
-        p_vals = dirichlet_bcs['pressure']
+        p_vals = dirichlet_dict['pressure']
         p_regions = dirichlet_dict['p_regions']
         for region, value in zip(p_regions, p_vals):
             bc = dlf.DirichletBC(W, value, boundaries, region)
