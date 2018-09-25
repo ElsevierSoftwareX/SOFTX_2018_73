@@ -535,6 +535,8 @@ class NeoHookeMaterial(IsotropicMaterial):
         if la is not None:
             if la == inf:
                 inv_la = 0.0
+            elif la == 0.0:
+                inv_la = inf
             else:
                 inv_la = 1.0/la
         elif inv_la is not None:
