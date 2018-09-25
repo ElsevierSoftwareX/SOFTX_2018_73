@@ -616,6 +616,8 @@ class BaseMechanicsProblem(object):
         # '../bcs/dirichlet' match for vector and scalar fields separately.
         # I.e., the user should be able to specify n Dirichlet BCs for displacement,
         # and m Dirichlet BCs for pressure, without requiring that n == m.
+
+        # Check vector fields ('displacement' and 'velocity') first.
         vectorfield_bcs = dict()
         for key in [vel, disp, reg]:
             if key in subconfig:
@@ -626,6 +628,7 @@ class BaseMechanicsProblem(object):
                   + "and values do not match!"
             raise InconsistentCombination(msg)
 
+        # Now check the scalar field ('pressure').
         scalarfield_bcs = dict()
         if 'pressure' in subconfig:
             require_p_regions = True
@@ -657,8 +660,8 @@ class BaseMechanicsProblem(object):
             config['formulation']['bcs']['dirichlet']['displacement'] = vals
 
         if 'velocity' in config['formulation']['bcs']['dirichlet']:
-            vels = config['formulation']['bcs']['dirichlet']['velocity']
-            vals = self.__convert_bc_values(vels, t0)
+            orig_vels = config['formulation']['bcs']['dirichlet']['velocity']
+            vals = self.__convert_bc_values(orig_vels, t0)
             config['formulation']['bcs']['dirichlet']['velocity'] = vals
 
         if 'pressure' in config['formulation']['bcs']['dirichlet']:
