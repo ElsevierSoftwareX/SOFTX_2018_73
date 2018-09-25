@@ -581,6 +581,7 @@ class BaseMechanicsProblem(object):
 
         vel = 'velocity'
         disp = 'displacement'
+        reg = 'regions'
         subconfig = config['formulation']['bcs']['dirichlet']
 
         # Make sure the appropriate Dirichlet BCs were specified for the type
@@ -611,10 +612,39 @@ class BaseMechanicsProblem(object):
                       + ' velocity when solving a quasi-static viscous problem.'
                 raise RequiredParameter(msg)
 
-        # Make sure the length of all the lists match.
-        if not self.__check_bc_params(subconfig):
-            raise InconsistentCombination('The number of Dirichlet boundary regions ' \
-                                          + 'and values for not match!')
+        # Need to check that the number of values in each subfield of
+        # '../bcs/dirichlet' match for vector and scalar fields separately.
+        # I.e., the user should be able to specify n Dirichlet BCs for displacement,
+        # and m Dirichlet BCs for pressure, without requiring that n == m.
+        vectorfield_bcs = dict()
+        for key in [vel, disp, reg]:
+            if key in subconfig:
+                vectorfield_bcs.update(**{key: subconfig[key]})
+
+        if not self.__check_bc_params(vectorfield_bcs):
+            msg = "The number of Dirichlet boundary regions for vector fields " \
+                  + "and values do not match!"
+            raise InconsistentCombination(msg)
+
+        scalarfield_bcs = dict()
+        if 'pressure' in subconfig:
+            require_p_regions = True
+            scalarfield_bcs.update(pressure=subconfig['pressure'])
+
+        if 'p_regions' in subconfig:
+            # Change the key name for compatibility with '__check_bc_params'.
+            scalarfield_bcs.update(regions=subconfig['p_regions'])
+        else:
+            if require_p_regions:
+                msg = "User must specify the boundary regions ('p_regions') to apply " \
+                      + "Dirichlet BCs if values for the pressure are given."
+                raise InconsistentCombination(msg)
+
+        if not self.__check_bc_params(scalarfield_bcs):
+            msg = "The number of Dirichlet boundary regions for pressure " \
+                  + "('p_regions') and field values ('pressure') must be " \
+                  + "the same."
+            raise InconsistentCombination(msg)
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
