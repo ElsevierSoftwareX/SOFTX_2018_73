@@ -643,8 +643,12 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         displacement_bcs = {'displacement': list()}
         disp_vals = dirichlet_dict['displacement']
         regions = dirichlet_dict['regions']
-        for region, value in zip(regions, disp_vals):
-            bc = dlf.DirichletBC(W, value, boundaries, region)
+        components = dirichlet_dict['components']
+        for region, value, idx in zip(regions, disp_vals, components):
+            if idx == "all":
+                bc = dlf.DirichletBC(W, value, boundaries, region)
+            else:
+                bc = dlf.DirichletBC(W.sub(idx), value, boundaries, region)
             displacement_bcs['displacement'].append(bc)
 
         return displacement_bcs

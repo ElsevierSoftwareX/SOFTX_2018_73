@@ -648,8 +648,12 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         velocity_bcs = {'velocity': list()}
         vel_vals = dirichlet_dict['velocity']
         regions = dirichlet_dict['regions']
-        for region, value in zip(regions, vel_vals):
-            bc = dlf.DirichletBC(W, value, boundaries, region)
+        components = dirichlet_dict['components']
+        for region, value, idx in zip(regions, vel_vals, components):
+            if idx == "all":
+                bc = dlf.DirichletBC(W, value, boundaries, region)
+            else:
+                bc = dlf.DirichletBC(W.sub(idx), value, boundaries, region)
             velocity_bcs['velocity'].append(bc)
 
         return velocity_bcs
