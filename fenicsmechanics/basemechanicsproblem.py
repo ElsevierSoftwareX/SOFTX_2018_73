@@ -112,10 +112,10 @@ class BaseMechanicsProblem(object):
         # specified. If they are not specified, set them to None.
         self.check_bcs(config)
 
-        # Check if body force was provided. Assume zero if not.
-        if 'body_force' not in config['formulation']:
-            config['formulation']['body_force'] = None
+        # Check body force.
+        self.check_body_force(config)
 
+        # Check initial conditions provided.
         self.check_initial_condition(config)
 
         return config
@@ -752,70 +752,33 @@ class BaseMechanicsProblem(object):
         return None
 
 
-    # Should be able to use this function for more than just BCs. E.g.
-    # 'initial_condition' and 'body_force'. Might require some tweaking.
-    @staticmethod
-    def __convert_pyvalues_to_coeffs(values, t0, degree=1):
+    def check_body_force(self, config):
         """
 
 
         """
 
-        new_values = list()
-        for i,val in enumerate(values):
-            # No need to convert if already a dolfin.Coefficient type.
-            if isinstance(val, dlf.Coefficient):
-                new_values.append(val)
-                continue
+        # Check if body force was provided. Assume zero if not.
+        if 'body_force' not in config['formulation']:
+            config['formulation']['body_force'] = None
 
-            if isinstance(val, str):
-                if "t" in val:
-                    expr = dlf.Expression(val, t=t0, degree=degree)
-                else:
-                    expr = dlf.Expression(val, degree=degree)
-                new_values.append(expr)
-            elif isinstance(val, (float, int)):
-                new_values.append(dlf.Constant(val))
-            elif isinstance(val, (list, tuple)):
-                # Make sure that all objects in list/tuple are of the same type.
-                # (Either all strings, or all scalars)
-                component_types = set(list(map(type, val)))
-                if len(component_types) != 1:
-                    # Raise an error if different types were given in the same
-                    # list/tuple.
-                    msg = "All components of an expression/constant must " \
-                          + "be of the same type."
-                    raise TypeError(msg)
-                else:
-                    # Raise a TypeError if the components are not float,
-                    # int, or str.
-                    component_type = component_types.pop()
-                    valid_types = (float, int, str)
-                    if component_type not in valid_types:
-                        msg = "The components of each value must be one of the " \
-                              + "following types: %s" \
-                              % str(obj.__name__ for obj in valid_types)
-                        raise TypeError(msg)
+        # Exit if body force was already specified as 'None'.
+        if config['formulation']['body_force'] is None:
+            return None
 
-                if component_type == str:
-                    no_t = True
-                    for v in val:
-                        if "t" in v:
-                            no_t = False
-                            break
-                    if no_t:
-                        expr = dlf.Expression(val, degree=degree)
-                    else:
-                        expr = dlf.Expression(val, t=t0, degree=degree)
-                    new_values.append(expr)
-                else:
-                    new_values.append(dlf.Constant(val))
-            else:
-                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
-                      + "object." % val.__class__
-                raise TypeError(msg)
+        orig_bf = config['formulation']['body_force']
+        _check_type(orig_bf, (dlf.Coefficient, list, tuple), "formulation/body_force")
 
-        return new_values
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
+
+        degree = int(config['formulation']['element'][0][1:])
+        bf, = self.__convert_pyvalues_to_coeffs([orig_bf], t0, degree=degree)
+        config['formulation']['body_force'] = bf
+
+        return None
 
 
     def check_initial_condition(self, config):
@@ -850,13 +813,47 @@ class BaseMechanicsProblem(object):
             }
             return None
 
-        initial_condition = config['formulation']['initial_condition']
-        if 'displacement' not in initial_condition:
-            initial_condition['initial_condition'] = None
-        if 'velocity' not in initial_condition:
-            initial_condition['velocity'] = None
-        if 'pressure' not in initial_condition:
-            initial_condition['pressure'] = None
+        # Set values that are not included to 'None'.
+        ic = config['formulation']['initial_condition']
+        for key in ['displacement', 'velocity', 'pressure']:
+            if key not in ic:
+                ic[key] = None
+
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
+
+        vec_degree = int(config['formulation']['element'][0][1:])
+        if ic['displacement'] is not None:
+            orig_disp = ic['displacement']
+            _check_types(orig_disp, (dlf.Coefficient, list, tuple),
+                         "formulation/initial_condition/displacement")
+            disp, = self.__convert_pyvalues_to_coeffs([orig_disp], t0, vec_degree)
+            ic['displacement'] = disp
+
+        if ic['velocity'] is not None:
+            orig_vel = ic['velocity']
+            _check_types(orig_vel, (dlf.Coefficient, list, tuple),
+                         "formulation/initial_condition/velocity")
+            vel, = self.__convert_pyvalues_to_coeffs([orig_vel], t0, vec_degree)
+            ic['velocity'] = vel
+
+        if ic['pressure'] is not None:
+            # First check that the material was set to incompressible. If not,
+            # raise an exception.
+            if not config['material']['incompressible']:
+                msg = "Cannot specify an initial condition for pressure if " \
+                      "the material is not incompressible."
+                raise InconsistentCombination(msg)
+
+            scalar_degree = int(config['formulation']['element'][1][1:])
+            orig_pressure = ic['pressure']
+            _check_types(orig_pressure, (dlf.Coefficient, str, float, int),
+                         "formulation/initial_condition/pressure")
+            pressure, = self.__convert_pyvalues_to_coeffs([orig_pressure],
+                                                          t0, scalar_degree)
+            ic['pressure'] = pressure
 
         return None
 
@@ -1022,6 +1019,74 @@ class BaseMechanicsProblem(object):
             return True
         else:
             return False
+
+
+    # Should be able to use this function for more than just BCs. E.g.
+    # 'initial_condition' and 'body_force'. Might require some tweaking.
+    @staticmethod
+    def __convert_pyvalues_to_coeffs(values, t0, degree=1):
+        """
+
+
+        """
+
+        new_values = list()
+        for i,val in enumerate(values):
+            print("type(values) = ", type(values))
+
+            # No need to convert if already a dolfin.Coefficient type.
+            if isinstance(val, dlf.Coefficient):
+                new_values.append(val)
+                continue
+
+            if isinstance(val, str):
+                if "t" in val:
+                    expr = dlf.Expression(val, t=t0, degree=degree)
+                else:
+                    expr = dlf.Expression(val, degree=degree)
+                new_values.append(expr)
+            elif isinstance(val, (float, int)):
+                new_values.append(dlf.Constant(val))
+            elif isinstance(val, (list, tuple)):
+                # Make sure that all objects in list/tuple are of the same type.
+                # (Either all strings, or all scalars)
+                component_types = set(list(map(type, val)))
+                if len(component_types) != 1:
+                    # Raise an error if different types were given in the same
+                    # list/tuple.
+                    msg = "All components of an expression/constant must " \
+                          + "be of the same type."
+                    raise TypeError(msg)
+                else:
+                    # Raise a TypeError if the components are not float,
+                    # int, or str.
+                    component_type = component_types.pop()
+                    valid_types = (float, int, str)
+                    if component_type not in valid_types:
+                        msg = "The components of each value must be one of the " \
+                              + "following types: %s" \
+                              % str(obj.__name__ for obj in valid_types)
+                        raise TypeError(msg)
+
+                if component_type == str:
+                    no_t = True
+                    for v in val:
+                        if "t" in v:
+                            no_t = False
+                            break
+                    if no_t:
+                        expr = dlf.Expression(val, degree=degree)
+                    else:
+                        expr = dlf.Expression(val, t=t0, degree=degree)
+                    new_values.append(expr)
+                else:
+                    new_values.append(dlf.Constant(val))
+            else:
+                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                      + "object." % val.__class__
+                raise TypeError(msg)
+
+        return new_values
 
 
     @staticmethod
