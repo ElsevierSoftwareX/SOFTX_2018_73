@@ -76,15 +76,22 @@ Additional material parameters:
             Note: the Newmark integration scheme is only used by
             SolidMechanicsProblem. The default value is 0.5
     * 'initial_condition' (OPTIONAL)
-        * 'displacement' : dolfin.Coefficient (OPTIONAL)
+        * 'displacement' : dolfin.Coefficient, list, tuple (OPTIONAL)
             A dolfin.Coefficient object specifying the initial value for
-            the displacement.
-        * 'velocity' : dolfin.Coefficient (OPTIONAL)
+            the displacement. If a list or tuple is specified, it is
+            converted to a dolfin.Coefficient with the same polynomial
+            degree specified for the vector field.
+        * 'velocity' : dolfin.Coefficient, list, tuple (OPTIONAL)
             A dolfin.Coefficient object specifying the initial value for
-            the velocity.
-        * 'pressure' : dolfin.Coefficient (OPTIONAL)
+            the velocity. If a list or tuple is specified, it is
+            converted to a dolfin.Coefficient with the same polynomial
+            degree specified for the vector field.
+        * 'pressure' : dolfin.Coefficient, float, int (OPTIONAL)
             A dolfin.Coefficient object specifying the initial value for
-            the pressure.
+            the pressure. If a float or int is specified, it is
+            converted to a dolfin.Coefficient with the same polynomial
+            degree specified for the scalar field. An exception is raised
+            if the material is not set as incompressible.
     * 'element' : str
         Name of the finite element to be used for the discrete
         function space. Currently, elements of the form 'p<n>-p<m>'
@@ -100,8 +107,10 @@ Additional material parameters:
         True if the problem is an inverse elastostatics problem, and False
         otherwise. For more information, see Govindjee and Mihalic (1996 &
         1998).
-    * 'body_force' : dolfin.Coefficient (OPTIONAL)
-        Value of the body force throughout the body.
+    * 'body_force' : dolfin.Coefficient, list, tuple (OPTIONAL)
+        Value of the body force to be applied throughout the body. If a list
+        or tuple is applied, it is converted to a dolfin.Coefficient with the
+        same polynomial degree specified for the vector field.
     * 'bcs' (OPTIONAL)
         * 'dirichlet' (OPTIONAL)
             * 'velocity' : list, tuple
