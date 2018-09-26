@@ -1021,8 +1021,6 @@ class BaseMechanicsProblem(object):
             return False
 
 
-    # Should be able to use this function for more than just BCs. E.g.
-    # 'initial_condition' and 'body_force'. Might require some tweaking.
     @staticmethod
     def __convert_pyvalues_to_coeffs(values, t0, degree=1):
         """
@@ -1032,7 +1030,6 @@ class BaseMechanicsProblem(object):
 
         new_values = list()
         for i,val in enumerate(values):
-            print("type(values) = ", type(values))
 
             # No need to convert if already a dolfin.Coefficient type.
             if isinstance(val, dlf.Coefficient):
