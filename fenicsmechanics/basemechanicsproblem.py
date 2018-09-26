@@ -32,21 +32,6 @@ class BaseMechanicsProblem(object):
         # Check configuration dictionary
         self.config = self.check_config(user_config)
 
-        # Obtain mesh and mesh function
-        mesh_file = self.config['mesh']['mesh_file']
-        boundaries = self.config['mesh']['boundaries']
-        if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
-            self.mesh = dlf.Mesh()
-            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
-            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                             boundaries=self.boundaries)
-        else:
-            self.mesh = load_mesh(mesh_file)
-            self.boundaries = load_mesh_function(boundaries, self.mesh)
-
-        # Get geometric dimension.
-        self.geo_dim = self.mesh.geometry().dim()
-
         return None
 
 
@@ -93,7 +78,7 @@ class BaseMechanicsProblem(object):
         config = user_config.copy()
 
         # Check mesh file names given.
-        self.check_mesh(config)
+        self.check_and_load_mesh(config)
 
         # Check the finite element specified.
         self.check_finite_element(config)
@@ -124,7 +109,7 @@ class BaseMechanicsProblem(object):
         return config
 
 
-    def check_mesh(self, config):
+    def check_and_load_mesh(self, config):
         """
 
 
@@ -147,6 +132,21 @@ class BaseMechanicsProblem(object):
         if 'cells' in config['mesh']:
             _check_type(config['mesh']['cells'], valid_meshfunction_types,
                         "mesh/cells")
+
+        # Obtain mesh and mesh function
+        mesh_file = config['mesh']['mesh_file']
+        boundaries = config['mesh']['boundaries']
+        if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
+            self.mesh = dlf.Mesh()
+            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
+            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
+                             boundaries=self.boundaries)
+        else:
+            self.mesh = load_mesh(mesh_file)
+            self.boundaries = load_mesh_function(boundaries, self.mesh)
+
+        # Get geometric dimension.
+        self.geo_dim = self.mesh.geometry().dim()
 
         return None
 
@@ -1041,8 +1041,11 @@ class BaseMechanicsProblem(object):
 
         """
 
-        bc_dict['components'] = self.__check_bc_component_vals(bc_dict['components'],
-                                                               geo_dim)
+        check_bc_component_vals = BaseMechanicsProblem.__check_bc_component_vals
+        # bc_dict['components'] = self.__check_bc_component_vals(bc_dict['components'],
+        #                                                        geo_dim)
+        bc_dict['components'] = check_bc_component_vals(bc_dict['components'],
+                                                        geo_dim)
         components = bc_dict['components']
 
         base_msg = "The %i-th {field} and component specified as a boundary" \
