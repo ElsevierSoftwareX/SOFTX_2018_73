@@ -44,6 +44,9 @@ class BaseMechanicsProblem(object):
             self.mesh = load_mesh(mesh_file)
             self.boundaries = load_mesh_function(boundaries, self.mesh)
 
+        # Get geometric dimension.
+        self.geo_dim = self.mesh.geometry().dim()
+
         return None
 
 
@@ -582,6 +585,7 @@ class BaseMechanicsProblem(object):
         vel = 'velocity'
         disp = 'displacement'
         reg = 'regions'
+        components = 'components'
         subconfig = config['formulation']['bcs']['dirichlet']
 
         # Make sure the appropriate Dirichlet BCs were specified for the type
@@ -604,7 +608,7 @@ class BaseMechanicsProblem(object):
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
                 msg = 'Dirichlet boundary conditions must be specified for ' \
-                      + ' displacement when solving a quasi-static elastic problem.'
+                      + 'displacement when solving a quasi-static elastic problem.'
                 raise RequiredParameter(msg)
         elif config['material']['type'] == 'viscous':
             if vel not in subconfig:
@@ -619,7 +623,7 @@ class BaseMechanicsProblem(object):
 
         # Check vector fields ('displacement' and 'velocity') first.
         vectorfield_bcs = dict()
-        for key in [vel, disp, reg]:
+        for key in [vel, disp, reg, components]:
             if key in subconfig:
                 vectorfield_bcs.update(**{key: subconfig[key]})
 
@@ -671,6 +675,15 @@ class BaseMechanicsProblem(object):
             pressures = config['formulation']['bcs']['dirichlet']['pressure']
             vals = self.__convert_pyvalues_to_coeffs(pressures, t0)
             config['formulation']['bcs']['dirichlet']['pressure'] = vals
+
+        # If 'components' was not provided, set it to "all" for all Dirichlet
+        # boundary conditions given. Then check to make sure the values are
+        # consistent with the 'components'. Need the values to be
+        # dolfin.Coefficient objects to use ufl_shape. Hence doing this check
+        # after '__convert_pyvalues_to_coeffs'.
+        if 'components' not in subconfig:
+            subconfig['components'] = ["all"]*len(subconfig['regions'])
+        self.__check_bc_components(subconfig, self.geo_dim)
 
         return None
 
@@ -1019,6 +1032,86 @@ class BaseMechanicsProblem(object):
             return True
         else:
             return False
+
+
+    @staticmethod
+    def __check_bc_components(bc_dict, geo_dim):
+        """
+
+
+        """
+
+        bc_dict['components'] = self.__check_bc_component_vals(bc_dict['components'],
+                                                               geo_dim)
+        components = bc_dict['components']
+
+        base_msg = "The %i-th {field} and component specified as a boundary" \
+              + "condition are inconsistent. This velocity should %s."
+        if 'velocity' in bc_dict:
+            for i, (idx, vel) in enumerate(zip(components, bc_dict['velocity'])):
+                vel_shape = vel.ufl_shape
+                msg = base_msg.format(field="velocity")
+                if idx == "all":
+                    if vel_shape != (geo_dim,):
+                        sub_msg = "have dimension (%i x 1)" % geo_dim
+                        raise InconsistentCombination(msg % (i, sub_msg))
+                else:
+                    if vel_shape != tuple():
+                        sub_msg = "be a scalar value."
+                        raise InconsistentCombination(msg % (i, sub_msg))
+
+        if 'displacement' in bc_dict:
+            for i, (idx, disp) in enumerate(zip(components, bc_dict['displacement'])):
+                disp_shape = disp.ufl_shape
+                msg = base_msg.format(field="displacement")
+                if idx == "all":
+                    if disp_shape != (geo_dim,):
+                        sub_msg = "have dimension (%i x 1)" % geo_dim
+                        raise InconsistentCombination(msg % (i, sub_msg))
+                else:
+                    if disp_shape != tuple():
+                        sub_msg = "be a scalar value."
+                        raise InconsistentCombination(msg % (i, sub_msg))
+
+        return None
+
+
+    @staticmethod
+    def __check_bc_component_vals(components, geo_dim):
+        """
+
+
+        """
+
+        for i, idx in enumerate(components):
+            if isinstance(idx, str):
+                components[i] = idx.lower()
+
+        valid_components = ("all", 0, "x")
+        if geo_dim >= 2:
+            valid_components += (1, "y")
+
+        if geo_dim == 3:
+            valid_components += (2, "z")
+
+        union = set(valid_components).union(components)
+        if len(union) > len(valid_components):
+            invalid_components = tuple(union.difference(valid_components))
+            msg = "Components specified for boundary conditions must be one " \
+                  + "of the following: '%s'. The following " % str(valid_components) \
+                  + "invalid values were given: %s" % str(invalid_components)
+            raise InvalidOption(msg)
+
+        # Replace component strings with integers.
+        for i, idx in enumerate(components):
+            if idx == "x":
+                components[i] = 0
+            elif idx == "y":
+                components[i] = 1
+            elif idx == "z":
+                components[i] = 2
+
+        return components
 
 
     @staticmethod
