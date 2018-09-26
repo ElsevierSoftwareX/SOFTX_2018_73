@@ -71,6 +71,7 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("mesh/boundaries", 2),
                           ("formulation/element", 1.1),
                           ("formulation/domain", set(range(10))),
+                          ("formulation/body_force", [1.0, "x[0]", 4.0]),
                           ("formulation/bcs/neumann/types", "my_bcs"),
                           ("formulation/bcs/neumann/values", 3.0),
                           ("formulation/bcs/neumann/regions", 3),
@@ -90,6 +91,10 @@ def test_invalid_types(default_config, class_name, key, new_value):
         config = default_config(class_name, unsteady=True)
     else:
         config = default_config(class_name, unsteady=False)
+
+    if 'body_force' in key:
+        config['formulation']['body_force'] = None
+
     subconfig, last_key = _get_subdict(key, config, ret_last_key=True)
     subconfig[last_key] = new_value
 
