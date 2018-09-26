@@ -630,6 +630,7 @@ class BaseMechanicsProblem(object):
 
         # Now check the scalar field ('pressure').
         scalarfield_bcs = dict()
+        require_p_regions = False
         if 'pressure' in subconfig:
             require_p_regions = True
             scalarfield_bcs.update(pressure=subconfig['pressure'])
@@ -643,11 +644,13 @@ class BaseMechanicsProblem(object):
                       + "Dirichlet BCs if values for the pressure are given."
                 raise InconsistentCombination(msg)
 
-        if not self.__check_bc_params(scalarfield_bcs):
-            msg = "The number of Dirichlet boundary regions for pressure " \
-                  + "('p_regions') and field values ('pressure') must be " \
-                  + "the same."
-            raise InconsistentCombination(msg)
+        # Skip if this dictionary is empty.
+        if len(scalarfield_bcs) > 0:
+            if not self.__check_bc_params(scalarfield_bcs):
+                msg = "The number of Dirichlet boundary regions for pressure " \
+                      + "('p_regions') and field values ('pressure') must be " \
+                      + "the same."
+                raise InconsistentCombination(msg)
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -656,17 +659,17 @@ class BaseMechanicsProblem(object):
 
         if 'displacement' in config['formulation']['bcs']['dirichlet']:
             disps = config['formulation']['bcs']['dirichlet']['displacement']
-            vals = self.__convert_bc_values(disps, t0)
+            vals = self.__convert_pyvalues_to_coeffs(disps, t0)
             config['formulation']['bcs']['dirichlet']['displacement'] = vals
 
         if 'velocity' in config['formulation']['bcs']['dirichlet']:
             orig_vels = config['formulation']['bcs']['dirichlet']['velocity']
-            vals = self.__convert_bc_values(orig_vels, t0)
+            vals = self.__convert_pyvalues_to_coeffs(orig_vels, t0)
             config['formulation']['bcs']['dirichlet']['velocity'] = vals
 
         if 'pressure' in config['formulation']['bcs']['dirichlet']:
             pressures = config['formulation']['bcs']['dirichlet']['pressure']
-            vals = self.__convert_bc_values(pressures, t0)
+            vals = self.__convert_pyvalues_to_coeffs(pressures, t0)
             config['formulation']['bcs']['dirichlet']['pressure'] = vals
 
         return None
@@ -743,7 +746,7 @@ class BaseMechanicsProblem(object):
             t0 = 0.0
 
         orig_values = config['formulation']['bcs']['neumann']['values']
-        vals = self.__convert_bc_values(orig_values, t0)
+        vals = self.__convert_pyvalues_to_coeffs(orig_values, t0)
         config['formulation']['bcs']['neumann']['values'] = vals
 
         return None
@@ -752,7 +755,7 @@ class BaseMechanicsProblem(object):
     # Should be able to use this function for more than just BCs. E.g.
     # 'initial_condition' and 'body_force'. Might require some tweaking.
     @staticmethod
-    def __convert_bc_values(values, t0, degree=1):
+    def __convert_pyvalues_to_coeffs(values, t0, degree=1):
         """
 
 
