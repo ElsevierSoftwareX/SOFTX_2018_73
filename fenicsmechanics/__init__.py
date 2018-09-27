@@ -121,15 +121,20 @@ Additional material parameters:
                 List of displacement values (dolfin.Constant or dolfin.Expression)
                 for each Dirichlet boundary region specified. The order must match
                 the order used in the list of region IDs.
-            * 'pressure' : list, tuple
-                List of pressure values (dolfin.Constant or dolfin.Expression)
-                for each Dirichlet boundary region specified. The order must match
-                the order used in the list of pressure region IDs.
             * 'regions' : list, tuple
                 List of the region IDs on which Dirichlet boundary conditions for
                 displacement and velocity are to be imposed. These IDs must match
                 those used by the mesh function provided. The order must match that
                 used in the list of values (velocity and displacement).
+            * 'components' : list, tuple (OPTIONAL)
+                List of vector components to apply the Dirichlet BCs to. If the
+                BC is to be applied to the entire vector field, then set it to
+                "all". If this list if not provided, it is set to a list with "all"
+                repeated for each boundary condition.
+            * 'pressure' : list, tuple
+                List of pressure values (dolfin.Constant or dolfin.Expression)
+                for each Dirichlet boundary region specified. The order must match
+                the order used in the list of pressure region IDs.
             * 'p_regions' : list, tuple
                 List of the region IDs on which Dirichlet boundary conditions for
                 pressure are to be imposed. These IDs must match those used by the
