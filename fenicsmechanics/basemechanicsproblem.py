@@ -126,16 +126,21 @@ class BaseMechanicsProblem(object):
         if 'boundaries' in config['mesh']:
             _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
                         "mesh/boundaries")
+        else:
+            config['mesh']['boundaries'] = None
 
         # This check is for future use. Marked cell domains are currently not
         # used in any cases.
         if 'cells' in config['mesh']:
             _check_type(config['mesh']['cells'], valid_meshfunction_types,
                         "mesh/cells")
+        else:
+            config['mesh']['cells'] = None
 
         # Obtain mesh and mesh function
         mesh_file = config['mesh']['mesh_file']
         boundaries = config['mesh']['boundaries']
+        cells = config['mesh']['cells']
         if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
             self.mesh = dlf.Mesh()
             self.boundaries = dlf.MeshFunction("size_t", self.mesh)
@@ -143,7 +148,10 @@ class BaseMechanicsProblem(object):
                              boundaries=self.boundaries)
         else:
             self.mesh = load_mesh(mesh_file)
-            self.boundaries = load_mesh_function(boundaries, self.mesh)
+            if boundaries is not None:
+                self.boundaries = load_mesh_function(boundaries, self.mesh)
+            if cells is not None:
+                self.cells = load_mesh_function(cells, self.mesh)
 
         # Get geometric dimension.
         self.geo_dim = self.mesh.geometry().dim()
@@ -526,23 +534,42 @@ class BaseMechanicsProblem(object):
 
         """
 
-        # Check if 'bcs' key is in config dictionary.
+        # Check if 'bcs' key is in config dictionary. Set to 'None' if missing.
         if 'bcs' not in config['formulation']:
             config['formulation']['bcs'] = None
 
         # Set 'dirichlet' and 'neumann' to None if values were not provided
-        # and exit.
+        # and exiting (there's no need for further checking).
         if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
             print('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
-        else:
-            if 'boundaries' not in config['mesh']:
-                msg = "A facet function must be provided under the 'boundaries'" \
-                      + " key of the 'mesh' subdictionary when specifying " \
-                      + "boundary conditions for the problem."
-                raise RequiredParameter(msg)
+
+        # Set each value that was not provided to 'None'.
+        if 'dirichlet' not in config['formulation']['bcs']:
+            config['formulation']['bcs']['dirichlet'] = None
+        if 'neumann' not in config['formulation']['bcs']:
+            config['formulation']['bcs']['neumann'] = None
+
+        dirichlet = config['formulation']['bcs']['dirichlet']
+        neumann = config['formulation']['bcs']['neumann']
+
+        # If both 'dirichlet' and 'neumann' were provided as 'None',
+        # exit since there is no need for further checking.
+        if (dirichlet is None) and (neumann is None):
+            print('*** No BCs (Neumann and Dirichlet) were specified. ***')
+            return None
+
+        # Check that a facet function was provided since this will be
+        # required to specify boundary conditions.
+        msg = "A facet function must be provided under the 'boundaries'" \
+              + " key of the 'mesh' subdictionary when specifying " \
+              + "boundary conditions for the problem."
+        if 'boundaries' not in config['mesh']:
+            raise RequiredParameter(msg)
+        elif config['mesh']['boundaries'] is None:
+            raise RequiredParameter(msg)
 
         self.check_dirichlet(config)
         self.check_neumann(config)
@@ -573,9 +600,6 @@ class BaseMechanicsProblem(object):
 
 
         """
-
-        if 'dirichlet' not in config['formulation']['bcs']:
-            config['formulation']['bcs']['dirichlet'] = None
 
         if config['formulation']['bcs']['dirichlet'] is None:
             # USE THE WARNINGS MODULE HERE.
@@ -710,10 +734,6 @@ class BaseMechanicsProblem(object):
         None
 
         """
-
-        # Set value to None if it was not provided.
-        if 'neumann' not in config['formulation']['bcs']:
-            config['formulation']['bcs']['neumann'] = None
 
         # Exit if Neumann BCs were not specified.
         if config['formulation']['bcs']['neumann'] is None:
