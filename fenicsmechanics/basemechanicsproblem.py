@@ -111,6 +111,23 @@ class BaseMechanicsProblem(object):
 
     def check_and_load_mesh(self, config):
         """
+        Check the mesh files provided, and load them. Also, extract the
+        geometrical dimension for later use.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -787,7 +804,24 @@ class BaseMechanicsProblem(object):
 
     def check_body_force(self, config):
         """
+        Check if body force is specified. If it is, the type is checked, and
+        converted to a dolfin.Coefficient object when necessary. If it is not
+        specified, it is set to None.
 
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -1034,6 +1068,19 @@ class BaseMechanicsProblem(object):
         Make sure that the lengths of all the lists/tuples provided within the
         neumann and dirichlet subdictionaries are the same.
 
+
+        Parameters
+        ----------
+
+        bc_dict : dict
+            A subdictionary of boundary conditions.
+
+
+        Returns
+        -------
+
+        None
+
         """
 
         for key, val in bc_dict.items():
@@ -1057,13 +1104,31 @@ class BaseMechanicsProblem(object):
     @staticmethod
     def __check_bc_components(bc_dict, geo_dim):
         """
+        Check if components are specified for boundary conditions. Also, check
+        that the values given are consistent. E.g., (a) a scalar is given when
+        a single component is specified, or (b) the shape of the values
+        correspond to the full vector field for the appropriate geometric
+        dimension. This method is only meant to be used with the Dirichlet BCs
+        subdictionary.
 
+
+        Parameters
+        ----------
+
+        bc_dict : dict
+            A subdictionary of boundary conditions.
+        geo_dim : int
+            The geometric dimension of the problem being solved.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
         check_bc_component_vals = BaseMechanicsProblem.__check_bc_component_vals
-        # bc_dict['components'] = self.__check_bc_component_vals(bc_dict['components'],
-        #                                                        geo_dim)
         bc_dict['components'] = check_bc_component_vals(bc_dict['components'],
                                                         geo_dim)
         components = bc_dict['components']
@@ -1102,7 +1167,32 @@ class BaseMechanicsProblem(object):
     @staticmethod
     def __check_bc_component_vals(components, geo_dim):
         """
+        Check that the components specified are valid. The valid types depend on
+        the geometric dimension of the problem and are as follows:
 
+            * :code:`geo_dim == 1`: :code:`("all", 0, "x")`
+            * :code:`geo_dim == 2`: :code:`("all", 0, "x", 1, "y")`
+            * :code:`geo_dim == 1`: :code:`("all", 0, "x", 1, "y", 2, "z")`
+
+        An exception is raised if the type or value is not valid. Furthermore,
+        the value is replaced with the corresponding int value if a string is
+        specified ("x" is replaced with 0, "y" is replaced with 1, "z" is
+        replaced with 2).
+
+
+        Parameters
+        ----------
+
+        components : list, tuple
+            The list/tuple of components specified for each boundary condition.
+        geo_dim : int
+            The geometric dimension of the problem being solved.
+
+
+        Returns
+        -------
+
+        None
 
         """
 
@@ -1140,7 +1230,33 @@ class BaseMechanicsProblem(object):
     @staticmethod
     def __convert_pyvalues_to_coeffs(values, t0, degree=1):
         """
+        This method creates the appropriate dolfin.Coefficient object (either
+        dolfin.Constant or dolfin.Expression) from valid python types. If the
+        values are made up of strings, an expression is made. It 't' is included
+        in any components, it is passed to the dolfin.Expression object and set
+        to 't0'. Furthermore, the degree is used to create dolfin.Expression
+        objects. If the values are made up of scalars, a dolfin.Constant is
+        created.
 
+
+        Parameters
+        ----------
+
+        values : list, tuple
+            A list/tuple of values to be used to create a dolfin.Coefficient.
+            Types that can be converted are int, float, str, list, and tuple.
+        t0 : float
+            The value used to set the time, 't', parameter for dolfin.Expression
+            objects.
+        degree : int (default 1)
+            The degree used to create a dolfin.Expression object.
+
+
+        Returns
+        -------
+
+        new_values : list
+            A list of dolfin.Coefficient objects created from 'values'.
 
         """
 
