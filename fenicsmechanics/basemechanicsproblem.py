@@ -32,18 +32,6 @@ class BaseMechanicsProblem(object):
         # Check configuration dictionary
         self.config = self.check_config(user_config)
 
-        # Obtain mesh and mesh function
-        mesh_file = self.config['mesh']['mesh_file']
-        boundaries = self.config['mesh']['boundaries']
-        if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
-            self.mesh = dlf.Mesh()
-            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
-            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                             boundaries=self.boundaries)
-        else:
-            self.mesh = load_mesh(mesh_file)
-            self.boundaries = load_mesh_function(boundaries, self.mesh)
-
         return None
 
 
@@ -90,7 +78,7 @@ class BaseMechanicsProblem(object):
         config = user_config.copy()
 
         # Check mesh file names given.
-        self.check_mesh(config)
+        self.check_and_load_mesh(config)
 
         # Check the finite element specified.
         self.check_finite_element(config)
@@ -112,17 +100,34 @@ class BaseMechanicsProblem(object):
         # specified. If they are not specified, set them to None.
         self.check_bcs(config)
 
-        # Check if body force was provided. Assume zero if not.
-        if 'body_force' not in config['formulation']:
-            config['formulation']['body_force'] = None
+        # Check body force.
+        self.check_body_force(config)
 
+        # Check initial conditions provided.
         self.check_initial_condition(config)
 
         return config
 
 
-    def check_mesh(self, config):
+    def check_and_load_mesh(self, config):
         """
+        Check the mesh files provided, and load them. Also, extract the
+        geometrical dimension for later use.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
 
 
         """
@@ -138,12 +143,35 @@ class BaseMechanicsProblem(object):
         if 'boundaries' in config['mesh']:
             _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
                         "mesh/boundaries")
+        else:
+            config['mesh']['boundaries'] = None
 
         # This check is for future use. Marked cell domains are currently not
         # used in any cases.
         if 'cells' in config['mesh']:
             _check_type(config['mesh']['cells'], valid_meshfunction_types,
                         "mesh/cells")
+        else:
+            config['mesh']['cells'] = None
+
+        # Obtain mesh and mesh function
+        mesh_file = config['mesh']['mesh_file']
+        boundaries = config['mesh']['boundaries']
+        cells = config['mesh']['cells']
+        if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
+            self.mesh = dlf.Mesh()
+            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
+            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
+                             boundaries=self.boundaries)
+        else:
+            self.mesh = load_mesh(mesh_file)
+            if boundaries is not None:
+                self.boundaries = load_mesh_function(boundaries, self.mesh)
+            if cells is not None:
+                self.cells = load_mesh_function(cells, self.mesh)
+
+        # Get geometric dimension.
+        self.geo_dim = self.mesh.geometry().dim()
 
         return None
 
@@ -523,23 +551,42 @@ class BaseMechanicsProblem(object):
 
         """
 
-        # Check if 'bcs' key is in config dictionary.
+        # Check if 'bcs' key is in config dictionary. Set to 'None' if missing.
         if 'bcs' not in config['formulation']:
             config['formulation']['bcs'] = None
 
         # Set 'dirichlet' and 'neumann' to None if values were not provided
-        # and exit.
+        # and exiting (there's no need for further checking).
         if config['formulation']['bcs'] is None:
             config['formulation']['bcs']['dirichlet'] = None
             config['formulation']['bcs']['neumann'] = None
             print('*** No BCs (Neumann and Dirichlet) were specified. ***')
             return None
-        else:
-            if 'boundaries' not in config['mesh']:
-                msg = "A facet function must be provided under the 'boundaries'" \
-                      + " key of the 'mesh' subdictionary when specifying " \
-                      + "boundary conditions for the problem."
-                raise RequiredParameter(msg)
+
+        # Set each value that was not provided to 'None'.
+        if 'dirichlet' not in config['formulation']['bcs']:
+            config['formulation']['bcs']['dirichlet'] = None
+        if 'neumann' not in config['formulation']['bcs']:
+            config['formulation']['bcs']['neumann'] = None
+
+        dirichlet = config['formulation']['bcs']['dirichlet']
+        neumann = config['formulation']['bcs']['neumann']
+
+        # If both 'dirichlet' and 'neumann' were provided as 'None',
+        # exit since there is no need for further checking.
+        if (dirichlet is None) and (neumann is None):
+            print('*** No BCs (Neumann and Dirichlet) were specified. ***')
+            return None
+
+        # Check that a facet function was provided since this will be
+        # required to specify boundary conditions.
+        msg = "A facet function must be provided under the 'boundaries'" \
+              + " key of the 'mesh' subdictionary when specifying " \
+              + "boundary conditions for the problem."
+        if 'boundaries' not in config['mesh']:
+            raise RequiredParameter(msg)
+        elif config['mesh']['boundaries'] is None:
+            raise RequiredParameter(msg)
 
         self.check_dirichlet(config)
         self.check_neumann(config)
@@ -571,9 +618,6 @@ class BaseMechanicsProblem(object):
 
         """
 
-        if 'dirichlet' not in config['formulation']['bcs']:
-            config['formulation']['bcs']['dirichlet'] = None
-
         if config['formulation']['bcs']['dirichlet'] is None:
             # USE THE WARNINGS MODULE HERE.
             print('*** No Dirichlet BCs were specified. ***')
@@ -581,6 +625,8 @@ class BaseMechanicsProblem(object):
 
         vel = 'velocity'
         disp = 'displacement'
+        reg = 'regions'
+        components = 'components'
         subconfig = config['formulation']['bcs']['dirichlet']
 
         # Make sure the appropriate Dirichlet BCs were specified for the type
@@ -603,7 +649,7 @@ class BaseMechanicsProblem(object):
         elif config['material']['type'] == 'elastic':
             if disp not in subconfig:
                 msg = 'Dirichlet boundary conditions must be specified for ' \
-                      + ' displacement when solving a quasi-static elastic problem.'
+                      + 'displacement when solving a quasi-static elastic problem.'
                 raise RequiredParameter(msg)
         elif config['material']['type'] == 'viscous':
             if vel not in subconfig:
@@ -611,10 +657,45 @@ class BaseMechanicsProblem(object):
                       + ' velocity when solving a quasi-static viscous problem.'
                 raise RequiredParameter(msg)
 
-        # Make sure the length of all the lists match.
-        if not self.__check_bc_params(subconfig):
-            raise InconsistentCombination('The number of Dirichlet boundary regions ' \
-                                          + 'and values for not match!')
+        # Need to check that the number of values in each subfield of
+        # '../bcs/dirichlet' match for vector and scalar fields separately.
+        # I.e., the user should be able to specify n Dirichlet BCs for displacement,
+        # and m Dirichlet BCs for pressure, without requiring that n == m.
+
+        # Check vector fields ('displacement' and 'velocity') first.
+        vectorfield_bcs = dict()
+        for key in [vel, disp, reg, components]:
+            if key in subconfig:
+                vectorfield_bcs.update(**{key: subconfig[key]})
+
+        if not self.__check_bc_params(vectorfield_bcs):
+            msg = "The number of Dirichlet boundary regions for vector fields " \
+                  + "and values do not match!"
+            raise InconsistentCombination(msg)
+
+        # Now check the scalar field ('pressure').
+        scalarfield_bcs = dict()
+        require_p_regions = False
+        if 'pressure' in subconfig:
+            require_p_regions = True
+            scalarfield_bcs.update(pressure=subconfig['pressure'])
+
+        if 'p_regions' in subconfig:
+            # Change the key name for compatibility with '__check_bc_params'.
+            scalarfield_bcs.update(regions=subconfig['p_regions'])
+        else:
+            if require_p_regions:
+                msg = "User must specify the boundary regions ('p_regions') to apply " \
+                      + "Dirichlet BCs if values for the pressure are given."
+                raise InconsistentCombination(msg)
+
+        # Skip if this dictionary is empty.
+        if len(scalarfield_bcs) > 0:
+            if not self.__check_bc_params(scalarfield_bcs):
+                msg = "The number of Dirichlet boundary regions for pressure " \
+                      + "('p_regions') and field values ('pressure') must be " \
+                      + "the same."
+                raise InconsistentCombination(msg)
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -623,18 +704,27 @@ class BaseMechanicsProblem(object):
 
         if 'displacement' in config['formulation']['bcs']['dirichlet']:
             disps = config['formulation']['bcs']['dirichlet']['displacement']
-            vals = self.__convert_bc_values(disps, t0)
+            vals = self.__convert_pyvalues_to_coeffs(disps, t0)
             config['formulation']['bcs']['dirichlet']['displacement'] = vals
 
         if 'velocity' in config['formulation']['bcs']['dirichlet']:
-            vels = config['formulation']['bcs']['dirichlet']['velocity']
-            vals = self.__convert_bc_values(vels, t0)
+            orig_vels = config['formulation']['bcs']['dirichlet']['velocity']
+            vals = self.__convert_pyvalues_to_coeffs(orig_vels, t0)
             config['formulation']['bcs']['dirichlet']['velocity'] = vals
 
         if 'pressure' in config['formulation']['bcs']['dirichlet']:
             pressures = config['formulation']['bcs']['dirichlet']['pressure']
-            vals = self.__convert_bc_values(pressures, t0)
+            vals = self.__convert_pyvalues_to_coeffs(pressures, t0)
             config['formulation']['bcs']['dirichlet']['pressure'] = vals
+
+        # If 'components' was not provided, set it to "all" for all Dirichlet
+        # boundary conditions given. Then check to make sure the values are
+        # consistent with the 'components'. Need the values to be
+        # dolfin.Coefficient objects to use ufl_shape. Hence doing this check
+        # after '__convert_pyvalues_to_coeffs'.
+        if 'components' not in subconfig:
+            subconfig['components'] = ["all"]*len(subconfig['regions'])
+        self.__check_bc_components(subconfig, self.geo_dim)
 
         return None
 
@@ -661,10 +751,6 @@ class BaseMechanicsProblem(object):
         None
 
         """
-
-        # Set value to None if it was not provided.
-        if 'neumann' not in config['formulation']['bcs']:
-            config['formulation']['bcs']['neumann'] = None
 
         # Exit if Neumann BCs were not specified.
         if config['formulation']['bcs']['neumann'] is None:
@@ -710,76 +796,56 @@ class BaseMechanicsProblem(object):
             t0 = 0.0
 
         orig_values = config['formulation']['bcs']['neumann']['values']
-        vals = self.__convert_bc_values(orig_values, t0)
+        vals = self.__convert_pyvalues_to_coeffs(orig_values, t0)
         config['formulation']['bcs']['neumann']['values'] = vals
 
         return None
 
 
-    # Should be able to use this function for more than just BCs. E.g.
-    # 'initial_condition' and 'body_force'. Might require some tweaking.
-    @staticmethod
-    def __convert_bc_values(values, t0, degree=1):
+    def check_body_force(self, config):
+        """
+        Check if body force is specified. If it is, the type is checked, and
+        converted to a dolfin.Coefficient object when necessary. If it is not
+        specified, it is set to None.
+
+
+        Parameters
+        ----------
+
+        config : dict
+            Dictionary describing the formulation of the mechanics
+            problem to be simulated. Check the documentation of
+            BaseMechanicsProblem to see the format of the dictionary.
+
+
+        Returns
+        -------
+
+        None
+
         """
 
+        # Check if body force was provided. Assume zero if not.
+        if 'body_force' not in config['formulation']:
+            config['formulation']['body_force'] = None
 
-        """
+        # Exit if body force was already specified as 'None'.
+        if config['formulation']['body_force'] is None:
+            return None
 
-        new_values = list()
-        for i,val in enumerate(values):
-            # No need to convert if already a dolfin.Coefficient type.
-            if isinstance(val, dlf.Coefficient):
-                new_values.append(val)
-                continue
+        orig_bf = config['formulation']['body_force']
+        _check_type(orig_bf, (dlf.Coefficient, list, tuple), "formulation/body_force")
 
-            if isinstance(val, str):
-                if "t" in val:
-                    expr = dlf.Expression(val, t=t0, degree=degree)
-                else:
-                    expr = dlf.Expression(val, degree=degree)
-                new_values.append(expr)
-            elif isinstance(val, (float, int)):
-                new_values.append(dlf.Constant(val))
-            elif isinstance(val, (list, tuple)):
-                # Make sure that all objects in list/tuple are of the same type.
-                # (Either all strings, or all scalars)
-                component_types = set(list(map(type, val)))
-                if len(component_types) != 1:
-                    # Raise an error if different types were given in the same
-                    # list/tuple.
-                    msg = "All components of an expression/constant must " \
-                          + "be of the same type."
-                    raise TypeError(msg)
-                else:
-                    # Raise a TypeError if the components are not float,
-                    # int, or str.
-                    component_type = component_types.pop()
-                    valid_types = (float, int, str)
-                    if component_type not in valid_types:
-                        msg = "The components of each value must be one of the " \
-                              + "following types: %s" \
-                              % str(obj.__name__ for obj in valid_types)
-                        raise TypeError(msg)
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
 
-                if component_type == str:
-                    no_t = True
-                    for v in val:
-                        if "t" in v:
-                            no_t = False
-                            break
-                    if no_t:
-                        expr = dlf.Expression(val, degree=degree)
-                    else:
-                        expr = dlf.Expression(val, t=t0, degree=degree)
-                    new_values.append(expr)
-                else:
-                    new_values.append(dlf.Constant(val))
-            else:
-                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
-                      + "object." % val.__class__
-                raise TypeError(msg)
+        degree = int(config['formulation']['element'][0][1:])
+        bf, = self.__convert_pyvalues_to_coeffs([orig_bf], t0, degree=degree)
+        config['formulation']['body_force'] = bf
 
-        return new_values
+        return None
 
 
     def check_initial_condition(self, config):
@@ -814,13 +880,47 @@ class BaseMechanicsProblem(object):
             }
             return None
 
-        initial_condition = config['formulation']['initial_condition']
-        if 'displacement' not in initial_condition:
-            initial_condition['initial_condition'] = None
-        if 'velocity' not in initial_condition:
-            initial_condition['velocity'] = None
-        if 'pressure' not in initial_condition:
-            initial_condition['pressure'] = None
+        # Set values that are not included to 'None'.
+        ic = config['formulation']['initial_condition']
+        for key in ['displacement', 'velocity', 'pressure']:
+            if key not in ic:
+                ic[key] = None
+
+        if config['formulation']['time']['unsteady']:
+            t0 = config['formulation']['time']['interval'][0]
+        else:
+            t0 = 0.0
+
+        vec_degree = int(config['formulation']['element'][0][1:])
+        if ic['displacement'] is not None:
+            orig_disp = ic['displacement']
+            _check_types(orig_disp, (dlf.Coefficient, list, tuple),
+                         "formulation/initial_condition/displacement")
+            disp, = self.__convert_pyvalues_to_coeffs([orig_disp], t0, vec_degree)
+            ic['displacement'] = disp
+
+        if ic['velocity'] is not None:
+            orig_vel = ic['velocity']
+            _check_types(orig_vel, (dlf.Coefficient, list, tuple),
+                         "formulation/initial_condition/velocity")
+            vel, = self.__convert_pyvalues_to_coeffs([orig_vel], t0, vec_degree)
+            ic['velocity'] = vel
+
+        if ic['pressure'] is not None:
+            # First check that the material was set to incompressible. If not,
+            # raise an exception.
+            if not config['material']['incompressible']:
+                msg = "Cannot specify an initial condition for pressure if " \
+                      "the material is not incompressible."
+                raise InconsistentCombination(msg)
+
+            scalar_degree = int(config['formulation']['element'][1][1:])
+            orig_pressure = ic['pressure']
+            _check_types(orig_pressure, (dlf.Coefficient, str, float, int),
+                         "formulation/initial_condition/pressure")
+            pressure, = self.__convert_pyvalues_to_coeffs([orig_pressure],
+                                                          t0, scalar_degree)
+            ic['pressure'] = pressure
 
         return None
 
@@ -968,6 +1068,19 @@ class BaseMechanicsProblem(object):
         Make sure that the lengths of all the lists/tuples provided within the
         neumann and dirichlet subdictionaries are the same.
 
+
+        Parameters
+        ----------
+
+        bc_dict : dict
+            A subdictionary of boundary conditions.
+
+
+        Returns
+        -------
+
+        None
+
         """
 
         for key, val in bc_dict.items():
@@ -986,6 +1099,223 @@ class BaseMechanicsProblem(object):
             return True
         else:
             return False
+
+
+    @staticmethod
+    def __check_bc_components(bc_dict, geo_dim):
+        """
+        Check if components are specified for boundary conditions. Also, check
+        that the values given are consistent. E.g., (a) a scalar is given when
+        a single component is specified, or (b) the shape of the values
+        correspond to the full vector field for the appropriate geometric
+        dimension. This method is only meant to be used with the Dirichlet BCs
+        subdictionary.
+
+
+        Parameters
+        ----------
+
+        bc_dict : dict
+            A subdictionary of boundary conditions.
+        geo_dim : int
+            The geometric dimension of the problem being solved.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
+        check_bc_component_vals = BaseMechanicsProblem.__check_bc_component_vals
+        bc_dict['components'] = check_bc_component_vals(bc_dict['components'],
+                                                        geo_dim)
+        components = bc_dict['components']
+
+        base_msg = "The %i-th {field} and component specified as a boundary" \
+              + "condition are inconsistent. This velocity should %s."
+        if 'velocity' in bc_dict:
+            for i, (idx, vel) in enumerate(zip(components, bc_dict['velocity'])):
+                vel_shape = vel.ufl_shape
+                msg = base_msg.format(field="velocity")
+                if idx == "all":
+                    if vel_shape != (geo_dim,):
+                        sub_msg = "have dimension (%i x 1)" % geo_dim
+                        raise InconsistentCombination(msg % (i, sub_msg))
+                else:
+                    if vel_shape != tuple():
+                        sub_msg = "be a scalar value."
+                        raise InconsistentCombination(msg % (i, sub_msg))
+
+        if 'displacement' in bc_dict:
+            for i, (idx, disp) in enumerate(zip(components, bc_dict['displacement'])):
+                disp_shape = disp.ufl_shape
+                msg = base_msg.format(field="displacement")
+                if idx == "all":
+                    if disp_shape != (geo_dim,):
+                        sub_msg = "have dimension (%i x 1)" % geo_dim
+                        raise InconsistentCombination(msg % (i, sub_msg))
+                else:
+                    if disp_shape != tuple():
+                        sub_msg = "be a scalar value."
+                        raise InconsistentCombination(msg % (i, sub_msg))
+
+        return None
+
+
+    @staticmethod
+    def __check_bc_component_vals(components, geo_dim):
+        """
+        Check that the components specified are valid. The valid types depend on
+        the geometric dimension of the problem and are as follows:
+
+            * :code:`geo_dim == 1`: :code:`("all", 0, "x")`
+            * :code:`geo_dim == 2`: :code:`("all", 0, "x", 1, "y")`
+            * :code:`geo_dim == 1`: :code:`("all", 0, "x", 1, "y", 2, "z")`
+
+        An exception is raised if the type or value is not valid. Furthermore,
+        the value is replaced with the corresponding int value if a string is
+        specified ("x" is replaced with 0, "y" is replaced with 1, "z" is
+        replaced with 2).
+
+
+        Parameters
+        ----------
+
+        components : list, tuple
+            The list/tuple of components specified for each boundary condition.
+        geo_dim : int
+            The geometric dimension of the problem being solved.
+
+
+        Returns
+        -------
+
+        None
+
+        """
+
+        for i, idx in enumerate(components):
+            if isinstance(idx, str):
+                components[i] = idx.lower()
+
+        valid_components = ("all", 0, "x")
+        if geo_dim >= 2:
+            valid_components += (1, "y")
+
+        if geo_dim == 3:
+            valid_components += (2, "z")
+
+        union = set(valid_components).union(components)
+        if len(union) > len(valid_components):
+            invalid_components = tuple(union.difference(valid_components))
+            msg = "Components specified for boundary conditions must be one " \
+                  + "of the following: '%s'. The following " % str(valid_components) \
+                  + "invalid values were given: %s" % str(invalid_components)
+            raise InvalidOption(msg)
+
+        # Replace component strings with integers.
+        for i, idx in enumerate(components):
+            if idx == "x":
+                components[i] = 0
+            elif idx == "y":
+                components[i] = 1
+            elif idx == "z":
+                components[i] = 2
+
+        return components
+
+
+    @staticmethod
+    def __convert_pyvalues_to_coeffs(values, t0, degree=1):
+        """
+        This method creates the appropriate dolfin.Coefficient object (either
+        dolfin.Constant or dolfin.Expression) from valid python types. If the
+        values are made up of strings, an expression is made. It 't' is included
+        in any components, it is passed to the dolfin.Expression object and set
+        to 't0'. Furthermore, the degree is used to create dolfin.Expression
+        objects. If the values are made up of scalars, a dolfin.Constant is
+        created.
+
+
+        Parameters
+        ----------
+
+        values : list, tuple
+            A list/tuple of values to be used to create a dolfin.Coefficient.
+            Types that can be converted are int, float, str, list, and tuple.
+        t0 : float
+            The value used to set the time, 't', parameter for dolfin.Expression
+            objects.
+        degree : int (default 1)
+            The degree used to create a dolfin.Expression object.
+
+
+        Returns
+        -------
+
+        new_values : list
+            A list of dolfin.Coefficient objects created from 'values'.
+
+        """
+
+        new_values = list()
+        for i,val in enumerate(values):
+
+            # No need to convert if already a dolfin.Coefficient type.
+            if isinstance(val, dlf.Coefficient):
+                new_values.append(val)
+                continue
+
+            if isinstance(val, str):
+                if "t" in val:
+                    expr = dlf.Expression(val, t=t0, degree=degree)
+                else:
+                    expr = dlf.Expression(val, degree=degree)
+                new_values.append(expr)
+            elif isinstance(val, (float, int)):
+                new_values.append(dlf.Constant(val))
+            elif isinstance(val, (list, tuple)):
+                # Make sure that all objects in list/tuple are of the same type.
+                # (Either all strings, or all scalars)
+                component_types = set(list(map(type, val)))
+                if len(component_types) != 1:
+                    # Raise an error if different types were given in the same
+                    # list/tuple.
+                    msg = "All components of an expression/constant must " \
+                          + "be of the same type."
+                    raise TypeError(msg)
+                else:
+                    # Raise a TypeError if the components are not float,
+                    # int, or str.
+                    component_type = component_types.pop()
+                    valid_types = (float, int, str)
+                    if component_type not in valid_types:
+                        msg = "The components of each value must be one of the " \
+                              + "following types: %s" \
+                              % str(obj.__name__ for obj in valid_types)
+                        raise TypeError(msg)
+
+                if component_type == str:
+                    no_t = True
+                    for v in val:
+                        if "t" in v:
+                            no_t = False
+                            break
+                    if no_t:
+                        expr = dlf.Expression(val, degree=degree)
+                    else:
+                        expr = dlf.Expression(val, t=t0, degree=degree)
+                    new_values.append(expr)
+                else:
+                    new_values.append(dlf.Constant(val))
+            else:
+                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                      + "object." % val.__class__
+                raise TypeError(msg)
+
+        return new_values
 
 
     @staticmethod

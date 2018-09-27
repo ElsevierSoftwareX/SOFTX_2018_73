@@ -412,21 +412,28 @@ class MechanicsProblem(BaseMechanicsProblem):
 
         # Regions for displacement and velocity
         regions = self.config['formulation']['bcs']['dirichlet']['regions']
+        components = self.config['formulation']['bcs']['dirichlet']['components']
 
         self.dirichlet_bcs = {'displacement': None, 'velocity': None, 'pressure': None}
 
         # Store the Dirichlet BCs for the velocity vector field.
         if vel_vals is not None:
             self.dirichlet_bcs['velocity'] = list()
-            for region, value in zip(regions, vel_vals):
-                bc = dlf.DirichletBC(V, value, self.boundaries, region)
+            for region, value, idx in zip(regions, vel_vals, components):
+                if idx == "all":
+                    bc = dlf.DirichletBC(V, value, self.boundaries, region)
+                else:
+                    bc = dlf.DirichletBC(V.sub(idx), value, self.boundaries, region)
                 self.dirichlet_bcs['velocity'].append(bc)
 
         # Store the Dirichlet BCs for the displacement vector field.
         if disp_vals is not None:
             self.dirichlet_bcs['displacement'] = list()
-            for region, value in zip(regions, disp_vals):
-                bc = dlf.DirichletBC(V, value, self.boundaries, region)
+            for region, value, idx in zip(regions, disp_vals, components):
+                if idx == "all":
+                    bc = dlf.DirichletBC(V, value, self.boundaries, region)
+                else:
+                    bc = dlf.DirichletBC(V.sub(idx), value, self.boundaries, region)
                 self.dirichlet_bcs['displacement'].append(bc)
 
         # Store the Dirichlet BCs for the pressure scalar field.

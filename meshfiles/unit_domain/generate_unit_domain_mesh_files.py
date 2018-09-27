@@ -42,49 +42,35 @@ print('[DONE]')
 ALL_ELSE = 0
 LEFT = 1
 RIGHT = 2
-TOP = 3
-BOTTOM = 4
+BOTTOM = 3
+TOP = 4
+BACK = 5
+FRONT = 6
 
 print('Generating boundary mesh function.....', end='')
 boundaries = dlf.MeshFunction('size_t', mesh, args.dim-1)
 boundaries.set_all(ALL_ELSE)
 
+left = dlf.CompiledSubDomain("near(x[0], 0.0) && on_boundary")
+right = dlf.CompiledSubDomain("near(x[0], 1.0) && on_boundary")
 
-class Left(dlf.SubDomain):
-    def inside(self, x, on_boundary):
-        return abs(x[0]) < dlf.DOLFIN_EPS \
-            and on_boundary
-
-
-class Right(dlf.SubDomain):
-    def inside(self, x, on_boundary):
-        return abs(x[0] - 1.0) < dlf.DOLFIN_EPS \
-            and on_boundary
-
-
-class Top(dlf.SubDomain):
-    def inside(self, x, on_boundary):
-        return abs(x[1] - 1.0) < dlf.DOLFIN_EPS \
-            and on_boundary
-
-
-class Bottom(dlf.SubDomain):
-    def inside(self, x, on_boundary):
-        return abs(x[1]) < dlf.DOLFIN_EPS \
-            and on_boundary
-
-
-top = Top()
-top.mark(boundaries, TOP)
-
-bottom = Bottom()
-bottom.mark(boundaries, BOTTOM)
-
-left = Left()
 left.mark(boundaries, LEFT)
-
-right = Right()
 right.mark(boundaries, RIGHT)
+
+if args.dim >= 2:
+    bottom = dlf.CompiledSubDomain("near(x[1], 0.0) && on_boundary")
+    top = dlf.CompiledSubDomain("near(x[1], 1.0) && on_boundary")
+
+    top.mark(boundaries, TOP)
+    bottom.mark(boundaries, BOTTOM)
+
+if args.dim == 3:
+    back = dlf.CompiledSubDomain("near(x[2], 0.0) && on_boundary")
+    front = dlf.CompiledSubDomain("near(x[2], 1.0) && on_boundary")
+
+    back.mark(boundaries, BACK)
+    front.mark(boundaries, FRONT)
+
 print('[DONE]')
 
 dim_str   = 'x'.join(['%i' % i for i in mesh_dims])

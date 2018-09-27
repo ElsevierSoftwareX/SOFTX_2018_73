@@ -43,7 +43,8 @@ def test_required_parameters(default_config, class_name, subdict, rm_key):
                                             ("formulation/element", "p2-p1-p0"),
                                             ("formulation/domain", "taylor"),
                                             ("formulation/domain", "ALE"),
-                                            ("formulation/bcs/neumann/types", ["force", "load"])))
+                                            ("formulation/bcs/neumann/types", ["force", "load"]),
+                                            ("formulation/bcs/dirichlet/components", ["x1"])))
 def test_unrecognized_parameters(default_config, class_name, key, new_value):
     config = default_config(class_name, unsteady=False)
     subconfig, last_key = _get_subdict(key, config, ret_last_key=True)
@@ -71,6 +72,7 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("mesh/boundaries", 2),
                           ("formulation/element", 1.1),
                           ("formulation/domain", set(range(10))),
+                          ("formulation/body_force", [1.0, "x[0]", 4.0]),
                           ("formulation/bcs/neumann/types", "my_bcs"),
                           ("formulation/bcs/neumann/values", 3.0),
                           ("formulation/bcs/neumann/regions", 3),
@@ -84,12 +86,14 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("formulation/bcs/dirichlet/displacement", [["x[0]", 1.0, 0.0]]),
                           ("formulation/bcs/dirichlet/velocity", [["x[0]", 0.0, 1.0]]),
                           ("formulation/bcs/dirichlet/regions", ["left"]),
+                          ("formulation/bcs/dirichlet/components", [[1]]),
                           ("formulation/time/dt", "0.1")))
 def test_invalid_types(default_config, class_name, key, new_value):
     if 'time' in key:
         config = default_config(class_name, unsteady=True)
     else:
         config = default_config(class_name, unsteady=False)
+
     subconfig, last_key = _get_subdict(key, config, ret_last_key=True)
     subconfig[last_key] = new_value
 
@@ -105,7 +109,14 @@ def _get_subdict(key, my_dict, ret_last_key=False):
     keys_used = list()
     for sub in key_list:
         old_subdict = subdict
-        subdict = subdict[sub]
+
+        # Check if key is in subdictionary, else exit loop.
+        if sub in subdict:
+            subdict = subdict[sub]
+        else:
+            break
+
+        # Check if last object obtained is a dictionary, else exit loop.
         if not isinstance(subdict, dict):
             subdict = old_subdict
             break

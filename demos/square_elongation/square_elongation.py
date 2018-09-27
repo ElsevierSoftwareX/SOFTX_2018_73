@@ -8,10 +8,11 @@ material = {
     'mu': 1.5e6 # Pa
 }
 
-mesh_dir = '../../meshfiles/unit_domain/'
+mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
+                                                refinements=[20, 20])
 mesh = {
-    'mesh_file': mesh_dir + 'unit_domain-mesh-20x20.xml.gz',
-    'boundaries': mesh_dir + 'unit_domain-boundaries-20x20.xml.gz'
+    'mesh_file': mesh_file,
+    'boundaries': boundaries
 }
 
 formulation = {
@@ -19,11 +20,12 @@ formulation = {
     'domain': 'lagrangian',
     'bcs': {
         'dirichlet': {
-            'displacement': [[0, 0]],
-            'regions': [1]
+            'displacement': [0.0, 0.0],
+            'regions': [1, 3],
+            'components': ["x", "y"]
         },
         'neumann': {
-            'values': [[1e6,0]],
+            'values': [[1e6, 0.]],
             'regions': [2],
             'types': ['piola']
         }

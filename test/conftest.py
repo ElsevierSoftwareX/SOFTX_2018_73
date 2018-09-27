@@ -23,6 +23,7 @@ def _default_config(class_name, unsteady=False):
                 'displacement': [[0.0]*3],
                 'velocity': [[0.0]*3],
                 'regions': [1],
+                'components': ["all"]
             },
             'neumann': {
                 'values': ["30.0*t", [0.0, 1.0, 0.0]],
