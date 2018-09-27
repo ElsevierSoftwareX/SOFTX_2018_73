@@ -17,6 +17,7 @@ problem_classes = ("MechanicsProblem",
                          (("dirichlet", "regions"),
                           ("dirichlet", "displacement"),
                           ("dirichlet", "velocity"),
+                          ("dirichlet", "components"),
                           ("neumann", "regions"),
                           ("neumann", "values"),
                           ("neumann", "types")))

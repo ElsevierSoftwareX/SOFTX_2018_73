@@ -86,6 +86,7 @@ def test_unrecognized_parameters(default_config, class_name, key, new_value):
                           ("formulation/bcs/dirichlet/displacement", [["x[0]", 1.0, 0.0]]),
                           ("formulation/bcs/dirichlet/velocity", [["x[0]", 0.0, 1.0]]),
                           ("formulation/bcs/dirichlet/regions", ["left"]),
+                          ("formulation/bcs/dirichlet/components", [[1]]),
                           ("formulation/time/dt", "0.1")))
 def test_invalid_types(default_config, class_name, key, new_value):
     if 'time' in key:
