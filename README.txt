@@ -5,7 +5,7 @@ Description
 FEniCS Mechanics is a python module that simplifies the code that a
 user must produce in order to run computational mechanics
 simulations. Detailed documentation can be found at
-https://shaddenlab.gitlab.io/fenicsmechanics/. The module currently
+https://shaddenlab.gitlab.io/fenicsmechanics/ The module currently
 supports single domain solid and fluid mechanics simulations. More
 specifically, the available models are as follows:
 
