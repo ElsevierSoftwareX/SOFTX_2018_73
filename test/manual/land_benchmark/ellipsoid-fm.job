@@ -1,0 +1,38 @@
+### Note: Lines starting with #PBS are PBS directives, NOT comments
+### PBS directives must come before any shell commands
+
+### Set the job name
+#PBS -N ellipsoid-fm
+
+### Run in the queue named "default"
+### Note: as of now, "default" is the only available queue on Orbit
+#PBS -q default
+
+### Optionally set the destination for your program's output
+### Specify localhost and an NFS filesystem to prevent file copy errors.
+### Note: PBS_O_WORKDIR is directory from which you called qsub
+#PBS -e localhost:$PBS_O_WORKDIR/logs-guccione/myjob_1core.err
+#PBS -o localhost:$PBS_O_WORKDIR/logs-guccione/myjob_1core.log
+
+### Set walltime to 72 hours
+#PBS -l walltime=72:00:00
+
+### Specify the number of cpus for your job.  This example will allocate 60 cores
+### using 20 processors on each of 3 nodes.
+### Note: On Orbit, max nodes is 6 and max ppn is 20
+#PBS -l nodes=1:ppn=6
+
+### Specify email for notifications (begin, end, and abort)
+#PBS -M miguelr@berkeley.edu
+#PBS -m bea
+
+### Switch to the working directory of your choice; by default TORQUE launches processes
+### from your home directory.
+cd $PBS_O_WORKDIR
+
+# Calculate the number of processors allocated to this run.
+NPROCS=`wc -l < $PBS_NODEFILE`
+
+### Launch executable
+source ${HOME}/local/conf-files/fenics-2017.2.0.conf
+time mpiexec -np ${NPROCS} python3 ellipsoid-fm.py > logs-guccione/output.log
