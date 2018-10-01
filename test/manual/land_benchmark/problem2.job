@@ -2,7 +2,7 @@
 ### PBS directives must come before any shell commands
 
 ### Set the job name
-#PBS -N fenics-bench
+#PBS -N ellipsoid-fm
 
 ### Run in the queue named "default"
 ### Note: as of now, "default" is the only available queue on Orbit
@@ -11,15 +11,20 @@
 ### Optionally set the destination for your program's output
 ### Specify localhost and an NFS filesystem to prevent file copy errors.
 ### Note: PBS_O_WORKDIR is directory from which you called qsub
-#PBS -j oe localhost:$PBS_O_WORKDIR/IC$PBS_JOBID.log
+#PBS -e localhost:$PBS_O_WORKDIR/logs-guccione/myjob_1core.err
+#PBS -o localhost:$PBS_O_WORKDIR/logs-guccione/myjob_1core.log
 
 ### Set walltime to 72 hours
-#PBS -l walltime=720:00:00
+#PBS -l walltime=72:00:00
 
 ### Specify the number of cpus for your job.  This example will allocate 60 cores
 ### using 20 processors on each of 3 nodes.
 ### Note: On Orbit, max nodes is 6 and max ppn is 20
-#PBS -l nodes=1:ppn=20
+#PBS -l nodes=1:ppn=6
+
+### Specify email for notifications (begin, end, and abort)
+#PBS -M miguelr@berkeley.edu
+#PBS -m bea
 
 ### Switch to the working directory of your choice; by default TORQUE launches processes
 ### from your home directory.
@@ -29,4 +34,5 @@ cd $PBS_O_WORKDIR
 NPROCS=`wc -l < $PBS_NODEFILE`
 
 ### Launch executable
-time mpiexec -np ${NPROCS} python /home/augustin/programs/fenicsmechanics/test/land_benchmark/problem2.py --output_dir=prob2_Inc -ic --meshname=/home/public/meshes/ellipsoid/ellipsoid_300um.h5 > outputInc300.log
+source ${HOME}/local/conf-files/fenics-2017.2.0.conf
+time mpiexec -np ${NPROCS} python3 ellipsoid-fm.py > logs-guccione/output.log

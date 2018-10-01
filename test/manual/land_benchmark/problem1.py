@@ -1,379 +1,136 @@
-#!/usr/bin/env python2
-
-from __future__ import print_function
+import os
 import sys
 import argparse
-import dolfin    as df
-import numpy     as np
-from fenicsmechanics import materials
+import dolfin as dlf
+import fenicsmechanics as fm
+
+# For use with emacs python shell.
+try:
+    sys.argv.remove("--simple-prompt")
+except ValueError:
+    pass
 
 parser = argparse.ArgumentParser()
-
-parser.add_argument("-m", "--material",
-                    help="constitutive relation",
-                    default='guccione',
-                    choices=['linear','neo-hooke',
-                             'guccione','fung'])
-parser.add_argument("-i","--inverse",
-                    help="activate inverse elasticity",
-                    action='store_true')
-parser.add_argument("-pd", "--polynomial_degree",
-                    help="polynomial degree of the ansatz functions",
-                    default=1,
-                    type=int)
-parser.add_argument("-ic","--incompressible",
-                    help="block formulation for incompressible materials",
-                    action='store_true')
 parser.add_argument("--pressure",
-                    help="target pressure of inflation test in kPA",
-                    default=0.004,
-                    type=float)
-parser.add_argument("-nu", "--poissons_ratio",
-                    help="poissons ratio",
-                    default=0.4,
-                    type=float)
-parser.add_argument("-kappa", "--bulk_modulus",
-                    help="bulk modulus",
-                    default=1000.0,
-                    type=float)
-parser.add_argument("-mu", "--shear_modulus",
-                    help="shear modulus",
-                    default=100.,
-                    type=float)
-parser.add_argument("-ls", "--loading_steps",
-                    help="number of loading steps",
-                    default=20,
-                    type=int)
-parser.add_argument("--solver",
-                    help="choose solving method",
-                    default='mumps',
-                    choices=['umfpack','mumps','pastix','hypre_amg','ml_amg','petsc_amg'])
+                    default=0.004, type=float,
+                    help="Pressure to be applied at z = 0.")
+
+mesh_dir = fm._get_mesh_file_names("beam", ret_dir=True, ret_mesh=False)
+mesh_file = os.path.join(mesh_dir, "beam_1000.h5")
+parser.add_argument("--mesh-file",
+                    type=str, default=mesh_file,
+                    help="Name of mesh file to use for mesh and facet function.")
+parser.add_argument("--generate-mesh",
+                    action="store_true", help="Generates mesh using mshr.")
+parser.add_argument("--resolution",
+                    default=70, type=int,
+                    help="Resolution used to generate mesh with mshr.")
+parser.add_argument("--incompressible",
+                    action="store_true", help="Model as incompressible material.")
+parser.add_argument("--bulk-modulus",
+                    type=float, default=1e3, dest="kappa",
+                    help="Bulk modulus of the material.")
+parser.add_argument("--loading-steps", "-ls",
+                    type=int, default=10,
+                    help="Number of loading steps to use.")
+parser.add_argument("--polynomial-degree", "-pd",
+                    type=int, default=2, dest="pd", choices=[1, 2, 3],
+                    help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
-
-# Optimization options for the form compiler
-df.parameters['form_compiler']['cpp_optimize'] = True
-df.parameters['form_compiler']['representation'] = "uflacs"
-df.parameters['form_compiler']['quadrature_degree'] = 4
-df.parameters['form_compiler']['optimize'] = True
-#ffc_options = {'optimize' : Truer
-               #'eliminate_zeros' : True,
-              #'precompute_basis_const' : True,
-              # 'precompute_ip_const' : True
-
-rank = df.MPI.rank(df.mpi_comm_world())
-if rank !=0:
-    df.set_log_level(df.ERROR)
-
-# --- GLOBAL VARIABLES --------------------------------------------------------
-output_dir = 'problem_1'
 
 # Region IDs
 HNBC  = 0  # homogeneous Neumann BC
 HDBC  = 10  # homogeneous Dirichlet BC
 INBC  = 20  # inhomogeneous Neumann BC
 
-# --- FUNCTIONS ---------------------------------------------------------------
-# Code for C++ evaluation of conductivity
-fiber_directions_code = """
+if args.generate_mesh:
+    import mshr
+    domain = mshr.Box(dlf.Point(), dlf.Point(10, 1, 1))
+    mesh_file = mshr.generate_mesh(domain, args.resolution)
 
-class FiberDirections : public Expression
-{
-public:
+    boundaries = dlf.MeshFunction("size_t", mesh_file, 2)
+    boundaries.set_all(HNBC)
 
-  // Create expression with 3 components
-  FiberDirections() : Expression(3) {}
+    hdbc = dlf.CompiledSubDomain("near(x[0], 0.0) && on_boundary")
+    hdbc.mark(boundaries, HDBC)
 
-  // Function for evaluating expression on each cell
-  void eval(Array<double>& values, const Array<double>& x, const ufc::cell& cell) const
-  {
-    const uint D = cell.topological_dimension;
-    const uint cell_index = cell.index;
-    values[0] = (*f1)[cell_index];
-    values[1] = (*f2)[cell_index];
-    values[2] = (*f3)[cell_index];
-  }
-
-  // The data stored in mesh functions
-  std::shared_ptr<MeshFunction<double> > f1;
-  std::shared_ptr<MeshFunction<double> > f2;
-  std::shared_ptr<MeshFunction<double> > f3;
-
-};
-"""
-
-meshformat_xml = False
-if meshformat_xml:
-    mesh = df.Mesh('./meshes/beam/beam.xml')
-    boundaries = df.MeshFunction('size_t',mesh,'./meshes/beam/beam_facet_region.xml')
-    fibers = np.fromfile('./meshes/beam/beam.lon',dtype=float, sep=" ")
-    fibers = fibers.reshape((mesh.num_cells(), 6)).T
-    fib1   = df.CellFunction("double", mesh)
-    fib2   = df.CellFunction("double", mesh)
-    fib3   = df.CellFunction("double", mesh)
-    she1   = df.CellFunction("double", mesh)
-    she2   = df.CellFunction("double", mesh)
-    she3   = df.CellFunction("double", mesh)
-    fib1.array()[:] = fibers[0]
-    fib2.array()[:] = fibers[1]
-    fib3.array()[:] = fibers[2]
-    she1.array()[:] = fibers[3]
-    she2.array()[:] = fibers[4]
-    she3.array()[:] = fibers[5]
-    out_filename ="../meshfiles/beam/beam_1000.h5"
-    Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
-    Hdf.write(mesh, "mesh")
-    Hdf.write(boundaries, "boundaries")
-    Hdf.write(fib1, "fib1")
-    Hdf.write(fib2, "fib2")
-    Hdf.write(fib3, "fib3")
-    Hdf.write(she1, "she1")
-    Hdf.write(she2, "she2")
-    Hdf.write(she3, "she3")
-    Hdf.close()
+    inbc = dlf.CompiledSubDomain("near(x[2], 0.0) && on_boundary")
+    inbc.mark(boundaries, INBC)
 else:
-    meshname = '../meshfiles/beam/beam_1000.h5'
-    hdf = df.HDF5File(df.mpi_comm_world(), meshname, 'r')
-    mesh = df.Mesh()
-    hdf.read(mesh, 'mesh', False)
-    boundaries = df.MeshFunction("size_t", mesh)
-    hdf.read(boundaries, "boundaries")
-    fib1 = df.MeshFunction("double", mesh)
-    hdf.read(fib1, "fib1")
-    fib2 = df.MeshFunction("double", mesh)
-    hdf.read(fib2, "fib2")
-    fib3 = df.MeshFunction("double", mesh)
-    hdf.read(fib3, "fib3")
-    she1 = df.MeshFunction("double", mesh)
-    hdf.read(she1, "she1")
-    she2 = df.MeshFunction("double", mesh)
-    hdf.read(she2, "she2")
-    she3 = df.MeshFunction("double", mesh)
-    hdf.read(she3, "she3")
-    hdf.close()
+    mesh_file = boundaries = args.mesh_file
 
-cf = df.Expression(cppcode=fiber_directions_code, degree=0)
-cs = df.Expression(cppcode=fiber_directions_code, degree=0)
-cf.f1 = fib1
-cf.f2 = fib2
-cf.f3 = fib3
-cs.f1 = she1
-cs.f2 = she2
-cs.f3 = she3
+mesh = {
+    'mesh_file': mesh_file,
+    'boundaries': boundaries
+}
 
-mesh_dim = mesh.topology().dim()
-
-ds = df.ds(INBC, domain=mesh, subdomain_data=boundaries)
-
-node_number = mesh.num_vertices()
-element_number = mesh.num_cells()
-connectivity_matrix = mesh.cells()
-
-Pvec  = df.VectorElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Pscal = df.FiniteElement("Lagrange", mesh.ufl_cell(), args.polynomial_degree)
-Vscal = df.FunctionSpace(mesh, Pscal)
-
-if args.incompressible:
-    p_degree = max(args.polynomial_degree-1, 1)
-    Qelem = df.FiniteElement("Lagrange", mesh.ufl_cell(), p_degree )
-    TH = Pvec * Qelem
-    M = df.FunctionSpace(mesh, TH)
-    Vvec = M.sub(0)
-else:
-    Vvec  = df.FunctionSpace(mesh, Pvec)
-    M = Vvec
-
-state = df.Function(M)
-u = df.split(state)[0] if args.incompressible else state
-p = df.split(state)[1] if args.incompressible else None
-
-stest = df.TestFunction(M)
-v = df.split(stest)[0] if args.incompressible else stest
-q = df.split(stest)[1] if args.incompressible else None
-
-# Define Dirichlet BC
-zeroVec = df.Constant((0.,)*mesh_dim)
-#fix inlet/outlet in all directions
-bcs = df.DirichletBC(Vvec,zeroVec,boundaries,HDBC)
-
-# Applied external surface forces
-pressure = df.Function (Vscal)
-
-
-# define normal directions
-normal = df.FacetNormal(mesh)
-
-# Elasticity parameters
-nu     = args.poissons_ratio           #Poisson's ratio nu
-mu     = args.shear_modulus            #shear modulus mu
-inv_la = (1.-2.*nu)/(2.*mu*nu)         #reciprocal 2nd Lame
-E      = 2.*mu*(1.+nu)                 #Young's modulus E
-kappa  = args.bulk_modulus  #bulk modulus kappa
-if (args.bulk_modulus < 10e6 and args.bulk_modulus > df.DOLFIN_EPS):
-    inv_kappa = 1./args.bulk_modulus
-else:
-    la        = None
-    inv_kappa = df.Constant(0.)
-
-# Jacobian for later use
-I     = df.Identity(mesh_dim)
-F     = I + df.grad(u)
-invF  = df.inv(F)
-J     = df.det(F)
-
-if (args.material == "linear"):
-    mat = materials.solid_materials.LinearIsoMaterial(inverse=args.inverse,
-                                                   E=E, nu=nu,
-                                                   incompressible=args.incompressible)
-elif (args.material == "neo-hooke"):
-    mat = materials.solid_materials.NeoHookeMaterial(inverse=args.inverse,
-                                                     E=E, nu=nu,
-                                                     incompressible=args.incompressible)
-elif (args.material == "guccione"):
-    mat = materials.solid_materials.GuccioneMaterial
-    params = mat.default_parameters()
-    params['incompressible'] = args.incompressible
-    params['C']     = 10.0
-    params['bf']    = 1.0
-    params['bt']    = 1.0
-    params['bfs']   = 1.0
-    params['kappa'] = args.bulk_modulus
-    params['fibers'] = {'fiber_files': [cf, cs],
-                        'fiber_names': ['e1', 'e2'],
-                        'element': None}
-    mat = mat(mesh, inverse=args.inverse, **params)
-else: # fung
-    mat = materials.solid_materials.FungMaterial
-    params = mat.default_parameters()
-    params['incompressible'] = args.incompressible
-    params['C'] = 10.0
-    params['d'] = [1.0]*3 + [0.0]*3 + [2.0]*3
-    params['kappa'] = args.bulk_modulus
-    params['fibers'] = {'fiber_files': [cf, cs],
-                        'fiber_names': ['e1', 'e2'],
-                        'element': None}
-    mat = mat(mesh, inverse=args.inverse, **params)
-
-mat.set_active(False)
-mat.print_info()
-
-strain_energy_formulation = False
-
-if strain_energy_formulation:
-    #strain energy formulation
-    G  = df.derivative(mat.strain_energy(u,p) * df.dx, state, stest)
-else:
-    #stress formulation
-    G = df.inner(df.grad(v), mat.stress_tensor(F, J, p)) * df.dx
-
-if args.incompressible:
-    B  = mat.incompressibilityCondition(u)
-    G += B*q*df.dx + inv_kappa*p*q*df.dx
-
-if args.inverse or args.material == "linear":
-    G += df.inner(normal, v) * ds
-else:
-    G += pressure*J*df.inner(df.inv(F.T)*normal, v)*ds
-
-# Overall weak form and its derivative
-dG = df.derivative(G, state, df.TrialFunction(M))
-problem = df.NonlinearVariationalProblem(G, state, bcs, J=dG)
-
-#solver
-solver = df.NonlinearVariationalSolver(problem)
-prm = solver.parameters
-prm['newton_solver']['absolute_tolerance']   = 1E-8
-prm['newton_solver']['relative_tolerance']   = 1E-7
-prm['newton_solver']['maximum_iterations']   = 25
-prm['newton_solver']['relaxation_parameter'] = 1.0
-if args.solver == 'umfpack':
-    prm['newton_solver']['linear_solver'] = 'umfpack'
-if args.solver == 'pastix':
-    prm['newton_solver']['linear_solver'] = 'pastix'
-if args.solver == 'mumps':
-    prm['newton_solver']['linear_solver'] = 'mumps'
-if args.solver == 'ml_amg':
-    ML_param = {"max levels"           : 3,
-                "output"               : 10,
-                "smoother: type"       : "ML symmetric Gauss-Seidel",
-                "aggregation: type"    : "Uncoupled",
-                "ML validate parameter list" : False
+cf = dlf.Constant([1., 0., 0.])
+cs = dlf.Constant([0., 1., 0.])
+material = {
+    'type': 'elastic',
+    'const_eqn': 'guccione',
+    'incompressible': args.incompressible,
+    'density': 0.0,
+    'C': 2.0,
+    'bf': 8.0,
+    'bt': 2.0,
+    'bfs': 4.0,
+    'kappa': args.kappa,
+    'fibers': {
+        'fiber_files': [cf, cs],
+        'fiber_names': ['e1', 'e2'],
+        'element': None
     }
-    prm['newton_solver']['linear_solver']  =  'gmres'
-    prm['newton_solver']['preconditioner'] = 'ml_amg'
-if args.solver == 'hypre_amg':
-    prm['newton_solver']['linear_solver']  = 'gmres'
-    prm['newton_solver']['preconditioner'] = 'hypre_amg'
-if args.solver == 'petsc_amg':
-    prm['newton_solver']['linear_solver']  = 'gmres'
-    prm['newton_solver']['preconditioner'] = 'petsc_amg'
+}
 
-# create file for storing solution
-ufile = df.File('%s/beam.pvd' % output_dir)
+interval = [0., 1.]
+dt = (interval[1] - interval[0])/args.loading_steps
+formulation = {
+    'time': {
+        'dt': dt,
+        'interval': interval
+    },
+    'domain': 'lagrangian',
+    'bcs': {
+        'dirichlet': {
+            'displacement': [[0., 0., 0.]],
+            'regions': [HDBC]
+        },
+        'neumann': {
+            'regions': [INBC],
+            'values': ["%f*t" % args.pressure],
+            'types': ['pressure']
+        }
+    }
+}
+
 if args.incompressible:
-    u, p = state.split()
-ufile << u # print initial zero solution
+    formulation['element'] = 'p%i-p%i' % (args.pd, args.pd - 1)
+else:
+    formulation['element'] = 'p%i' % args.pd
 
-scaling = 1./args.loading_steps
+config = {'mesh': mesh, 'material': material, 'formulation': formulation}
 
-P_start = args.pressure*scaling
-for P_current in np.linspace(P_start, args.pressure, num=args.loading_steps):
-    temp_array = pressure.vector().get_local()
-    if rank == 0:
-        print(P_current)
-    temp_array[:] = P_current
-    pressure.vector().set_local(temp_array)
-    solver.solve()
+if args.incompressible:
+    fname_disp = "results/displacement-incompressible.pvd"
+    fname_pressure = "results/pressure.pvd"
+else:
+    fname_disp = "results/displacement.pvd"
+    fname_pressure = None
+problem = fm.SolidMechanicsProblem(config)
+solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
+                                 fname_pressure=fname_pressure)
+solver.full_solve()
 
-    # Overall weak form and its derivative
-    if args.incompressible:
-        u, p = state.split()
-
-    # print solution
-    ufile << u
-
-
-# Extract the displacement
-df.begin("extract displacement")
-P1_vec = df.VectorElement("Lagrange", mesh.ufl_cell(), 1)
-W = df.FunctionSpace(mesh, P1_vec)
-u_func = df.TrialFunction(W)
-u_test = df.TestFunction(W)
-a = df.dot(u_test, u_func) * df.dx
-L = df.dot(u, u_test) * df.dx
-u_func = df.Function(W)
-df.solve(a == L, u_func)
-df.end()
-
-# Extract the Jacobian
-P1 = df.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-Q = df.FunctionSpace(mesh, P1)
-J_func = df.TrialFunction(Q)
-J_test = df.TestFunction(Q)
-a = J_func * J_test * df.dx
-L = J * J_test * df.dx
-J_func = df.Function(Q)
-df.solve(a == L, J_func)
+rank = dlf.MPI.rank(dlf.mpi_comm_world())
 if rank == 0:
-  print('J = \n', J_func.vector().array())
+    print("DOF(u) = ", problem.displacement.function_space().dim())
 
-# Move the mesh according to solution
-df.ALE.move(mesh,u_func)
-if not args.inverse:
-  out_filename ="%s/forward-beam.h5" % output_dir
-  Hdf = df.HDF5File(mesh.mpi_comm(), out_filename, "w")
-  Hdf.write(mesh, "mesh")
-  Hdf.write(boundaries, "subdomains")
-  Hdf.close()
-
-# Compute the volume of each cell
-dgSpace = df.FunctionSpace(mesh, 'DG', 0)
-dg_v = df.TestFunction(dgSpace)
-form_volumes = dg_v * df.dx
-volumes = df.assemble(form_volumes)
-volume_func = df.Function(dgSpace)
-volume_func.vector()[:] = volumes
-
-# Compute the total volume
-total_volume = df.assemble(df.Constant(1.0)*df.dx(domain=mesh))
-if rank == 0:
-    print ('Total volume: %.8f' % total_volume)
+import numpy as np
+vals = np.zeros(3)
+x = np.array([10., 0.5, 1.])
+try:
+    problem.displacement.eval(vals, x)
+    print("(rank %i) vals + x = " % rank, vals + x)
+except RuntimeError:
+    pass

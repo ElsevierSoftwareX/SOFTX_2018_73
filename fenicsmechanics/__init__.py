@@ -239,7 +239,8 @@ init()
 
 
 def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
-                         ret_dir=False, ext="xml.gz", refinements=[12, 12]):
+                         ret_dir=False, ret_mesh=True, ext="xml.gz",
+                         refinements=[12, 12]):
     """
     Helper function to get the file names of meshes provided. Will raise
     a FileNotFoundError if files do not exist.
@@ -252,8 +253,9 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
     ret_facets : bool
     ret_cells : bool
     ret_dir : bool
+    ret_mesh : bool
     ext: str (Default "xml.gz")
-    *refinements : int
+    refinements : list
 
 
     Returns
@@ -287,7 +289,9 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
     facets_file = os.path.join(mesh_dir, facets_file)
     cells_file = os.path.join(mesh_dir, cells_file)
 
-    ret = (mesh_file,)
+    ret = tuple()
+    if ret_mesh:
+        ret += (mesh_file,)
     if ret_facets:
         ret += (facets_file,)
     if ret_cells:
@@ -300,7 +304,7 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
         if not (os.path.isfile(f) or os.path.isdir(f)):
             raise FileNotFoundError(f)
 
-    # Return name instead of tuple if only one value is being returned.
+    # Return string directly if only one is being returned.
     if len(ret) == 1:
         ret = ret[0]
     return ret
