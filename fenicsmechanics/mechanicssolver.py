@@ -1,4 +1,5 @@
 from __future__ import print_function
+from .dolfincompat import MPI_COMM_WORLD
 
 import sys
 if sys.version_info.major == 2:
@@ -208,7 +209,7 @@ class MechanicsBlockSolver(object):
         # Need to be more specific here.
         bcs = block.block_bc(self._mp.dirichlet_bcs.values(), False)
 
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
         p = self._mp.pressure
         u = self._mp.displacement
@@ -222,8 +223,6 @@ class MechanicsBlockSolver(object):
                 _write_objects(self._file_hdf5, t=t, close=False, u=u, p=p)
             if self._file_xdmf is not None:
                 _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
-
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
 
         while t < (tf - dt/10.0):
 
@@ -312,7 +311,7 @@ class MechanicsBlockSolver(object):
 
         norm = 1.0
         count = 0
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
         # Determine if we can use dolfin's assemble_system function or
         # if we need to assemble a block system.

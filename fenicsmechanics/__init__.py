@@ -193,9 +193,11 @@ from .materials.solid_materials import *
 from .materials.fluids import *
 from .utils import *
 
+from .dolfincompat import MPI_COMM_WORLD
+
 import sys as _sys
 import dolfin as _dlf
-_rank = _dlf.MPI.rank(_dlf.mpi_comm_world())
+_rank = _dlf.MPI.rank(MPI_COMM_WORLD)
 if _sys.version_info[0] < 3:
     try:
         from .mechanicssolver import MechanicsBlockSolver

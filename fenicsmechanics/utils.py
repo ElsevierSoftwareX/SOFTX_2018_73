@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import dolfin as dlf
+from .dolfincompat import MPI_COMM_WORLD
 
 from .exceptions import *
 
@@ -104,7 +105,7 @@ def __load_mesh_hdf5(mesh_file):
 
     # Check file extension
     if mesh_file[-3:] == '.h5':
-        f = dlf.HDF5File(dlf.mpi_comm_world(), mesh_file, 'r')
+        f = dlf.HDF5File(MPI_COMM_WORLD, mesh_file, 'r')
         mesh = dlf.Mesh()
         f.read(mesh, 'mesh', False)
         f.close()
@@ -142,7 +143,7 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
 
     # Check file extension
     if mesh_function[-3:] == '.h5':
-        f = dlf.HDF5File(dlf.mpi_comm_world(), mesh_function, 'r')
+        f = dlf.HDF5File(MPI_COMM_WORLD, mesh_function, 'r')
         mesh_func = dlf.MeshFunction('size_t', mesh)
         f.read(mesh_func, 'boundaries')
         f.close()
@@ -250,7 +251,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
 
     """
 
-    rank = dlf.MPI.rank(dlf.mpi_comm_world())
+    rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
     if isinstance(f_objects, dlf.HDF5File):
         # Save all objects to same HDF5 file if only one file object is given.
@@ -309,7 +310,7 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
 
 
     if isinstance(fname, str):
-        f = dlf.HDF5File(dlf.mpi_comm_world(), fname, mode)
+        f = dlf.HDF5File(MPI_COMM_WORLD, fname, mode)
     elif isinstance(fname, dlf.HDF5File):
         f = fname
     else:
@@ -353,7 +354,7 @@ def _write_xdmf(fname, args, tspan=None):
     """
 
     if isinstance(fname, str):
-        f = dlf.XDMFFile(dlf.mpi_comm_world(), fname)
+        f = dlf.XDMFFile(MPI_COMM_WORLD, fname)
     elif isinstance(fname, dlf.XDMFFile):
         f = fname
     else:
@@ -401,11 +402,11 @@ def _create_file_objects(*fnames):
         elif ext == ".h5":
             # Try "append" mode in case file already exists.
             try:
-                f = dlf.HDF5File(dlf.mpi_comm_world(), name, "a")
+                f = dlf.HDF5File(MPI_COMM_WORLD, name, "a")
             except RuntimeError:
-                f = dlf.HDF5File(dlf.mpi_comm_world(), name, "w")
+                f = dlf.HDF5File(MPI_COMM_WORLD, name, "w")
         elif ext == ".xdmf":
-            f = dlf.XDMFFile(dlf.mpi_comm_world(), name)
+            f = dlf.XDMFFile(MPI_COMM_WORLD, name)
         elif ext is None:
             f = None
         else:

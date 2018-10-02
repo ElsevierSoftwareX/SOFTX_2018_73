@@ -13,6 +13,8 @@ Thus, the user should check that particular documentation.
 import dolfin as dlf
 import ufl
 
+from ..dolfincompat import MPI_COMM_WORLD
+
 from ..exceptions import *
 
 __all__ = ['ElasticMaterial', 'LinearIsoMaterial', 'NeoHookeMaterial',
@@ -1408,7 +1410,7 @@ class AnisotropicMaterial(ElasticMaterial):
 
     @staticmethod
     def __load_fibers_hdf5(fiber_file, fiber_names, function_space, key='e1'):
-        f = dlf.HDF5File(dlf.mpi_comm_world(), fiber_file, 'r')
+        f = dlf.HDF5File(MPI_COMM_WORLD, fiber_file, 'r')
         fiber_directions = dict()
         if isinstance(fiber_names, str):
             n = dlf.Function(function_space)
@@ -2039,7 +2041,7 @@ def load_fibers(fname, fiber_names, mesh):
     """
 
     fiber_mesh_functions = list()
-    f = dlf.HDF5File(dlf.mpi_comm_world(), fname, 'r')
+    f = dlf.HDF5File(MPI_COMM_WORLD, fname, 'r')
 
     for name in fiber_names:
         fib = dlf.MeshFunction('double', mesh)

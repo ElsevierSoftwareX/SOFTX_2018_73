@@ -3,6 +3,8 @@ from __future__ import print_function
 import re
 import dolfin as dlf
 
+from .dolfincompat import MPI_COMM_WORLD
+
 from .utils import load_mesh, load_mesh_function, _read_write_hdf5
 from .__CONSTANTS__ import dict_implemented as _implemented
 from .exceptions import *
@@ -494,7 +496,7 @@ class BaseMechanicsProblem(object):
             raise TypeError(msg)
 
         # Get rank to only print from process 0
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
         # Check the theta value provided. If none is provided, it is
         # set to 1.0.
