@@ -14,10 +14,27 @@ import dolfin as dlf
 import ufl
 
 from ..exceptions import *
+from ..dolfincompat import MPI_COMM_WORLD
 
 __all__ = ['ElasticMaterial', 'LinearIsoMaterial', 'NeoHookeMaterial',
-           'AnisotropicMaterial', 'FungMaterial', 'GuccioneMaterial']
+           'AnisotropicMaterial', 'FungMaterial', 'GuccioneMaterial',
+           'HolzapfelOgdenMaterial']
 
+# -----------------------------------------------------------------------------
+def max_ufl(a_const, b_const):
+    """
+    compute maximum of a and b such that it can be handled by FEniCS
+    """
+    return (a_const+b_const+abs(a_const-b_const))/dlf.Constant(2)
+
+# -----------------------------------------------------------------------------
+def min_ufl(a_const, b_const):
+    """
+    compute minimum of a and b such that it can be handled by FEniCS
+    """
+    return (a_const+b_const-abs(a_const-b_const))/dlf.Constant(2)
+
+# -----------------------------------------------------------------------------
 class ElasticMaterial(object):
     """
     Base class defining constitutive equations for elastic materials.
@@ -347,7 +364,7 @@ class LinearIsoMaterial(IsotropicMaterial):
             The Jacobian, i.e. determinant of the deformation gradient. Note
             that this is not used for this material. It is solely a place holder
             to conform to the format of other materials.
-        p : dolfin.Coefficient (default, None)
+        p : ufl.Coefficient (default, None)
             The UFL pressure function for incompressible materials.
         formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
@@ -528,7 +545,7 @@ class NeoHookeMaterial(IsotropicMaterial):
         inv_la = params['inv_la']
 
         # Exit if these are already dolfin objects
-        if isinstance(la, dlf.Coefficient) or isinstance(inv_la, dlf.Coefficient):
+        if isinstance(la, ufl.Coefficient) or isinstance(inv_la, ufl.Coefficient):
             return None
 
         inf = float("inf")
@@ -1285,9 +1302,9 @@ class AnisotropicMaterial(ElasticMaterial):
     Parameters
     ----------
 
-    'fiber_files' : str, list, tuple, dolfin.Coefficient
+    'fiber_files' : str, list, tuple, ufl.Coefficient
         The name(s) of the files containing the vector field functions, or
-        dolfin.Coefficient objects approximating the vector field.
+        ufl.Coefficient objects approximating the vector field.
     'fiber_names' : str, list, tuple
         A name, or list of names, of all of the fiber direction fields.
     'function_space' : dolfin.FunctionSpace
@@ -1330,7 +1347,7 @@ class AnisotropicMaterial(ElasticMaterial):
         else:
             raise KeyError(msg % '{element-wise,element}')
 
-        # Element type should only be None if dolfin.Coefficient objects
+        # Element type should only be None if ufl.Coefficient objects
         # were already provided.
         if element_type is not None:
             pd = int(element_type[-1])
@@ -1354,9 +1371,9 @@ class AnisotropicMaterial(ElasticMaterial):
         Parameters
         ----------
 
-        fiber_files : str, list, tuple, dolfin.Coefficient
+        fiber_files : str, list, tuple, ufl.Coefficient
             The name(s) of the file(s) containing the vector field functions, or
-            dolfin.Coefficient objects approximating the vector field.
+            ufl.Coefficient objects approximating the vector field.
         fiber_names : str, list, tuple
             A name, or list of names, of all of the fiber direction fields.
         function_space : dolfin.FunctionSpace
@@ -1382,7 +1399,7 @@ class AnisotropicMaterial(ElasticMaterial):
             else:
                 self._fiber_directions[key % 1] = dlf.Function(function_space, fiber_files,
                                                                name=fiber_names)
-        elif isinstance(fiber_files, dlf.Coefficient):
+        elif isinstance(fiber_files, ufl.Coefficient):
             fiber_files.rename(fiber_names, "Fiber direction")
             self._fiber_directions[key % 1] = fiber_files
         else:
@@ -1392,7 +1409,7 @@ class AnisotropicMaterial(ElasticMaterial):
 
             self._fiber_directions = dict()
             for i,f in enumerate(fiber_files):
-                if isinstance(f, dlf.Coefficient):
+                if isinstance(f, ufl.Coefficient):
                     f.rename(fiber_names[i], "Fiber direction")
                     self._fiber_directions[key % (i+1)] = f
                     continue
@@ -1408,7 +1425,7 @@ class AnisotropicMaterial(ElasticMaterial):
 
     @staticmethod
     def __load_fibers_hdf5(fiber_file, fiber_names, function_space, key='e1'):
-        f = dlf.HDF5File(dlf.mpi_comm_world(), fiber_file, 'r')
+        f = dlf.HDF5File(MPI_COMM_WORLD, fiber_file, 'r')
         fiber_directions = dict()
         if isinstance(fiber_names, str):
             n = dlf.Function(function_space)
@@ -1779,7 +1796,7 @@ class FungMaterial(AnisotropicMaterial):
 
         return T_vol + T_iso
 
-
+# -----------------------------------------------------------------------------
 class GuccioneMaterial(FungMaterial):
     """
     This class defines the stress tensor for Guccione type materials, which are
@@ -1908,7 +1925,164 @@ class GuccioneMaterial(FungMaterial):
 
         return Wpassive + Winc
 
+# -----------------------------------------------------------------------------
+class HolzapfelOgdenMaterial(AnisotropicMaterial):
+    """
+    Holzapfel-Ogden (2009) material type
+    """
 
+    def __init__(self, mesh, inverse=False, **params):
+        params_cp = dict(params)
+        fiber_dict = params_cp.pop('fibers')
+
+        self._fiber_directions = self.default_fiber_directions()
+        AnisotropicMaterial.__init__(self, fiber_dict, mesh)
+        AnisotropicMaterial.set_material_name(self, 'Holzapfel-Ogden (2009) material')
+        AnisotropicMaterial.set_inverse(self, inverse)
+        AnisotropicMaterial.set_incompressible(self, params['incompressible'])
+        AnisotropicMaterial.set_material_class(self, 'orthotropic')
+
+        self._parameters = self.default_parameters()
+        self._parameters.update(params_cp)
+
+    @staticmethod
+    def default_parameters():
+        """
+        set default parameters for Holzapfel-Ogden material
+        """
+        param = {'kappa': 1000.0,
+                 'a': 0.345,
+                 'b': 9.242,
+                 'af': 18.535,
+                 'bf': 15.972,
+                 'as': 2.564,
+                 'bs': 10.446,
+                 'afs': 0.417,
+                 'bfs': 11.602}
+        return param
+
+    @staticmethod
+    def default_fiber_directions():
+        fibers = {'e1': None,
+                  'e2': None,
+                  'e3': None}
+        return fibers
+
+    def strain_energy(self, u, p=None):
+        """
+        UFL form of the strain energy.
+
+        Args:
+            u: deformation of the solid domain
+            p: hydrostatic pressure in the solid domain
+        """
+        params = self._parameters
+        dim = ufl.domain.find_geometric_dimension(u)
+
+        # material parameters
+        a_c = dlf.Constant(params['a'], name='a')
+        b_c = dlf.Constant(params['b'], name='b')
+        a_f = dlf.Constant(params['af'], name='af')
+        b_f = dlf.Constant(params['bf'], name='bf')
+        a_s = dlf.Constant(params['as'], name='as')
+        b_s = dlf.Constant(params['bs'], name='bs')
+        a_fs = dlf.Constant(params['afs'], name='afs')
+        b_fs = dlf.Constant(params['bfs'], name='bfs')
+        # fiber directions
+        f_0 = self._fiber_directions['e1']
+        s_0 = self._fiber_directions['e2']
+
+        eye = dlf.Identity(dim)
+        f__ = eye + dlf.grad(u)
+        jac = dlf.det(f__)
+        j_m23 = pow(jac, -float(2)/dim)
+        c_bar = j_m23 * f__.T*f__
+        i_1 = dlf.tr(c_bar)
+        i_f = dlf.inner(f_0, c_bar*f_0)
+        i_s = dlf.inner(s_0, c_bar*s_0)
+        i_fs = dlf.inner(f_0, c_bar*s_0)
+        i_fg1 = max_ufl(i_f, 1)  # st. fiber terms cancel out for If < 1
+        i_sg1 = max_ufl(i_s, 1)  # st. sheet terms cancel out for Is < 1
+
+        w_isc = 0.5*a_c/b_c*(dlf.exp(b_c*(i_1-dim)) - 1) \
+                + 0.5*a_f/b_f*(dlf.exp(b_f*(i_fg1-1)**2) - 1) \
+                + 0.5*a_s/b_s*(dlf.exp(b_s*(i_sg1-1)**2) - 1) \
+                + 0.5*a_fs/b_fs*(dlf.exp(b_fs*i_fs**2) - 1)
+
+        # incompressibility
+        if self._parameters['incompressible']:
+            w_vol = (-1.)*p * (jac - 1)
+        else:
+            kappa = dlf.Constant(params['kappa'], name='kappa')
+            w_vol = kappa * (jac**2 - 1 - 2*dlf.ln(jac))
+
+        return w_vol + w_isc
+
+    def stress_tensor(self, f__, jac, p=None, formulation=None):
+        """
+        UFL form of the stress tensor.
+
+        Args:
+        f__ : ufl.algebra.Sum
+            The deformation gradient.
+        jac : ufl.tensoralgebra.Determinant
+            The Jacobian, i.e. the determinant of the deformation gradient.
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
+            The pressure function for incompressible materials.
+        formulation : str (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+        """
+        params = self._parameters
+        dim = ufl.domain.find_geometric_dimension(f__)
+
+        # material parameters
+        a_c = dlf.Constant(params['a'], name='a')
+        b_c = dlf.Constant(params['b'], name='b')
+        a_f = dlf.Constant(params['af'], name='af')
+        b_f = dlf.Constant(params['bf'], name='bf')
+        a_s = dlf.Constant(params['as'], name='as')
+        b_s = dlf.Constant(params['bs'], name='bs')
+        a_fs = dlf.Constant(params['afs'], name='afs')
+        b_fs = dlf.Constant(params['bfs'], name='bfs')
+        # fiber directions
+        f_0 = self._fiber_directions['e1']
+        s_0 = self._fiber_directions['e2']
+
+        eye = dlf.Identity(dim)
+        f_inv = dlf.inv(f__)
+        c__ = f__.T*f__
+        j_m23 = pow(jac, -float(2)/dim)
+        c_bar = j_m23 * f__.T*f__
+        i_1 = dlf.tr(c_bar)
+        i_f = dlf.inner(f_0, c_bar*f_0)
+        i_s = dlf.inner(s_0, c_bar*s_0)
+        i_fs = dlf.inner(f_0, c_bar*s_0)
+
+        d_i1 = 0.5*a_c*dlf.exp(b_c*(i_1 - dim))
+        i_fg1 = max_ufl(i_f, 1)  # st. fiber terms cancel out for If < 1
+        i_sg1 = max_ufl(i_s, 1)  # st. sheet terms cancel out for Is < 1
+        d_if = a_f*(i_fg1 - 1)*dlf.exp(b_f*(i_fg1 - 1)**2)
+        d_is = a_s*(i_sg1 - 1)*dlf.exp(b_s*(i_sg1 - 1)**2)
+        d_ifs = a_fs*(i_fs)*dlf.exp(b_fs*(i_fs)**2)
+
+        s_bar = 2*d_i1*eye \
+                + 2*d_if*dlf.outer(f_0, f_0) \
+                + 2*d_is*dlf.outer(s_0, s_0) \
+                + d_ifs*(dlf.outer(f_0, s_0) + dlf.outer(s_0, f_0))
+
+        fs_isc = j_m23*f__*s_bar - 1./dim*j_m23*dlf.tr(c__*s_bar)*f_inv.T
+
+        # incompressibility
+        if self._parameters['incompressible']:
+            fs_vol = jac*p*f_inv.T
+        else:
+            kappa = dlf.Constant(params['kappa'], name='kappa')
+            fs_vol = jac*2.*kappa*(jac-1./jac)*f_inv.T
+
+        return fs_vol + fs_isc
+
+# -----------------------------------------------------------------------------
 def convert_elastic_moduli(param, tol=1e8):
         # original parameters
         nu = param['nu']         # Poisson's ratio [-]
@@ -2039,7 +2213,7 @@ def load_fibers(fname, fiber_names, mesh):
     """
 
     fiber_mesh_functions = list()
-    f = dlf.HDF5File(dlf.mpi_comm_world(), fname, 'r')
+    f = dlf.HDF5File(MPI_COMM_WORLD, fname, 'r')
 
     for name in fiber_names:
         fib = dlf.MeshFunction('double', mesh)
@@ -2073,7 +2247,7 @@ def define_fiber_dir(fname, fiber_names, mesh, degree=0):
     Returns
     -------
 
-    c : dolfin.Coefficient
+    c : ufl.Coefficient
         Representation of the fiber vector fields.
 
 

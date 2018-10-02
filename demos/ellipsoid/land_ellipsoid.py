@@ -35,7 +35,7 @@ config = {'material': mat_dict, 'mesh': mesh_dict, 'formulation': formulation_di
 # Create problem and solver objects.
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp='results/displacement_output.pvd')
-solver.set_parameters(linear_solver="superlu_dist")
+solver.set_parameters(linear_solver="mumps")
 
 # Numerically solve the problem.
 solver.full_solve()

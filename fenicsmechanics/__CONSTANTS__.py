@@ -1,6 +1,6 @@
 dict_implemented = {
     'materials': {
-        'elastic': ('lin_elastic', 'neo_hookean', 'guccione', 'fung'),
+        'elastic': ('lin_elastic', 'neo_hookean', 'guccione', 'fung', 'holzapfel_ogden'),
         'viscous': ('newtonian', 'stokes')
     }
 }

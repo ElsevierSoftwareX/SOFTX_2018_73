@@ -5,6 +5,7 @@ import dolfin as dlf
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
 from .basemechanicsproblem import BaseMechanicsProblem
+from .dolfincompat import MPI_COMM_WORLD
 
 from inspect import isclass
 
@@ -835,7 +836,7 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
         """
 
         problem = self._problem
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
         p = problem.pressure
         v = problem.velocity

@@ -1,5 +1,10 @@
 import dolfin as dlf
 
+if dlf.__version__.startswith('2018'):
+    MPI_COMM_WORLD = dlf.MPI.comm_world
+else:
+    MPI_COMM_WORLD = dlf.mpi_comm_world()
+
 mesh = dlf.UnitSquareMesh(30,30)
 pd = 2
 W = dlf.VectorFunctionSpace(mesh, "CG", pd)
@@ -33,7 +38,7 @@ from fenicsmechanics.materials.solid_materials import AnisotropicMaterial, FungM
 mat1 = AnisotropicMaterial(fiber_dict1, mesh)
 
 hdf5_name = "fibers/n_all.h5"
-f = dlf.HDF5File(dlf.mpi_comm_world(), hdf5_name, 'w')
+f = dlf.HDF5File(MPI_COMM_WORLD, hdf5_name, 'w')
 f.write(n1, "n1")
 f.write(n2, "n2")
 f.close()

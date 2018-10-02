@@ -5,6 +5,7 @@ import dolfin as dlf
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
 from .basemechanicsproblem import BaseMechanicsProblem
+from .dolfincompat import MPI_COMM_WORLD
 
 from inspect import isclass
 
@@ -329,6 +330,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
+        elif self.config['material']['const_eqn'] == 'holzapfel_ogden':
+            mat_class = materials.solid_materials.HolzapfelOgdenMaterial
         else:
             msg = "The material '%s' has not been implemented. A class for such" \
                   + " material must be provided."
@@ -867,7 +870,7 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         """
 
         problem = self._problem
-        rank = dlf.MPI.rank(dlf.mpi_comm_world())
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
 
         p = problem.pressure
         u = problem.displacement
