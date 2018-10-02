@@ -145,16 +145,18 @@ class BaseMechanicsProblem(object):
                                     dlf.cpp.mesh.MeshFunctionInt,
                                     dlf.cpp.mesh.MeshFunctionSizet)
         if 'boundaries' in config['mesh']:
-            _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
-                        "mesh/boundaries")
+            if config['mesh']['boundaries'] is not None:
+                _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
+                            "mesh/boundaries")
         else:
             config['mesh']['boundaries'] = None
 
         # This check is for future use. Marked cell domains are currently not
         # used in any cases.
         if 'cells' in config['mesh']:
-            _check_type(config['mesh']['cells'], valid_meshfunction_types,
-                        "mesh/cells")
+            if config['mesh']['cells'] is not None:
+                _check_type(config['mesh']['cells'], valid_meshfunction_types,
+                            "mesh/cells")
         else:
             config['mesh']['cells'] = None
 
@@ -164,9 +166,12 @@ class BaseMechanicsProblem(object):
         cells = config['mesh']['cells']
         if (mesh_file == boundaries) and mesh_file[-3:] == ".h5":
             self.mesh = dlf.Mesh()
-            self.boundaries = dlf.MeshFunction("size_t", self.mesh)
-            _read_write_hdf5("r", mesh_file, mesh=self.mesh,
-                             boundaries=self.boundaries)
+            hdf = dlf.HDF5File(MPI_COMM_WORLD, mesh_file, "r")
+            hdf.read(self.mesh, "mesh", False)
+            self.boundaries = dlf.MeshFunction("size_t", self.mesh,
+                                               self.mesh.geometry().dim() - 1)
+            hdf.read(self.boundaries, "boundaries")
+            hdf.close()
         else:
             self.mesh = load_mesh(mesh_file)
             if boundaries is not None:
