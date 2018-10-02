@@ -51,7 +51,6 @@ else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
 
-mesh_dir = '../../meshfiles/unit_domain/'
 if args.save:
     if args.inverse:
         disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
@@ -78,14 +77,12 @@ else:
     xdmf_file = None
     p_file = None
 
-mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
-boundaries = mesh_dir + 'unit_domain-boundaries-%s' % dim_str
 if args.hdf5:
-    mesh_file += '.h5'
-    boundaries += '.h5'
+    ext = "h5"
 else:
-    mesh_file += '.xml.gz'
-    boundaries += '.xml.gz'
+    ext = "xml.gz"
+mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
+                                                refinements=mesh_dims, ext=ext)
 
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):

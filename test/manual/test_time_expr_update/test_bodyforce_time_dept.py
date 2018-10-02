@@ -8,7 +8,7 @@ import fenicsmechanics.mechanicsproblem as mprob
 mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
                                                 refinements=(2, 2))
 
-body_force = dlf.Expression(['log(1.0+t)', 'exp(t)'],
+body_force = dlf.Expression(['std::log(1.0+t)', 'exp(t)'],
                             t=0.0, degree=2)
 
 # Elasticity parameters
@@ -56,7 +56,10 @@ while t <= tf:
     t += dt
 
     problem.update_time(t)
-    problem.config['formulation']['body_force'].eval(vals, zero)
+    try:
+        problem.config['formulation']['body_force'].eval(vals, zero)
+    except AttributeError:
+        problem.config['formulation']['body_force'].cpp_object().eval(vals, zero)
 
     expected = np.array([np.log(1.0 + t), np.exp(t)])
 
