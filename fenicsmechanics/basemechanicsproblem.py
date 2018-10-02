@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import re
+import ufl
 import dolfin as dlf
 
 from .dolfincompat import MPI_COMM_WORLD
@@ -725,7 +726,7 @@ class BaseMechanicsProblem(object):
         # If 'components' was not provided, set it to "all" for all Dirichlet
         # boundary conditions given. Then check to make sure the values are
         # consistent with the 'components'. Need the values to be
-        # dolfin.Coefficient objects to use ufl_shape. Hence doing this check
+        # ufl.Coefficient objects to use ufl_shape. Hence doing this check
         # after '__convert_pyvalues_to_coeffs'.
         if 'components' not in subconfig:
             subconfig['components'] = ["all"]*len(subconfig['regions'])
@@ -810,7 +811,7 @@ class BaseMechanicsProblem(object):
     def check_body_force(self, config):
         """
         Check if body force is specified. If it is, the type is checked, and
-        converted to a dolfin.Coefficient object when necessary. If it is not
+        converted to a ufl.Coefficient object when necessary. If it is not
         specified, it is set to None.
 
 
@@ -839,7 +840,7 @@ class BaseMechanicsProblem(object):
             return None
 
         orig_bf = config['formulation']['body_force']
-        _check_type(orig_bf, (dlf.Coefficient, list, tuple), "formulation/body_force")
+        _check_type(orig_bf, (ufl.Coefficient, list, tuple), "formulation/body_force")
 
         if config['formulation']['time']['unsteady']:
             t0 = config['formulation']['time']['interval'][0]
@@ -899,14 +900,14 @@ class BaseMechanicsProblem(object):
         vec_degree = int(config['formulation']['element'][0][1:])
         if ic['displacement'] is not None:
             orig_disp = ic['displacement']
-            _check_types(orig_disp, (dlf.Coefficient, list, tuple),
+            _check_types(orig_disp, (ufl.Coefficient, list, tuple),
                          "formulation/initial_condition/displacement")
             disp, = self.__convert_pyvalues_to_coeffs([orig_disp], t0, vec_degree)
             ic['displacement'] = disp
 
         if ic['velocity'] is not None:
             orig_vel = ic['velocity']
-            _check_types(orig_vel, (dlf.Coefficient, list, tuple),
+            _check_types(orig_vel, (ufl.Coefficient, list, tuple),
                          "formulation/initial_condition/velocity")
             vel, = self.__convert_pyvalues_to_coeffs([orig_vel], t0, vec_degree)
             ic['velocity'] = vel
@@ -921,7 +922,7 @@ class BaseMechanicsProblem(object):
 
             scalar_degree = int(config['formulation']['element'][1][1:])
             orig_pressure = ic['pressure']
-            _check_types(orig_pressure, (dlf.Coefficient, str, float, int),
+            _check_types(orig_pressure, (ufl.Coefficient, str, float, int),
                          "formulation/initial_condition/pressure")
             pressure, = self.__convert_pyvalues_to_coeffs([orig_pressure],
                                                           t0, scalar_degree)
@@ -1235,7 +1236,7 @@ class BaseMechanicsProblem(object):
     @staticmethod
     def __convert_pyvalues_to_coeffs(values, t0, degree=1):
         """
-        This method creates the appropriate dolfin.Coefficient object (either
+        This method creates the appropriate ufl.Coefficient object (either
         dolfin.Constant or dolfin.Expression) from valid python types. If the
         values are made up of strings, an expression is made. It 't' is included
         in any components, it is passed to the dolfin.Expression object and set
@@ -1248,7 +1249,7 @@ class BaseMechanicsProblem(object):
         ----------
 
         values : list, tuple
-            A list/tuple of values to be used to create a dolfin.Coefficient.
+            A list/tuple of values to be used to create a ufl.Coefficient.
             Types that can be converted are int, float, str, list, and tuple.
         t0 : float
             The value used to set the time, 't', parameter for dolfin.Expression
@@ -1261,15 +1262,15 @@ class BaseMechanicsProblem(object):
         -------
 
         new_values : list
-            A list of dolfin.Coefficient objects created from 'values'.
+            A list of ufl.Coefficient objects created from 'values'.
 
         """
 
         new_values = list()
         for i,val in enumerate(values):
 
-            # No need to convert if already a dolfin.Coefficient type.
-            if isinstance(val, dlf.Coefficient):
+            # No need to convert if already a ufl.Coefficient type.
+            if isinstance(val, ufl.Coefficient):
                 new_values.append(val)
                 continue
 
@@ -1316,7 +1317,7 @@ class BaseMechanicsProblem(object):
                 else:
                     new_values.append(dlf.Constant(val))
             else:
-                msg = "The type '%s' cannot be used to create a dolfin.Coefficient " \
+                msg = "The type '%s' cannot be used to create a ufl.Coefficient " \
                       + "object." % val.__class__
                 raise TypeError(msg)
 
@@ -1450,7 +1451,7 @@ class BaseMechanicsProblem(object):
         Parameters
         ----------
 
-        init_value : dolfin.Coefficient, dolfin.Expression
+        init_value : ufl.Coefficient, dolfin.Expression
             A function/expression that approximates the initial condition.
         function : dolfin.Function
             The function approximating a field variable in a mechanics problem.

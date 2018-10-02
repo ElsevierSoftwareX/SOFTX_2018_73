@@ -349,7 +349,7 @@ class LinearIsoMaterial(IsotropicMaterial):
             The Jacobian, i.e. determinant of the deformation gradient. Note
             that this is not used for this material. It is solely a place holder
             to conform to the format of other materials.
-        p : dolfin.Coefficient (default, None)
+        p : ufl.Coefficient (default, None)
             The UFL pressure function for incompressible materials.
         formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
@@ -530,7 +530,7 @@ class NeoHookeMaterial(IsotropicMaterial):
         inv_la = params['inv_la']
 
         # Exit if these are already dolfin objects
-        if isinstance(la, dlf.Coefficient) or isinstance(inv_la, dlf.Coefficient):
+        if isinstance(la, ufl.Coefficient) or isinstance(inv_la, ufl.Coefficient):
             return None
 
         inf = float("inf")
@@ -1287,9 +1287,9 @@ class AnisotropicMaterial(ElasticMaterial):
     Parameters
     ----------
 
-    'fiber_files' : str, list, tuple, dolfin.Coefficient
+    'fiber_files' : str, list, tuple, ufl.Coefficient
         The name(s) of the files containing the vector field functions, or
-        dolfin.Coefficient objects approximating the vector field.
+        ufl.Coefficient objects approximating the vector field.
     'fiber_names' : str, list, tuple
         A name, or list of names, of all of the fiber direction fields.
     'function_space' : dolfin.FunctionSpace
@@ -1332,7 +1332,7 @@ class AnisotropicMaterial(ElasticMaterial):
         else:
             raise KeyError(msg % '{element-wise,element}')
 
-        # Element type should only be None if dolfin.Coefficient objects
+        # Element type should only be None if ufl.Coefficient objects
         # were already provided.
         if element_type is not None:
             pd = int(element_type[-1])
@@ -1356,9 +1356,9 @@ class AnisotropicMaterial(ElasticMaterial):
         Parameters
         ----------
 
-        fiber_files : str, list, tuple, dolfin.Coefficient
+        fiber_files : str, list, tuple, ufl.Coefficient
             The name(s) of the file(s) containing the vector field functions, or
-            dolfin.Coefficient objects approximating the vector field.
+            ufl.Coefficient objects approximating the vector field.
         fiber_names : str, list, tuple
             A name, or list of names, of all of the fiber direction fields.
         function_space : dolfin.FunctionSpace
@@ -1384,7 +1384,7 @@ class AnisotropicMaterial(ElasticMaterial):
             else:
                 self._fiber_directions[key % 1] = dlf.Function(function_space, fiber_files,
                                                                name=fiber_names)
-        elif isinstance(fiber_files, dlf.Coefficient):
+        elif isinstance(fiber_files, ufl.Coefficient):
             fiber_files.rename(fiber_names, "Fiber direction")
             self._fiber_directions[key % 1] = fiber_files
         else:
@@ -1394,7 +1394,7 @@ class AnisotropicMaterial(ElasticMaterial):
 
             self._fiber_directions = dict()
             for i,f in enumerate(fiber_files):
-                if isinstance(f, dlf.Coefficient):
+                if isinstance(f, ufl.Coefficient):
                     f.rename(fiber_names[i], "Fiber direction")
                     self._fiber_directions[key % (i+1)] = f
                     continue
@@ -2075,7 +2075,7 @@ def define_fiber_dir(fname, fiber_names, mesh, degree=0):
     Returns
     -------
 
-    c : dolfin.Coefficient
+    c : ufl.Coefficient
         Representation of the fiber vector fields.
 
 
