@@ -798,7 +798,11 @@ class MechanicsProblem(BaseMechanicsProblem):
 
         # Create a copy of the body force term to use at a different time step.
         if self.config['formulation']['time']['unsteady'] and hasattr(b,'t'):
-            b0 = dlf.Expression(b.cppcode, t=0.0,
+            try:
+                cppcode = b.cppcode
+            except AttributeError:
+                cppcode = b._cppcode
+            b0 = dlf.Expression(cppcode, t=0.0,
                                 element=self.vectorSpace.ufl_element())
             self.ufl_body_force0 = dlf.dot(xi, rho*b0)*dlf.dx
         else:

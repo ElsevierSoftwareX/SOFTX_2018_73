@@ -207,11 +207,15 @@ def duplicate_expressions(*args):
     import copy
 
     for arg in args:
-        if hasattr(arg, 'cppcode'):
+        if hasattr(arg, 'cppcode') or hasattr(arg, "_cppcode"):
+            try:
+                cppcode = arg.cppcode
+            except AttributeError:
+                cppcode = arg._cppcode
             if hasattr(arg, 't'):
-                expr = dlf.Expression(arg.cppcode, t=0.0, element=arg.ufl_element())
+                expr = dlf.Expression(cppcode, t=0.0, element=arg.ufl_element())
             else:
-                expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
+                expr = dlf.Expression(cppcode, element=arg.ufl_element())
         else:
             expr = copy.copy(arg)
 
