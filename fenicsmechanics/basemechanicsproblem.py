@@ -140,8 +140,11 @@ class BaseMechanicsProblem(object):
             raise RequiredParameter(msg)
         _check_type(config['mesh']['mesh_file'], (str, dlf.Mesh), "mesh/mesh_file")
 
-        valid_meshfunction_types = (str, dlf.MeshFunctionBool, dlf.MeshFunctionDouble,
-                                    dlf.MeshFunctionInt, dlf.MeshFunctionSizet)
+        valid_meshfunction_types = (str,
+                                    dlf.cpp.mesh.MeshFunctionBool,
+                                    dlf.cpp.mesh.MeshFunctionDouble,
+                                    dlf.cpp.mesh.MeshFunctionInt,
+                                    dlf.cpp.mesh.MeshFunctionSizet)
         if 'boundaries' in config['mesh']:
             _check_type(config['mesh']['boundaries'], valid_meshfunction_types,
                         "mesh/boundaries")

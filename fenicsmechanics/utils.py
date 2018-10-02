@@ -64,8 +64,10 @@ def load_mesh_function(mesh_function, mesh):
 
     """
 
-    mesh_func_classes = (dlf.MeshFunctionSizet, dlf.MeshFunctionDouble,
-                         dlf.MeshFunctionBool, dlf.MeshFunctionInt)
+    mesh_func_classes = (dlf.cpp.mesh.MeshFunctionSizet,
+                         dlf.cpp.mesh.MeshFunctionDouble,
+                         dlf.cpp.mesh.MeshFunctionBool,
+                         dlf.cpp.mesh.MeshFunctionInt)
 
     if isinstance(mesh_function, mesh_func_classes):
         return mesh_function
