@@ -4,11 +4,10 @@ import re
 import ufl
 import dolfin as dlf
 
-from .dolfincompat import MPI_COMM_WORLD
-
 from .utils import load_mesh, load_mesh_function, _read_write_hdf5
 from .__CONSTANTS__ import dict_implemented as _implemented
 from .exceptions import *
+from .dolfincompat import MPI_COMM_WORLD
 from inspect import isclass
 
 __all__ = ['BaseMechanicsProblem']
@@ -141,8 +140,7 @@ class BaseMechanicsProblem(object):
             raise RequiredParameter(msg)
         _check_type(config['mesh']['mesh_file'], (str, dlf.Mesh), "mesh/mesh_file")
 
-        valid_meshfunction_types = (str,
-                                    dlf.cpp.mesh.MeshFunctionBool,
+        valid_meshfunction_types = (str, dlf.cpp.mesh.MeshFunctionBool,
                                     dlf.cpp.mesh.MeshFunctionDouble,
                                     dlf.cpp.mesh.MeshFunctionInt,
                                     dlf.cpp.mesh.MeshFunctionSizet)

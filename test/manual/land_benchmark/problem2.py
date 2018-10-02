@@ -3,6 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 import fenicsmechanics as fm
+from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
 
 # For use with emacs python shell.
 try:
@@ -114,7 +115,7 @@ solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure)
 solver.full_solve()
 
-rank = dlf.MPI.rank(dlf.mpi_comm_world())
+rank = dlf.MPI.rank(MPI_COMM_WORLD)
 if rank == 0:
     print("DOF(u) = ", problem.displacement.function_space().dim())
 

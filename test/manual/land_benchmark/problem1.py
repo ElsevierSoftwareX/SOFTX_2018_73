@@ -3,6 +3,7 @@ import sys
 import argparse
 import dolfin as dlf
 import fenicsmechanics as fm
+from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
 
 # For use with emacs python shell.
 try:
@@ -13,7 +14,7 @@ except ValueError:
 parser = argparse.ArgumentParser()
 parser.add_argument("--pressure",
                     default=0.004, type=float,
-                    help="Pressure to be applied at z = 0.")
+                    help="Pressure to be applied at z = 0 (default 0.004 kPa).")
 
 mesh_dir = fm._get_mesh_file_names("beam", ret_dir=True, ret_mesh=False)
 mesh_file = os.path.join(mesh_dir, "beam_1000.h5")
@@ -24,18 +25,20 @@ parser.add_argument("--generate-mesh",
                     action="store_true", help="Generates mesh using mshr.")
 parser.add_argument("--resolution",
                     default=70, type=int,
-                    help="Resolution used to generate mesh with mshr.")
+                    help="Resolution used to generate mesh with mshr \
+                          (default: 70).")
 parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
                     type=float, default=1e3, dest="kappa",
-                    help="Bulk modulus of the material.")
+                    help="Bulk modulus of the material (default: 1e3).")
 parser.add_argument("--loading-steps", "-ls",
                     type=int, default=10,
-                    help="Number of loading steps to use.")
+                    help="Number of loading steps to use (default: 10).")
 parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
-                    help="Polynomial degree to be used for displacement.")
+                    help="Polynomial degree to be used for displacement \
+                          (default: 2).")
 args = parser.parse_args()
 
 # Region IDs
@@ -122,7 +125,7 @@ solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure)
 solver.full_solve()
 
-rank = dlf.MPI.rank(dlf.mpi_comm_world())
+rank = dlf.MPI.rank(MPI_COMM_WORLD)
 if rank == 0:
     print("DOF(u) = ", problem.displacement.function_space().dim())
 

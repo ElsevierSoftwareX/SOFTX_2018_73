@@ -348,6 +348,8 @@ class MechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.FungMaterial
         elif const_eqn == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
+        elif const_eqn == 'holzapfel_ogden':
+            mat_class = materials.solid_materials.HolzapfelOgdenMaterial
         elif const_eqn == 'newtonian' or const_eqn == 'stokes':
             mat_class = materials.fluids.NewtonianFluid
         else:

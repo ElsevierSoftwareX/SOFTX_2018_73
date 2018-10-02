@@ -192,6 +192,7 @@ from .fluidmechanics import *
 from .materials.solid_materials import *
 from .materials.fluids import *
 from .utils import *
+from .dolfincompat import MPI_COMM_WORLD
 
 from .dolfincompat import MPI_COMM_WORLD
 

@@ -4,6 +4,7 @@ import dolfin as dlf
 from .dolfincompat import MPI_COMM_WORLD
 
 from .exceptions import *
+from .dolfincompat import MPI_COMM_WORLD
 
 def load_mesh(mesh_file):
     """

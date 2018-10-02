@@ -3,6 +3,11 @@ from __future__ import print_function
 import argparse
 import dolfin as dlf
 
+if dlf.__version__.startswith('2018'):
+    MPI_COMM_WORLD = dlf.MPI.comm_world
+else:
+    MPI_COMM_WORLD = dlf.mpi_comm_world()
+
 print('Parsing through command-line arguments.....', end='')
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--dim",
@@ -85,8 +90,8 @@ if args.hdf5:
     mesh_name += '.h5'
     boundaries_name += '.h5'
 
-    f1 = dlf.HDF5File(dlf.mpi_comm_world(), mesh_name, 'w')
-    f2 = dlf.HDF5File(dlf.mpi_comm_world(), boundaries_name, 'w')
+    f1 = dlf.HDF5File(MPI_COMM_WORLD, mesh_name, 'w')
+    f2 = dlf.HDF5File(MPI_COMM_WORLD, boundaries_name, 'w')
 
     f1.write(mesh, 'mesh')
     f2.write(boundaries, 'boundaries')

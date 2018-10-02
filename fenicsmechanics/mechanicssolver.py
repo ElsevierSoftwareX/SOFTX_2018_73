@@ -1,5 +1,4 @@
 from __future__ import print_function
-from .dolfincompat import MPI_COMM_WORLD
 
 import sys
 if sys.version_info.major == 2:
@@ -14,6 +13,7 @@ else:
     print(msg)
 
 from .utils import _create_file_objects, _write_objects # This might not be necessary
+from .dolfincompat import MPI_COMM_WORLD
 from ufl import Form
 
 from mpi4py import MPI

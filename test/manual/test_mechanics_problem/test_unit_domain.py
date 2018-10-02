@@ -4,6 +4,7 @@ import argparse
 import dolfin as dlf
 
 import fenicsmechanics as fm
+from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
 
 # Parse through the arguments provided at the command line.
 parser = argparse.ArgumentParser()
@@ -177,7 +178,7 @@ solver.full_solve()
 #                 show=2)
 
 # Plot solution if running on one process.
-if dlf.MPI.size(dlf.mpi_comm_world()) == 1:
+if dlf.MPI.size(MPI_COMM_WORLD) == 1:
     dlf.plot(problem.displacement, interactive=True, mode='displacement')
 
 # Compute the final volume

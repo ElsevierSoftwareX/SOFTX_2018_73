@@ -5,6 +5,7 @@ import dolfin as dlf
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
 from .basemechanicsproblem import BaseMechanicsProblem
+from .dolfincompat import MPI_COMM_WORLD
 
 from .dolfincompat import MPI_COMM_WORLD
 
@@ -331,6 +332,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
             mat_class = materials.solid_materials.GuccioneMaterial
+        elif self.config['material']['const_eqn'] == 'holzapfel_ogden':
+            mat_class = materials.solid_materials.HolzapfelOgdenMaterial
         else:
             msg = "The material '%s' has not been implemented. A class for such" \
                   + " material must be provided."
