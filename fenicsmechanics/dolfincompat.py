@@ -1,6 +1,8 @@
-import dolfin as dlf
+import dolfin as _dlf
 
-if dlf.__version__.startswith('2018'):
-    MPI_COMM_WORLD = dlf.MPI.comm_world
+__all__ = ["MPI_COMM_WORLD"]
+
+if _dlf.__version__.startswith('2018'):
+    MPI_COMM_WORLD = _dlf.MPI.comm_world
 else:
-    MPI_COMM_WORLD = dlf.mpi_comm_world()
+    MPI_COMM_WORLD = _dlf.mpi_comm_world()

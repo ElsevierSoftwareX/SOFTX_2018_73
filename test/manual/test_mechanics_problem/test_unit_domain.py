@@ -49,7 +49,6 @@ else:
     name_dims = ('comp_' + args.material, dim_str)
     element_type = 'p2'
 
-mesh_dir = '../../meshfiles/unit_domain/'
 if args.save:
     if args.inverse:
         disp_file = 'results/inverse-disp-%s-%s.pvd' % name_dims
@@ -61,14 +60,12 @@ else:
     disp_file = None
     vel_file = None
 
-mesh_file = mesh_dir + 'unit_domain-mesh-%s' % dim_str
-boundaries = mesh_dir + 'unit_domain-boundaries-%s' % dim_str
 if args.hdf5:
-    mesh_file += '.h5'
-    boundaries += '.h5'
+    ext = "h5"
 else:
-    mesh_file += '.xml.gz'
-    boundaries += '.xml.gz'
+    ext = "xml.gz"
+mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
+                                                refinements=mesh_dims, ext=ext)
 
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):
@@ -179,7 +176,8 @@ solver.full_solve()
 
 # Plot solution if running on one process.
 if dlf.MPI.size(MPI_COMM_WORLD) == 1:
-    dlf.plot(problem.displacement, interactive=True, mode='displacement')
+    if int(dlf.__version__[:4]) <= 2017:
+        dlf.plot(problem.displacement, interactive=True, mode='displacement')
 
 # Compute the final volume
 if args.compute_volume:

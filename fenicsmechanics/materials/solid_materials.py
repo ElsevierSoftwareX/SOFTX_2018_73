@@ -13,6 +13,8 @@ Thus, the user should check that particular documentation.
 import dolfin as dlf
 import ufl
 
+from ..dolfincompat import MPI_COMM_WORLD
+
 from ..exceptions import *
 from ..dolfincompat import MPI_COMM_WORLD
 

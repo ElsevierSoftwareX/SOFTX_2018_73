@@ -76,20 +76,20 @@ Additional material parameters:
             Note: the Newmark integration scheme is only used by
             SolidMechanicsProblem. The default value is 0.5
     * 'initial_condition' (OPTIONAL)
-        * 'displacement' : dolfin.Coefficient, list, tuple (OPTIONAL)
-            A dolfin.Coefficient object specifying the initial value for
+        * 'displacement' : ufl.Coefficient, list, tuple (OPTIONAL)
+            A ufl.Coefficient object specifying the initial value for
             the displacement. If a list or tuple is specified, it is
-            converted to a dolfin.Coefficient with the same polynomial
+            converted to a ufl.Coefficient with the same polynomial
             degree specified for the vector field.
-        * 'velocity' : dolfin.Coefficient, list, tuple (OPTIONAL)
-            A dolfin.Coefficient object specifying the initial value for
+        * 'velocity' : ufl.Coefficient, list, tuple (OPTIONAL)
+            A ufl.Coefficient object specifying the initial value for
             the velocity. If a list or tuple is specified, it is
-            converted to a dolfin.Coefficient with the same polynomial
+            converted to a ufl.Coefficient with the same polynomial
             degree specified for the vector field.
-        * 'pressure' : dolfin.Coefficient, float, int (OPTIONAL)
-            A dolfin.Coefficient object specifying the initial value for
+        * 'pressure' : ufl.Coefficient, float, int (OPTIONAL)
+            A ufl.Coefficient object specifying the initial value for
             the pressure. If a float or int is specified, it is
-            converted to a dolfin.Coefficient with the same polynomial
+            converted to a ufl.Coefficient with the same polynomial
             degree specified for the scalar field. An exception is raised
             if the material is not set as incompressible.
     * 'element' : str
@@ -107,9 +107,9 @@ Additional material parameters:
         True if the problem is an inverse elastostatics problem, and False
         otherwise. For more information, see Govindjee and Mihalic (1996 &
         1998).
-    * 'body_force' : dolfin.Coefficient, list, tuple (OPTIONAL)
+    * 'body_force' : ufl.Coefficient, list, tuple (OPTIONAL)
         Value of the body force to be applied throughout the body. If a list
-        or tuple is applied, it is converted to a dolfin.Coefficient with the
+        or tuple is applied, it is converted to a ufl.Coefficient with the
         same polynomial degree specified for the vector field.
     * 'bcs' (OPTIONAL)
         * 'dirichlet' (OPTIONAL)
@@ -192,6 +192,8 @@ from .fluidmechanics import *
 from .materials.solid_materials import *
 from .materials.fluids import *
 from .utils import *
+from .dolfincompat import MPI_COMM_WORLD
+
 from .dolfincompat import MPI_COMM_WORLD
 
 import sys as _sys

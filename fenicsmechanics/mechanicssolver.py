@@ -224,8 +224,6 @@ class MechanicsBlockSolver(object):
             if self._file_xdmf is not None:
                 _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
 
-        rank = dlf.MPI.rank(MPI_COMM_WORLD)
-
         while t < (tf - dt/10.0):
 
             # Set to the next time step

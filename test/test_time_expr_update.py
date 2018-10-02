@@ -27,7 +27,6 @@ _EXPRESSIONS = {
                           ("FluidMechanicsProblem", "formulation/bcs/neumann/values")))
 def test_single_time_update_tmp(default_config, class_name, field_name):
     import numpy as np
-    # import dolfin as dlf
     config = default_config(class_name, unsteady=True)
     if "body_force" in field_name:
         config['formulation']['body_force'] = None
@@ -49,9 +48,11 @@ def test_single_time_update_tmp(default_config, class_name, field_name):
     for i, t in enumerate(tspan):
         problem.update_time(t)
         if last_key == "body_force":
-            subconfig[last_key].eval(actual_values[i, :], np.zeros(3))
+            _eval_expr(subconfig[last_key], actual_values[i, :], np.zeros(3))
         else:
-            subconfig[last_key][0].eval(actual_values[i, :], np.zeros(3))
+            # Check for 2018.1.0 compatibility
+            _eval_expr(subconfig[last_key][0], actual_values[i, :], np.zeros(3))
+
     assert np.all(expected_values == actual_values)
 
     return None
@@ -92,19 +93,31 @@ def test_all_time_updates_tmp(default_config, class_name):
             subconfig, last_key = _get_subdict(key, problem.config,
                                                ret_last_key=True)
             if last_key == "body_force":
-                subconfig[last_key].eval(all_actual[i, 0:3], np.zeros(3))
+                _eval_expr(subconfig[last_key], all_actual[i, 0:3], np.zeros(3))
             elif last_key == "displacement":
-                subconfig[last_key][0].eval(all_actual[i, 3:6], np.zeros(3))
+                _eval_expr(subconfig[last_key][0], all_actual[i, 3:6], np.zeros(3))
             elif last_key == "velocity":
                 if all_expected.shape[1] == 9:
-                    subconfig[last_key][0].eval(all_actual[i, 3:6], np.zeros(3))
+                    _eval_expr(subconfig[last_key][0], all_actual[i, 3:6], np.zeros(3))
                 else:
-                    subconfig[last_key][0].eval(all_actual[i, 6:9], np.zeros(3))
+                    _eval_expr(subconfig[last_key][0], all_actual[i, 6:9], np.zeros(3))
             else:
-                subconfig[last_key][0].eval(all_actual[i, -3:], np.zeros(3))
+                _eval_expr(subconfig[last_key][0], all_actual[i, -3:], np.zeros(3))
 
     assert np.all(all_actual == all_expected)
 
+    return None
+
+
+def _eval_expr(expr, vals, x):
+    """
+    This function tries calling expr.eval. Calls expr.cpp_object().eval
+    if the first fails. This is for FEniCS 2018.1.0 compatibility.
+    """
+    try:
+        expr.eval(vals, x)
+    except AttributeError:
+        expr.cpp_object().eval(vals, x)
     return None
 
 
@@ -127,9 +140,7 @@ def _update_subconfig(last_key, subconfig, fm_expr, t):
 def _get_expected_values(t, *expr_list):
     import numpy as np
     expected_values = list()
-    # print("expr_list = ", expr_list)
     for expr in expr_list:
-        # print("expr = ", expr)
         eval_expr = eval(expr)
         if isinstance(eval_expr, float):
             eval_expr = eval_expr*np.ones(t.shape)
@@ -141,7 +152,9 @@ def _get_expressions(expr_list):
     import re
     expr_fm_list = list()
     for expr in expr_list:
-        expr_fm_list.append(re.sub("np.", "", expr))
+        sub_str = re.sub("np.", "std::", expr)
+        sub_str = re.sub("std::pi", "pi", sub_str)
+        expr_fm_list.append(sub_str)
     return expr_fm_list
 
 

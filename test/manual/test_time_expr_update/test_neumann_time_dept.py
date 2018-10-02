@@ -67,8 +67,12 @@ pres_val = np.zeros(1)
 while t <= tf:
 
     problem.update_time(t)
-    problem.config['formulation']['bcs']['neumann']['values'][0].eval(trac_vals, zero)
-    problem.config['formulation']['bcs']['neumann']['values'][1].eval(pres_val, zero)
+    try:
+        problem.config['formulation']['bcs']['neumann']['values'][0].eval(trac_vals, zero)
+        problem.config['formulation']['bcs']['neumann']['values'][1].eval(pres_val, zero)
+    except AttributeError:
+        problem.config['formulation']['bcs']['neumann']['values'][0].cpp_object().eval(trac_vals, zero)
+        problem.config['formulation']['bcs']['neumann']['values'][1].cpp_object().eval(pres_val, zero)
 
     exp_trac = np.array([t, t**2])
     exp_pres = 10.0*np.cos(t)

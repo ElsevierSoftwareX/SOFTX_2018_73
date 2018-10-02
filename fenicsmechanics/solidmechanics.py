@@ -7,6 +7,8 @@ from .utils import duplicate_expressions, _create_file_objects, _write_objects
 from .basemechanicsproblem import BaseMechanicsProblem
 from .dolfincompat import MPI_COMM_WORLD
 
+from .dolfincompat import MPI_COMM_WORLD
+
 from inspect import isclass
 
 __all__ = ['SolidMechanicsProblem', 'SolidMechanicsSolver']

@@ -69,7 +69,10 @@ while t <= tf:
     t += dt
 
     problem.update_time(t)
-    problem.config['formulation']['bcs']['dirichlet']['displacement'][1].eval(vals, zero)
+    try:
+        problem.config['formulation']['bcs']['dirichlet']['displacement'][1].eval(vals, zero)
+    except AttributeError:
+        problem.config['formulation']['bcs']['dirichlet']['displacement'][1].cpp_object().eval(vals, zero)
 
     expected = v1 + t*v2
 

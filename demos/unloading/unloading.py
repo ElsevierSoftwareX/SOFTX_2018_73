@@ -24,7 +24,7 @@ config = {
                 'regions': [1]
             },
             'neumann': {
-                'values': [[0, -1e5]],
+                'values': [[0., -1e5]],
                 'regions': [2],
                 'types': ['cauchy']
             }

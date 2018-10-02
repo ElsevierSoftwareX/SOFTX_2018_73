@@ -11,9 +11,7 @@ parser.add_argument('-bs', '--block-solver',
                     action='store_true')
 args = parser.parse_args()
 
-mesh_dir = '../../meshfiles/lshape/'
-mesh_file = mesh_dir + 'lshape-mesh.xml.gz'
-boundaries = mesh_dir + 'lshape-boundaries.xml.gz'
+mesh_file, boundaries = fm._get_mesh_file_names("lshape", ret_facets=True)
 
 # Region IDs
 ALL_ELSE = 0

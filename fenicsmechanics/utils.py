@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import dolfin as dlf
+from .dolfincompat import MPI_COMM_WORLD
 
 from .exceptions import *
 from .dolfincompat import MPI_COMM_WORLD
@@ -64,8 +65,10 @@ def load_mesh_function(mesh_function, mesh):
 
     """
 
-    mesh_func_classes = (dlf.MeshFunctionSizet, dlf.MeshFunctionDouble,
-                         dlf.MeshFunctionBool, dlf.MeshFunctionInt)
+    mesh_func_classes = (dlf.cpp.mesh.MeshFunctionSizet,
+                         dlf.cpp.mesh.MeshFunctionDouble,
+                         dlf.cpp.mesh.MeshFunctionBool,
+                         dlf.cpp.mesh.MeshFunctionInt)
 
     if isinstance(mesh_function, mesh_func_classes):
         return mesh_function
@@ -204,11 +207,15 @@ def duplicate_expressions(*args):
     import copy
 
     for arg in args:
-        if hasattr(arg, 'cppcode'):
+        if hasattr(arg, 'cppcode') or hasattr(arg, "_cppcode"):
+            try:
+                cppcode = arg.cppcode
+            except AttributeError:
+                cppcode = arg._cppcode
             if hasattr(arg, 't'):
-                expr = dlf.Expression(arg.cppcode, t=0.0, element=arg.ufl_element())
+                expr = dlf.Expression(cppcode, t=0.0, element=arg.ufl_element())
             else:
-                expr = dlf.Expression(arg.cppcode, element=arg.ufl_element())
+                expr = dlf.Expression(cppcode, element=arg.ufl_element())
         else:
             expr = copy.copy(arg)
 
