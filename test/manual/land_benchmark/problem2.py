@@ -11,7 +11,7 @@ try:
 except ValueError:
     pass
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--pressure",
                     default=10.0, type=float,
                     help="Pressure to be applied at z = 0.")
@@ -31,14 +31,13 @@ parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
                     type=float, default=1e3, dest="kappa",
-                    help="Bulk modulus of the material (default: 1e3 kPa).")
+                    help="Bulk modulus of the material.")
 parser.add_argument("--loading-steps", "-ls",
                     type=int, default=100,
-                    help="Number of loading steps to use (default: 100).")
+                    help="Number of loading steps to use.")
 parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
-                    help="Polynomial degree to be used for displacement \
-                          (default 2).")
+                    help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
 
 # Region IDs
