@@ -31,13 +31,14 @@ parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
                     type=float, default=1e3, dest="kappa",
-                    help="Bulk modulus of the material.")
+                    help="Bulk modulus of the material (default: 1e3 kPa).")
 parser.add_argument("--loading-steps", "-ls",
-                    type=int, default=10,
-                    help="Number of loading steps to use.")
+                    type=int, default=100,
+                    help="Number of loading steps to use (default: 100).")
 parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
-                    help="Polynomial degree to be used for displacement.")
+                    help="Polynomial degree to be used for displacement \
+                          (default 2).")
 args = parser.parse_args()
 
 # Region IDs
@@ -49,13 +50,15 @@ INBC  = 20  # inhomogeneous Neumann BC
 t0, tf = interval = [0., 1.]
 dt = (tf - t0)/args.loading_steps
 
+KAPPA = 1e100 if args.incompressible else args.kappa
+
 # Material subdictionary
 material = {
     'const_eqn': 'guccione',
     'type': 'elastic',
     'incompressible': args.incompressible,
     'density': 0.0,
-    'kappa': args.kappa,
+    'kappa': KAPPA,
     'bt': 1.0,
     'bf': 1.0,
     'bfs': 1.0,
@@ -113,6 +116,7 @@ else:
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure)
+solver.set_parameters(linear_solver="mumps")
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)

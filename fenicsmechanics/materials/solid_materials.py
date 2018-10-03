@@ -1292,9 +1292,8 @@ class DemirayMaterial(IsotropicMaterial):
     """
     Demiray isotropic material
     see Demiray, H. (1972). "A note on the elasticity of soft biological tissues."
-    Journal of Biomechanics, 5(3), 309–311. http://doi.org/10.1016/0021-9290(72)90047-4a
+    Journal of Biomechanics, 5(3), 309-311. http://doi.org/10.1016/0021-9290(72)90047-4a
     """
-
     def __init__(self, mesh, inverse=False, **params):
         IsotropicMaterial.__init__(self)
         IsotropicMaterial.set_material_class(self, 'isotropic')
