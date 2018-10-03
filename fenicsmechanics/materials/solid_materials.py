@@ -19,8 +19,8 @@ from ..exceptions import *
 from ..dolfincompat import MPI_COMM_WORLD
 
 __all__ = ['ElasticMaterial', 'LinearIsoMaterial', 'NeoHookeMaterial',
-           'AnisotropicMaterial', 'FungMaterial', 'GuccioneMaterial',
-           'HolzapfelOgdenMaterial']
+           'DemirayMaterial', 'AnisotropicMaterial', 'FungMaterial',
+           'GuccioneMaterial', 'HolzapfelOgdenMaterial']
 
 # -----------------------------------------------------------------------------
 def max_ufl(a_const, b_const):
@@ -256,7 +256,103 @@ class ElasticMaterial(object):
         Bvol = dlf.ln(J)*dlf.inv(J)
         return Bvol
 
+    @staticmethod
+    def _volumetric_strain_energy(J, kappa, formulation='square'):
+        """
+        Define the additional penalty component for the strain energy function
+        a nearly incompressible material:
 
+        * Square: :math:`U(J) = \\frac{1}{2}\kappa(J - 1)^2`
+        * Log: :math:`U(J) = \\frac{1}{2}\kappa(\ln(J))^2`
+
+
+        Parameters
+        ----------
+
+        J : ufl.tensoralgebra.Determinant
+            Determinant of the deformation gradient.
+        kappa : float
+            Bulk modulus of the material. Can also be interpreted as a penalty
+            constant.
+        formulation : str (default, 'square')
+            String specifying which of the two above formulations to use.
+
+
+        Returns
+        -------
+
+        U : ufl.algebra.Sum
+            UFL object defining the penalty component of the strain energy
+            function given above.
+
+
+        """
+
+        if formulation == 'square':
+            f =  (J - dlf.Constant(1.0))**2
+        elif formulation == 'log':
+            f = (dlf.ln(J))**2
+        else:
+            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                  + " function is not recognized."
+            raise NotImplementedError(msg)
+
+        return dlf.Constant(0.5)*kappa*f
+
+
+    @staticmethod
+    def _volumetric_strain_energy_diff(J, kappa, formulation='square'):
+        """
+        Return the derivative of the volumetric component of strain energy,
+
+        * Square:
+
+        .. math::
+
+           \\frac{dU}{dJ} = \kappa\left(J - 1\\right)
+
+        * Log:
+
+        .. math::
+
+           \\frac{dU}{dJ} = \\frac{\kappa\ln(J)}{J}
+
+
+        Parameters
+        ----------
+
+        J : ufl.tensoralgebra.Determinant
+            Determinant of the deformation gradient.
+        kappa : float
+            Bulk modulus.
+        formulation : str (default 'square')
+            Choose between square and log formulation above.
+
+
+        Returns
+        -------
+
+        dUdJ : ufl.algebra.Sum
+            The derivative of the volumetric component of strain energy.
+
+
+        """
+
+        if formulation == 'square':
+            dfdJ = J - dlf.Constant(1.0)
+        elif formulation == 'log':
+            dfdJ = dlf.ln(J)/J
+        else:
+            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
+                  + " function is not recognized."
+            raise NotImplementedError(msg)
+
+        return kappa*dfdJ
+
+
+
+
+# -----------------------------------------------------------------------------
 class IsotropicMaterial(ElasticMaterial):
     """
     Base class for isotropic materials. This provides methods common to all
@@ -272,6 +368,7 @@ class IsotropicMaterial(ElasticMaterial):
         return None
 
 
+# -----------------------------------------------------------------------------
 class LinearIsoMaterial(IsotropicMaterial):
     """
     Return the Cauchy stress tensor based on linear elasticity, i.e.
@@ -424,7 +521,7 @@ class LinearIsoMaterial(IsotropicMaterial):
 
         return dlf.div(u)
 
-
+# -----------------------------------------------------------------------------
 class NeoHookeMaterial(IsotropicMaterial):
     """
     Return the first Piola-Kirchhoff stress tensor based on variations of the
@@ -1051,100 +1148,6 @@ class NeoHookeMaterial(IsotropicMaterial):
 
 
     @staticmethod
-    def _volumetric_strain_energy(J, kappa, formulation='square'):
-        """
-        Define the additional penalty component for the strain energy function
-        a nearly incompressible material:
-
-        * Square: :math:`U(J) = \\frac{1}{2}\kappa(J - 1)^2`
-        * Log: :math:`U(J) = \\frac{1}{2}\kappa(\ln(J))^2`
-
-
-        Parameters
-        ----------
-
-        J : ufl.tensoralgebra.Determinant
-            Determinant of the deformation gradient.
-        kappa : float
-            Bulk modulus of the material. Can also be interpreted as a penalty
-            constant.
-        formulation : str (default, 'square')
-            String specifying which of the two above formulations to use.
-
-
-        Returns
-        -------
-
-        U : ufl.algebra.Sum
-            UFL object defining the penalty component of the strain energy
-            function given above.
-
-
-        """
-
-        if formulation == 'square':
-            f =  (J - dlf.Constant(1.0))**2
-        elif formulation == 'log':
-            f = (dlf.ln(J))**2
-        else:
-            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
-                  + " function is not recognized."
-            raise NotImplementedError(msg)
-
-        return dlf.Constant(0.5)*kappa*f
-
-
-    @staticmethod
-    def _volumetric_strain_energy_diff(J, kappa, formulation='square'):
-        """
-        Return the derivative of the volumetric component of strain energy,
-
-        * Square:
-
-        .. math::
-
-           \\frac{dU}{dJ} = \kappa\left(J - 1\\right)
-
-        * Log:
-
-        .. math::
-
-           \\frac{dU}{dJ} = \\frac{\kappa\ln(J)}{J}
-
-
-        Parameters
-        ----------
-
-        J : ufl.tensoralgebra.Determinant
-            Determinant of the deformation gradient.
-        kappa : float
-            Bulk modulus.
-        formulation : str (default 'square')
-            Choose between square and log formulation above.
-
-
-        Returns
-        -------
-
-        dUdJ : ufl.algebra.Sum
-            The derivative of the volumetric component of strain energy.
-
-
-        """
-
-        if formulation == 'square':
-            dfdJ = J - dlf.Constant(1.0)
-        elif formulation == 'log':
-            dfdJ = dlf.ln(J)/J
-        else:
-            msg = "Formulation, \"%s\" of the volumetric strain energy" % formulation \
-                  + " function is not recognized."
-            raise NotImplementedError(msg)
-
-        return kappa*dfdJ
-
-
-    @staticmethod
     def _basic_stress_tensor(F, mu):
         """
         Define the first Piola-Kirchhoff stress tensor that corresponds to a
@@ -1284,7 +1287,115 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         return kappa*g*Finv.T
 
+# -----------------------------------------------------------------------------
+class DemirayMaterial(IsotropicMaterial):
+    """
+    Demiray isotropic material
+    see Demiray, H. (1972). "A note on the elasticity of soft biological tissues."
+    Journal of Biomechanics, 5(3), 309–311. http://doi.org/10.1016/0021-9290(72)90047-4a
+    """
 
+    def __init__(self, mesh, inverse=False, **params):
+        IsotropicMaterial.__init__(self)
+        IsotropicMaterial.set_material_class(self, 'isotropic')
+        IsotropicMaterial.set_material_name(self, 'Demiray material')
+        IsotropicMaterial.set_inverse(self, inverse)
+        IsotropicMaterial.set_incompressible(self, params['incompressible'])
+        params = params or {}
+        self._parameters = self.default_parameters()
+        self._parameters.update(params)
+
+        return None
+
+    @staticmethod
+    def default_parameters():
+        """
+        set default parameters for Demiray material
+        """
+        param = {'kappa': 1e3,
+                 'a': 20.,
+                 'b': 5.}
+        return param
+
+    def strain_energy(self, u, p=None):
+        """
+        UFL form of the strain energy.
+
+        Args:
+            u: deformation of the solid domain
+            p: hydrostatic pressure in the solid domain
+        """
+        params = self._parameters
+        dim = ufl.domain.find_geometric_dimension(u)
+
+        # material parameters
+        a_c = dlf.Constant(params['a'], name='a')
+        b_c = dlf.Constant(params['b'], name='b')
+
+        eye = dlf.Identity(dim)
+        f__ = eye + dlf.grad(u)
+        jac = dlf.det(f__)
+        j_m23 = pow(jac, -float(2)/dim)
+        c_bar = j_m23 * f__.T*f__
+        i_1 = dlf.tr(c_bar)
+
+        w_isc = 0.5*a_c/b_c*(dlf.exp(b_c*(i_1-dim)) - 1)
+
+        # incompressibility
+        if self._parameters['incompressible']:
+            w_vol = (-1.)*p * (jac - 1)
+        else:
+            kappa = dlf.Constant(params['kappa'], name='kappa')
+            w_vol = self._volumetric_strain_energy(jac, kappa, 'log')
+
+        return w_vol + w_isc
+
+    def stress_tensor(self, f__, jac, p=None, formulation=None):
+        """
+        UFL form of the stress tensor.
+
+        Args:
+        f__ : ufl.algebra.Sum
+            The deformation gradient.
+        jac : ufl.tensoralgebra.Determinant
+            The Jacobian, i.e. the determinant of the deformation gradient.
+        p : dolfin.Function, ufl.indexed.Indexed (default, None)
+            The pressure function for incompressible materials.
+        formulation : str (default, None)
+            This input is not used for this material. It is solely a place holder
+            to conform to the format of other materials.
+        """
+        params = self._parameters
+        dim = ufl.domain.find_geometric_dimension(f__)
+
+        # material parameters
+        a_c = dlf.Constant(params['a'], name='a')
+        b_c = dlf.Constant(params['b'], name='b')
+
+        eye = dlf.Identity(dim)
+        f_inv = dlf.inv(f__)
+        c__ = f__.T*f__
+        j_m23 = pow(jac, -float(2)/dim)
+        c_bar = j_m23 * f__.T*f__
+        i_1 = dlf.tr(c_bar)
+
+        d_i1 = 0.5*a_c*dlf.exp(b_c*(i_1 - dim))
+
+        s_bar = 2*d_i1*eye
+
+        fs_isc = j_m23*f__*s_bar - 1./dim*j_m23*dlf.tr(c__*s_bar)*f_inv.T
+
+        # incompressibility
+        if self._parameters['incompressible']:
+            fs_vol = jac*p*f_inv.T
+        else:
+            kappa = self._parameters['kappa']
+            du_dj = self._volumetric_strain_energy_diff(jac, kappa, 'log')
+            fs_vol = jac*du_dj*f_inv.T
+
+        return fs_vol + fs_isc
+
+# -----------------------------------------------------------------------------
 class AnisotropicMaterial(ElasticMaterial):
     """
     Base class for fiber reinforced materials. This base class contains
@@ -1665,7 +1776,6 @@ class FungMaterial(AnisotropicMaterial):
 
         CC = self._parameters['C']
         dd = self._parameters['d']
-        kappa = self._parameters['kappa']
         dim = ufl.domain.find_geometric_dimension(F)
         I = dlf.Identity(dim)
         C = F.T*F
@@ -1710,7 +1820,9 @@ class FungMaterial(AnisotropicMaterial):
         if self._incompressible:
             FS_vol = -J*p*Finv.T
         else:
-            FS_vol = J*2.*kappa*(J-1./J)*Finv.T
+            kappa = self._parameters['kappa']
+            dU_dJ = self._volumetric_strain_energy_diff(J, kappa, 'log')
+            FS_vol = J*dU_dJ*Finv.T
 
         return FS_vol + FS_isc
 
@@ -1847,7 +1959,7 @@ class GuccioneMaterial(FungMaterial):
         bfs = params['bfs']
         params['d'] = [bf, bt, bt,
                        0.0, 0.0, 0.0,
-                       2.0*bfs, 2.0*bt, 2.0*bfs]
+                       bfs, bt, bfs]
         FungMaterial.__init__(self, mesh, inverse=inverse, **params)
         ElasticMaterial.set_material_name(self, 'Guccione material')
 
@@ -1921,9 +2033,9 @@ class GuccioneMaterial(FungMaterial):
         # incompressibility
         if self._incompressible:
             Winc = - p*(J - 1)
-        else :
+        else:
             kappa = dlf.Constant(params['kappa'], name='kappa')
-            Winc = kappa*(J**2 - 1 - 2*dlf.ln(J))
+            Winc = self._volumetric_strain_energy(jac, kappa, 'log')
 
         return Wpassive + Winc
 
@@ -2016,7 +2128,7 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
             w_vol = (-1.)*p * (jac - 1)
         else:
             kappa = dlf.Constant(params['kappa'], name='kappa')
-            w_vol = kappa * (jac**2 - 1 - 2*dlf.ln(jac))
+            w_vol = self._volumetric_strain_energy(jac, kappa, 'log')
 
         return w_vol + w_isc
 
@@ -2079,8 +2191,9 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
         if self._parameters['incompressible']:
             fs_vol = jac*p*f_inv.T
         else:
-            kappa = dlf.Constant(params['kappa'], name='kappa')
-            fs_vol = jac*2.*kappa*(jac-1./jac)*f_inv.T
+            kappa = self._parameters['kappa']
+            du_dj = self._volumetric_strain_energy_diff(jac, kappa, 'log')
+            fs_vol = jac*du_dj*f_inv.T
 
         return fs_vol + fs_isc
 

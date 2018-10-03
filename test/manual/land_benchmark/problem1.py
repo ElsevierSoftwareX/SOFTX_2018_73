@@ -46,6 +46,8 @@ HNBC  = 0  # homogeneous Neumann BC
 HDBC  = 10  # homogeneous Dirichlet BC
 INBC  = 20  # inhomogeneous Neumann BC
 
+KAPPA = 1e100 if args.incompressible else args.kappa
+
 if args.generate_mesh:
     import mshr
     domain = mshr.Box(dlf.Point(), dlf.Point(10, 1, 1))
@@ -78,7 +80,7 @@ material = {
     'bf': 8.0,
     'bt': 2.0,
     'bfs': 4.0,
-    'kappa': args.kappa,
+    'kappa': KAPPA,
     'fibers': {
         'fiber_files': [cf, cs],
         'fiber_names': ['e1', 'e2'],

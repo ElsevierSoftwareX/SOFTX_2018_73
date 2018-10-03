@@ -328,6 +328,8 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             mat_class = materials.solid_materials.LinearIsoMaterial
         elif self.config['material']['const_eqn'] == 'neo_hookean':
             mat_class = materials.solid_materials.NeoHookeMaterial
+        elif self.config['material']['const_eqn'] == 'demiray':
+            mat_class = materials.solid_materials.DemirayMaterial
         elif self.config['material']['const_eqn'] == 'fung':
             mat_class = materials.solid_materials.FungMaterial
         elif self.config['material']['const_eqn'] == 'guccione':
