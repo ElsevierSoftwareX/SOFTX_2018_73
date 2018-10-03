@@ -115,14 +115,17 @@ else:
 config = {'mesh': mesh, 'material': material, 'formulation': formulation}
 
 if args.incompressible:
-    fname_disp = "results/displacement-incompressible.pvd"
-    fname_pressure = "results/pressure.pvd"
+    fname_disp = "results/beam-displacement-incompressible.xml.gz"
+    fname_pressure = "results/beam-pressure.xml.gz"
+    fname_xdmf = "results/beam-incompressible.xdmf"
 else:
-    fname_disp = "results/displacement.pvd"
+    fname_disp = "results/beam-displacement.xml.gz"
     fname_pressure = None
+    fname_xdmf = "results/beam.xdmf"
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
-                                 fname_pressure=fname_pressure)
+                                 fname_pressure=fname_pressure,
+                                 fname_xdmf=fname_xdmf)
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)

@@ -107,14 +107,17 @@ config = {
 }
 
 if args.incompressible:
-    fname_disp = "results/displacement-incompressible.pvd"
-    fname_pressure = "results/pressure.pvd"
+    fname_disp = "results/ellipsoid-displacement-incompressible.xml.gz"
+    fname_pressure = "results/ellipsoid-pressure.xml.gz"
+    fname_xdmf = "results/ellipsoid-incompressible.xdmf"
 else:
-    fname_disp = "results/displacement.pvd"
+    fname_disp = "results/ellipsoid-displacement.xml.gz"
     fname_pressure = None
+    fname_xdmf = "results/ellipsoid.xdmf"
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
-                                 fname_pressure=fname_pressure)
+                                 fname_pressure=fname_pressure,
+                                 fname_xdmf=fname_xdmf)
 solver.set_parameters(linear_solver="mumps")
 solver.full_solve()
 
