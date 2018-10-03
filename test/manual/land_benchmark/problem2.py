@@ -119,17 +119,31 @@ solver.set_parameters(linear_solver="mumps")
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)
+disp_dof = problem.displacement.function_space().dim()
 if rank == 0:
-    print("DOF(u) = ", problem.displacement.function_space().dim())
+    print("DOF(u) = ", disp_dof)
 
 import numpy as np
-vals = np.zeros(3)
+disp_endo = np.zeros(3)
+disp_epi = np.zeros(3)
 x_endocardium = np.array([0., 0., -17.])
 x_epicardium = np.array([0., 0., -20.])
 try:
-    problem.displacement.eval(vals, x_endocardium)
-    print("(rank %i, endocardium) vals + x = " % rank, vals + x_endocardium)
-    problem.displacement.eval(vals, x_epicardium)
-    print("(rank %i, endocardium) vals + x = " % rank, vals + x_epicardium)
+    problem.displacement.eval(disp_endo, x_endocardium)
+    problem.displacement.eval(disp_epi, x_epicardium)
+    final_endo = x_endocardium + disp_endo
+    final_epi = x_epicardium + disp_epi
+    if rank == 0:
+        print("(rank %i, endocardium) disp = " % rank, disp_endo)
+        print("(rank %i, endocardium) x + disp = " % rank, final_endo)
+        print("(rank %i, epicardium) disp = " % rank, disp_epi)
+        print("(rank %i, epicardium) x + disp = " % rank, final_epi)
+    data_endo = np.hstack((disp_dof, final_endo)).reshape([1, -1])
+    data_epi = np.hstack((disp_dof, final_epi)).reshape([1, -1])
+    fmt_str = ("%i", "%f", "%f", "%f")
+    with open("ellipsoid-final_location-endocardium.dat", "ab") as f:
+        np.savetxt(f, data_endo, fmt=fmt_str)
+    with open("ellipsoid-final_location-epicardium.dat", "ab") as f:
+        np.savetxt(f, data_epi, fmt=fmt_str)
 except RuntimeError:
     pass

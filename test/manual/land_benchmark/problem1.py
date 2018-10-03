@@ -126,14 +126,22 @@ solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)
+disp_dof = problem.displacement.function_space().dim()
 if rank == 0:
-    print("DOF(u) = ", problem.displacement.function_space().dim())
+    print("DOF(u) = ", disp_dof)
 
 import numpy as np
 vals = np.zeros(3)
 x = np.array([10., 0.5, 1.])
 try:
     problem.displacement.eval(vals, x)
-    print("(rank %i) vals + x = " % rank, vals + x)
+    if rank == 0:
+        print("(rank %i) vals = " % rank, vals)
+        print("(rank %i) vals + x = " % rank, vals + x)
+
+    final_position = x + vals
+    data = np.hstack((disp_dof, x+vals)).reshape([1, -1])
+    with open("beam-final_location.dat", "ab") as f:
+        np.savetxt(f, data, fmt=("%i", "%f", "%f", "%f"))
 except RuntimeError:
     pass
