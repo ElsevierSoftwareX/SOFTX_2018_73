@@ -138,13 +138,15 @@ vals = np.zeros(3)
 x = np.array([10., 0.5, 1.])
 try:
     problem.displacement.eval(vals, x)
-    if rank == 0:
-        print("(rank %i) vals = " % rank, vals)
-        print("(rank %i) vals + x = " % rank, vals + x)
+    write_to_file = True
+except RuntimeError:
+    write_to_file = False
+
+if write_to_file:
+    print("(rank %i) vals = " % rank, vals)
+    print("(rank %i) vals + x = " % rank, vals + x)
 
     final_position = x + vals
     data = np.hstack((disp_dof, x+vals)).reshape([1, -1])
     with open("beam-final_location.dat", "ab") as f:
         np.savetxt(f, data, fmt=("%i", "%f", "%f", "%f"))
-except RuntimeError:
-    pass
