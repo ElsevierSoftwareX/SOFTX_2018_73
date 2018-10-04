@@ -901,6 +901,11 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
             _write_objects(f_objs, t=None, close=False, v=v, p=p)
 
+        if self._file_hdf5 is not None:
+            self._file_hdf5.close()
+        if self._file_xdmf is not None:
+            self._file_xdmf.close()
+
         return None
 
 

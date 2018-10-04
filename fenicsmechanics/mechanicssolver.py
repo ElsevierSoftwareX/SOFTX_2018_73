@@ -150,6 +150,11 @@ class MechanicsBlockSolver(object):
             if self._file_xdmf is not None:
                 _write_objects(self._file_xdmf, t=t, close=False, u=u, p=p)
 
+        if self._file_hdf5 is not None:
+            self._file_hdf5.close()
+        if self._file_xdmf is not None:
+            self._file_xdmf.close()
+
         return None
 
 

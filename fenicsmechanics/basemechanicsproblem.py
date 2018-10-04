@@ -4,13 +4,14 @@ import re
 import ufl
 import dolfin as dlf
 
-from .utils import load_mesh, load_mesh_function, _read_write_hdf5
+from .utils import load_mesh, load_mesh_function, \
+    _read_write_hdf5, _create_file_objects
 from .__CONSTANTS__ import dict_implemented as _implemented
 from .exceptions import *
 from .dolfincompat import MPI_COMM_WORLD
 from inspect import isclass
 
-__all__ = ['BaseMechanicsProblem']
+__all__ = ['BaseMechanicsProblem', 'BaseMechanicsSolver']
 
 
 class BaseMechanicsProblem(object):
@@ -1476,6 +1477,102 @@ class BaseMechanicsProblem(object):
             function0.assign(init_value)
 
         return None
+
+
+class BaseMechanicsSolver(dlf.NonlinearVariationalSolver):
+    """
+    This is the base class for mechanics solvers making use of the FEniCS
+    mixed function space functionality. Methods common to all mechanics
+    solvers are defined here.
+
+
+    """
+    def __init__(self, problem, fname_pressure=None,
+                 fname_hdf5=None, fname_xdmf=None):
+
+        if problem.class_name != "MechanicsProblem":
+            bcs = list()
+            for val in problem.dirichlet_bcs.values():
+                bcs.extend(val)
+
+            dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
+                                                          bcs, J=problem.dG)
+            dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
+
+        # Create file objects for displacement, velocity, and pressure.
+        # This keeps the counter from being reset each time the solve function
+        # is called. HDF5 and XDMF files are not opened since they can be
+        # appended to, and they must be closed when not in use.
+        self._file_pressure = _create_file_objects(fname_pressure)
+
+        self._problem = problem
+        self._fnames = dict(hdf5=fname_hdf5, xdmf=fname_xdmf,
+                            pressure=fname_pressure)
+
+        return None
+
+
+    def set_parameters(self, linear_solver='default',
+                       preconditioner='default',
+                       newton_abstol=1e-10,
+                       newton_reltol=1e-9,
+                       newton_maxIters=50,
+                       krylov_abstol=1e-8,
+                       krylov_reltol=1e-7,
+                       krylov_maxIters=50):
+        """
+        Set the parameters used by the NonlinearVariationalSolver.
+
+
+        Parameters
+        ----------
+
+        linear_solver : str
+            The name of linear solver to be used.
+        newton_abstol : float (default 1e-10)
+            Absolute tolerance used to terminate Newton's method.
+        newton_reltol : float (default 1e-9)
+            Relative tolerance used to terminate Newton's method.
+        newton_maxIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        krylov_abstol : float (default 1e-8)
+            Absolute tolerance used to terminate Krylov solver methods.
+        krylov_reltol : float (default 1e-7)
+            Relative tolerance used to terminate Krylov solver methods.
+        krylov_maxIters : int (default 50)
+            Maximum number of iterations for Krylov solver methods.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        param = self.parameters
+        param['newton_solver']['linear_solver'] = linear_solver
+        param['newton_solver']['preconditioner'] = preconditioner
+        param['newton_solver']['absolute_tolerance'] = newton_abstol
+        param['newton_solver']['relative_tolerance'] = newton_reltol
+        param['newton_solver']['maximum_iterations'] = newton_maxIters
+        param['newton_solver']['krylov_solver']['absolute_tolerance'] = krylov_abstol
+        param['newton_solver']['krylov_solver']['relative_tolerance'] = krylov_reltol
+        param['newton_solver']['krylov_solver']['maximum_iterations'] = krylov_maxIters
+
+        return None
+
+
+    def step(self):
+        """
+        Compute the solution for the next time step in the simulation. Note that
+        there is only one "step" if the simulation is steady.
+
+
+        """
+
+        return dlf.NonlinearVariationalSolver.solve(self)
 
 
 def _check_type(obj, valid_types, key):

@@ -4,7 +4,7 @@ import dolfin as dlf
 
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
-from .basemechanicsproblem import BaseMechanicsProblem
+from .basemechanicsproblem import BaseMechanicsProblem, BaseMechanicsSolver
 from .dolfincompat import MPI_COMM_WORLD
 
 from .dolfincompat import MPI_COMM_WORLD
@@ -737,7 +737,7 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         return pressure_bcs
 
 
-class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
+class SolidMechanicsSolver(BaseMechanicsSolver):
     """
     This class is derived from the dolfin.NonlinearVariationalSolver to
     solve problems formulated with SolidMechanicsProblem. It passes the
@@ -774,74 +774,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         """
 
-        self._problem = problem
-
-        bcs = list()
-        for val in problem.dirichlet_bcs.values():
-            bcs.extend(val)
-
-        dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_u,
-                                                      bcs, J=problem.dG)
-
-        dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
-
-        # Create file objects. This keeps the counter from being reset
-        # each time the solve function is called.
-        self._file_disp, self._file_pressure, self._file_hdf5, self._file_xdmf \
-            = _create_file_objects(fname_disp, fname_pressure,
-                                   fname_hdf5, fname_xdmf)
-
-        return None
-
-
-    def set_parameters(self, linear_solver='default',
-                       preconditioner='default',
-                       newton_abstol=1e-10,
-                       newton_reltol=1e-9,
-                       newton_maxIters=50,
-                       krylov_abstol=1e-8,
-                       krylov_reltol=1e-7,
-                       krylov_maxIters=50):
-        """
-        Set the parameters used by the NonlinearVariationalSolver.
-
-
-        Parameters
-        ----------
-
-        linear_solver : str
-            The name of linear solver to be used.
-        newton_abstol : float (default 1e-10)
-            Absolute tolerance used to terminate Newton's method.
-        newton_reltol : float (default 1e-9)
-            Relative tolerance used to terminate Newton's method.
-        newton_maxIters : int (default 50)
-            Maximum number of iterations for Newton's method.
-        krylov_abstol : float (default 1e-8)
-            Absolute tolerance used to terminate Krylov solver methods.
-        krylov_reltol : float (default 1e-7)
-            Relative tolerance used to terminate Krylov solver methods.
-        krylov_maxIters : int (default 50)
-            Maximum number of iterations for Krylov solver methods.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        param = self.parameters
-        param['newton_solver']['linear_solver'] = linear_solver
-        param['newton_solver']['preconditioner'] = preconditioner
-        param['newton_solver']['absolute_tolerance'] = newton_abstol
-        param['newton_solver']['relative_tolerance'] = newton_reltol
-        param['newton_solver']['maximum_iterations'] = newton_maxIters
-        param['newton_solver']['krylov_solver']['absolute_tolerance'] = krylov_abstol
-        param['newton_solver']['krylov_solver']['relative_tolerance'] = krylov_reltol
-        param['newton_solver']['krylov_solver']['maximum_iterations'] = krylov_maxIters
+        BaseMechanicsSolver.__init__(self, problem, fname_pressure=fname_pressure,
+                                     fname_hdf5=fname_hdf5, fname_xdmf=fname_xdmf)
+        self._fnames.update(disp=fname_disp)
+        self._file_disp = _create_file_objects(fname_disp)
 
         return None
 
@@ -880,6 +816,9 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
         u = problem.displacement
         f_objs = [self._file_pressure, self._file_disp]
 
+        f_hdf5, f_xdmf = _create_file_objects(self._fnames['hdf5'],
+                                              self._fnames['xdmf'])
+
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
             t0 = t
@@ -890,12 +829,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             # Save initial condition
             if save_initial:
                 _write_objects(f_objs, t=t, close=False, u=u, p=p)
-                if self._file_hdf5 is not None:
-                    _write_objects(self._file_hdf5, t=t,
-                                   close=False, u=u, p=p)
-                if self._file_xdmf is not None:
-                    _write_objects(self._file_xdmf, t=t,
-                                   close=False, u=u, p=p)
+                if f_hdf5 is not None:
+                    _write_objects(f_hdf5, t=t, close=False, u=u, p=p)
+                if f_xdmf is not None:
+                    _write_objects(f_xdmf, t=t, close=False, u=u, p=p)
 
             # Hack to avoid rounding errors.
             while t <= (tf - dt/10.0):
@@ -923,12 +860,10 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
                 # Save current time step
                 if not count % save_freq:
                     _write_objects(f_objs, t=t, close=False, u=u, p=p)
-                    if self._file_hdf5 is not None:
-                        _write_objects(self._file_hdf5, t=t,
-                                       close=False, u=u, p=p)
-                    if self._file_xdmf is not None:
-                        _write_objects(self._file_xdmf, t=t,
-                                       close=False, u=u, p=p)
+                    if f_hdf5 is not None:
+                        _write_objects(f_hdf5, t=t, close=False, u=u, p=p)
+                    if f_xdmf is not None:
+                        _write_objects(f_xdmf, t=t, close=False, u=u, p=p)
 
         else:
             self.step()
@@ -936,19 +871,15 @@ class SolidMechanicsSolver(dlf.NonlinearVariationalSolver):
             self.update_assign()
 
             _write_objects(f_objs, t=None, close=False, u=u, p=p)
+            if f_hdf5 is not None:
+                _write_objects(f_hdf5, t=None, close=False, u=u, p=p)
+            if f_xdmf is not None:
+                _write_objects(f_xdmf, t=None, close=False, u=u, p=p)
 
-        return None
-
-
-    def step(self):
-        """
-        Compute the solution for the next time step in the simulation. Note that
-        there is only one "step" if the simulation is steady.
-
-
-        """
-
-        self.solve()
+        if f_hdf5 is not None:
+            f_hdf5.close()
+        if f_xdmf is not None:
+            f_xdmf.close()
 
         return None
 
