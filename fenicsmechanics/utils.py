@@ -272,7 +272,10 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
 
         a = list(kwargs.values())[0]
         if t is not None:
-            f_objects << (a, t)
+            try:
+                f_objects << (a, t)
+            except RuntimeError:
+                f_objects << a
         else:
             f_objects << a
     elif hasattr(f_objects, "__iter__") \
