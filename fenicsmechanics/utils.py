@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import dolfin as dlf
-from .dolfincompat import MPI_COMM_WORLD
 
 from .exceptions import *
 from .dolfincompat import MPI_COMM_WORLD
@@ -398,23 +397,32 @@ def _create_file_objects(*fnames):
     """
 
     splits = map(_splitext, fnames)
-    exts = [a[-1] for a in splits]
+    base_names = list()
+    exts = list()
+    for bname, ext in splits:
+        base_names.append(bname)
+        exts.append(ext)
 
     dlf_file_objs = [".bin", ".raw", ".svg", ".xd3",
-                     ".xml", ".xml.gz", ".xyz", ".pvd"]
+                     ".xml", ".gz", ".xyz", ".pvd"]
 
     f_objects = list()
-    for name, ext in zip(fnames, exts):
+    for bname, fname, ext in zip(base_names, fnames, exts):
         if ext in dlf_file_objs:
-            f = dlf.File(name)
+            if ext == ".gz":
+                _, sub_ext = _splitext(bname)
+                if sub_ext != ".xml":
+                    raise ValueError("Files with extension '%s' are not supported." \
+                                     % (sub_ext + ext))
+            f = dlf.File(fname)
         elif ext == ".h5":
             # Try "append" mode in case file already exists.
             try:
-                f = dlf.HDF5File(MPI_COMM_WORLD, name, "a")
+                f = dlf.HDF5File(MPI_COMM_WORLD, fname, "a")
             except RuntimeError:
-                f = dlf.HDF5File(MPI_COMM_WORLD, name, "w")
+                f = dlf.HDF5File(MPI_COMM_WORLD, fname, "w")
         elif ext == ".xdmf":
-            f = dlf.XDMFFile(MPI_COMM_WORLD, name)
+            f = dlf.XDMFFile(MPI_COMM_WORLD, fname)
         elif ext is None:
             f = None
         else:
