@@ -119,12 +119,22 @@ config = {'mesh': mesh, 'material': material, 'formulation': formulation}
 if args.incompressible:
     fname_disp = "results/displacement-incompressible.pvd"
     fname_pressure = "results/pressure.pvd"
+    fname_hdf5 = "results/beam-incompressible.h5"
+    fname_xdmf = "results/beam-incompressible-viz.xdmf"
 else:
     fname_disp = "results/displacement.pvd"
     fname_pressure = None
+    fname_hdf5 = "results/beam.h5"
+    fname_xdmf = "results/beam-viz.xdmf"
+fname_disp = None
+fname_pressure = None
+fname_hdf5 = None
+# fname_xdmf = None
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
-                                 fname_pressure=fname_pressure)
+                                 fname_pressure=fname_pressure,
+                                 fname_hdf5=fname_hdf5,
+                                 fname_xdmf=fname_xdmf)
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)
