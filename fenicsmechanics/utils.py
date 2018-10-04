@@ -400,7 +400,8 @@ def _create_file_objects(*fnames):
     splits = map(_splitext, fnames)
     exts = [a[-1] for a in splits]
 
-    dlf_file_objs = [".bin", ".raw", ".svg", ".xd3", ".xml", ".xyz", ".pvd"]
+    dlf_file_objs = [".bin", ".raw", ".svg", ".xd3",
+                     ".xml", ".xml.gz", ".xyz", ".pvd"]
 
     f_objects = list()
     for name, ext in zip(fnames, exts):
