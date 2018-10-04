@@ -816,8 +816,20 @@ class SolidMechanicsSolver(BaseMechanicsSolver):
         u = problem.displacement
         f_objs = [self._file_pressure, self._file_disp]
 
-        f_hdf5, f_xdmf = _create_file_objects(self._fnames['hdf5'],
-                                              self._fnames['xdmf'])
+        # Creating HDF5 and XDMF files within here instead of using helper
+        # functions from utils.
+        if self._fnames['hdf5'] is not None:
+            if os.path.isfile(self._fnames['hdf5']):
+                mode = "a"
+            else:
+                mode = "w"
+            f_hdf5 = dlf.HDF5File(MPI_COMM_WORLD, self._fnames['hdf5'], mode)
+        else:
+            f_hdf5 = None
+        if self._fnames['xdmf'] is not None:
+            f_xdmf = dlf.XDMFFile(MPI_COMM_WORLD, self._fnames['xdmf'])
+        else:
+            f_xdmf = None
 
         if problem.config['formulation']['time']['unsteady']:
             t, tf = problem.config['formulation']['time']['interval']
@@ -830,9 +842,11 @@ class SolidMechanicsSolver(BaseMechanicsSolver):
             if save_initial:
                 _write_objects(f_objs, t=t, close=False, u=u, p=p)
                 if f_hdf5 is not None:
-                    _write_objects(f_hdf5, t=t, close=False, u=u, p=p)
+                    f_hdf5.write(u, "u", t)
+                    if (p is not None) and (p != 0):
+                        f_hdf5.write(p, "p", t)
                 if f_xdmf is not None:
-                    _write_objects(f_xdmf, t=t, close=False, u=u, p=p)
+                    f_xdmf.write(u, t)
 
             # Hack to avoid rounding errors.
             while t <= (tf - dt/10.0):
@@ -861,9 +875,11 @@ class SolidMechanicsSolver(BaseMechanicsSolver):
                 if not count % save_freq:
                     _write_objects(f_objs, t=t, close=False, u=u, p=p)
                     if f_hdf5 is not None:
-                        _write_objects(f_hdf5, t=t, close=False, u=u, p=p)
+                        f_hdf5.write(u, "u", t)
+                        if (p is not None) and (p != 0):
+                            f_hdf5.write(p, "p", t)
                     if f_xdmf is not None:
-                        _write_objects(f_xdmf, t=t, close=False, u=u, p=p)
+                        f_xdmf.write(u, t)
 
         else:
             self.step()
@@ -872,9 +888,11 @@ class SolidMechanicsSolver(BaseMechanicsSolver):
 
             _write_objects(f_objs, t=None, close=False, u=u, p=p)
             if f_hdf5 is not None:
-                _write_objects(f_hdf5, t=None, close=False, u=u, p=p)
+                f_hdf5.write(u, "u")
+                if (p is not None) and (p != 0):
+                    f_hdf5.write(p, "p")
             if f_xdmf is not None:
-                _write_objects(f_xdmf, t=None, close=False, u=u, p=p)
+                f_xdmf.write(u)
 
         if f_hdf5 is not None:
             f_hdf5.close()
