@@ -4,7 +4,7 @@ import dolfin as dlf
 
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
-from .basemechanicsproblem import BaseMechanicsProblem, BaseMechanicsSolver
+from .basemechanics import BaseMechanicsProblem, BaseMechanicsSolver
 from .dolfincompat import MPI_COMM_WORLD
 
 from .dolfincompat import MPI_COMM_WORLD
@@ -774,130 +774,11 @@ class SolidMechanicsSolver(BaseMechanicsSolver):
 
         """
 
+        BaseMechanicsSolver.class_name = "SolidMechanicsSolver"
         BaseMechanicsSolver.__init__(self, problem, fname_pressure=fname_pressure,
                                      fname_hdf5=fname_hdf5, fname_xdmf=fname_xdmf)
         self._fnames.update(disp=fname_disp)
         self._file_disp = _create_file_objects(fname_disp)
-
-        return None
-
-
-    def full_solve(self, save_freq=1, save_initial=True):
-        """
-        Solve the mechanics problem defined by SolidMechanicsProblem. If the
-        problem is unsteady, this function will loop through the entire time
-        interval using the parameters provided for the Newmark integration
-        scheme.
-
-
-        Parameters
-        ----------
-
-        save_freq : int (default 1)
-            The frequency at which the solution is to be saved if the problem is
-            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
-            every 10 time steps.
-        save_initial : bool (default True)
-            True if the user wishes to save the initial condition and False otherwise.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        problem = self._problem
-        rank = dlf.MPI.rank(MPI_COMM_WORLD)
-
-        p = problem.pressure
-        u = problem.displacement
-        f_objs = [self._file_pressure, self._file_disp]
-
-        # Creating HDF5 and XDMF files within here instead of using helper
-        # functions from utils.
-        if self._fnames['hdf5'] is not None:
-            if os.path.isfile(self._fnames['hdf5']):
-                mode = "a"
-            else:
-                mode = "w"
-            f_hdf5 = dlf.HDF5File(MPI_COMM_WORLD, self._fnames['hdf5'], mode)
-        else:
-            f_hdf5 = None
-        if self._fnames['xdmf'] is not None:
-            f_xdmf = dlf.XDMFFile(MPI_COMM_WORLD, self._fnames['xdmf'])
-        else:
-            f_xdmf = None
-
-        if problem.config['formulation']['time']['unsteady']:
-            t, tf = problem.config['formulation']['time']['interval']
-            t0 = t
-
-            dt = problem.config['formulation']['time']['dt']
-            count = 0 # Used to check if files should be saved.
-
-            # Save initial condition
-            if save_initial:
-                _write_objects(f_objs, t=t, close=False, u=u, p=p)
-                if f_hdf5 is not None:
-                    f_hdf5.write(u, "u", t)
-                    if (p is not None) and (p != 0):
-                        f_hdf5.write(p, "p", t)
-                if f_xdmf is not None:
-                    f_xdmf.write(u, t)
-
-            # Hack to avoid rounding errors.
-            while t <= (tf - dt/10.0):
-
-                # Advance the time.
-                t += dt
-
-                # Update expressions that depend on time.
-                problem.update_time(t, t0)
-
-                # Print the current time.
-                if not rank:
-                    print('*'*30)
-                    print('t = %3.6f' % t)
-
-                # Solver current time step.
-                self.step()
-
-                # Assign and update all vectors.
-                self.update_assign()
-
-                t0 = t
-                count += 1
-
-                # Save current time step
-                if not count % save_freq:
-                    _write_objects(f_objs, t=t, close=False, u=u, p=p)
-                    if f_hdf5 is not None:
-                        f_hdf5.write(u, "u", t)
-                        if (p is not None) and (p != 0):
-                            f_hdf5.write(p, "p", t)
-                    if f_xdmf is not None:
-                        f_xdmf.write(u, t)
-
-        else:
-            self.step()
-
-            self.update_assign()
-
-            _write_objects(f_objs, t=None, close=False, u=u, p=p)
-            if f_hdf5 is not None:
-                f_hdf5.write(u, "u")
-                if (p is not None) and (p != 0):
-                    f_hdf5.write(p, "p")
-            if f_xdmf is not None:
-                f_xdmf.write(u)
-
-        if f_hdf5 is not None:
-            f_hdf5.close()
-        if f_xdmf is not None:
-            f_xdmf.close()
 
         return None
 

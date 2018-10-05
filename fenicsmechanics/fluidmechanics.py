@@ -4,7 +4,7 @@ import dolfin as dlf
 
 from . import materials
 from .utils import duplicate_expressions, _create_file_objects, _write_objects
-from .basemechanicsproblem import BaseMechanicsProblem
+from .basemechanics import BaseMechanicsProblem, BaseMechanicsSolver
 from .dolfincompat import MPI_COMM_WORLD
 
 from .dolfincompat import MPI_COMM_WORLD
@@ -702,7 +702,7 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         return pressure_bcs
 
 
-class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
+class FluidMechanicsSolver(BaseMechanicsSolver):
     """
     This class is derived from the dolfin.NonlinearVariationalSolver to
     solve problems formulated with FluidMechanicsProblem. It passes the
@@ -720,12 +720,12 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
     def __init__(self, problem, fname_vel=None,
                  fname_pressure=None, fname_hdf5=None, fname_xdmf=None):
         """
-        Initialize a SolidMechanicsSolver object.
+        Initialize a FluidMechanicsSolver object.
 
         Parameters
         ----------
 
-        problem : SolidMechanicsProblem
+        problem : FluidMechanicsProblem
             A SolidMechanicsProblem object that contains the necessary UFL
             forms to define and solve the problem specified in a config
             dictionary.
@@ -739,185 +739,11 @@ class FluidMechanicsSolver(dlf.NonlinearVariationalSolver):
 
         """
 
-        self._problem = problem
-
-        bcs = list()
-        for val in problem.dirichlet_bcs.values():
-            bcs.extend(val)
-
-        dlf_problem = dlf.NonlinearVariationalProblem(problem.G, problem.sys_v,
-                                                      bcs, J=problem.dG)
-
-        dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
-
-        # Create file objects. This keeps the counter from being reset
-        # each time the solve function is called.
-        self._file_vel, self._file_pressure, self._file_hdf5, self._file_xdmf \
-            = _create_file_objects(fname_vel, fname_pressure,
-                                   fname_hdf5, fname_xdmf)
-
-        return None
-
-
-    def set_parameters(self, linear_solver='default',
-                       preconditioner='default',
-                       newton_abstol=1e-10,
-                       newton_reltol=1e-9,
-                       newton_maxIters=50,
-                       krylov_abstol=1e-8,
-                       krylov_reltol=1e-7,
-                       krylov_maxIters=50):
-        """
-        Set the parameters used by the NonlinearVariationalSolver.
-
-
-        Parameters
-        ----------
-
-        linear_solver : str
-            The name of linear solver to be used.
-        newton_abstol : float (default 1e-10)
-            Absolute tolerance used to terminate Newton's method.
-        newton_reltol : float (default 1e-9)
-            Relative tolerance used to terminate Newton's method.
-        newton_maxIters : int (default 50)
-            Maximum number of iterations for Newton's method.
-        krylov_abstol : float (default 1e-8)
-            Absolute tolerance used to terminate Krylov solver methods.
-        krylov_reltol : float (default 1e-7)
-            Relative tolerance used to terminate Krylov solver methods.
-        krylov_maxIters : int (default 50)
-            Maximum number of iterations for Krylov solver methods.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        param = self.parameters
-        param['newton_solver']['linear_solver'] = linear_solver
-        param['newton_solver']['preconditioner'] = preconditioner
-        param['newton_solver']['absolute_tolerance'] = newton_abstol
-        param['newton_solver']['relative_tolerance'] = newton_reltol
-        param['newton_solver']['maximum_iterations'] = newton_maxIters
-        param['newton_solver']['krylov_solver']['absolute_tolerance'] = krylov_abstol
-        param['newton_solver']['krylov_solver']['relative_tolerance'] = krylov_reltol
-        param['newton_solver']['krylov_solver']['maximum_iterations'] = krylov_maxIters
-
-        return None
-
-
-    def full_solve(self, save_freq=1, save_initial=True):
-        """
-        Solve the mechanics problem defined by FluidMechanicsProblem. If the
-        problem is unsteady, this function will loop through the entire time
-        interval using a single step finite difference scheme.
-
-
-        Parameters
-        ----------
-
-        save_freq : int (default 1)
-            The frequency at which the solution is to be saved if the problem is
-            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
-            every 10 time steps.
-        save_initial : bool (default True)
-            True if the user wishes to save the initial condition and False otherwise.
-
-
-        Returns
-        -------
-
-        None
-
-
-        """
-
-        problem = self._problem
-        rank = dlf.MPI.rank(MPI_COMM_WORLD)
-
-        p = problem.pressure
-        v = problem.velocity
-        f_objs = [self._file_pressure, self._file_vel]
-
-        if problem.config['formulation']['time']['unsteady']:
-            t, tf = problem.config['formulation']['time']['interval']
-            t0 = t
-
-            dt = problem.config['formulation']['time']['dt']
-            count = 0 # Used to check if files should be saved.
-
-            # Save initial condition
-            if save_initial:
-                _write_objects(f_objs, t=t, close=False, v=v, p=p)
-                if self._file_hdf5 is not None:
-                    _write_objects(self._file_hdf5, t=t,
-                                   close=False, v=v, p=p)
-                if self._file_xdmf is not None:
-                    _write_objects(self._file_xdmf, t=t,
-                                   close=False, v=v, p=p)
-
-            # Hack to avoid rounding errors.
-            while t <= (tf - dt/10.0):
-
-                # Advance the time.
-                t += dt
-
-                # Update expressions that depend on time.
-                problem.update_time(t, t0)
-
-                # Print the current time.
-                if not rank:
-                    print('*'*30)
-                    print('t = %3.6f' % t)
-
-                # Solver current time step.
-                self.step()
-
-                # Assign and update all vectors.
-                self.update_assign()
-
-                t0 = t
-                count += 1
-
-                # Save current time step
-                if not count % save_freq:
-                    _write_objects(f_objs, t=t, close=False, v=v, p=p)
-                    if self._file_hdf5 is not None:
-                        _write_objects(self._file_hdf5, t=t,
-                                       close=False, v=v, p=p)
-                    if self._file_xdmf is not None:
-                        _write_objects(self._file_xdmf, t=t,
-                                       close=False, v=v, p=p)
-
-        else:
-            self.step()
-
-            self.update_assign()
-
-            _write_objects(f_objs, t=None, close=False, v=v, p=p)
-
-        if self._file_hdf5 is not None:
-            self._file_hdf5.close()
-        if self._file_xdmf is not None:
-            self._file_xdmf.close()
-
-        return None
-
-
-    def step(self):
-        """
-        Compute the solution for the next time step in the simulation. Note that
-        there is only one "step" if the simulation is steady.
-
-
-        """
-
-        self.solve()
+        BaseMechanicsSolver.class_name = "FluidMechanicsSolver"
+        BaseMechanicsSolver.__init__(self, problem, fname_pressure=fname_pressure,
+                                     fname_hdf5=fname_hdf5, fname_xdmf=fname_xdmf)
+        self._fnames.update(vel=fname_vel)
+        self._file_vel = _create_file_objects(fname_vel)
 
         return None
 
