@@ -264,7 +264,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         _read_write_hdf5("a", f_objects, t=t, close=close, **kwargs)
     elif isinstance(f_objects, dlf.XDMFFile):
         # Save all objects to same XDMF file if only one file object is given.
-        _write_xdmf(f_objects, kwargs.values(), tspan=t)
+        _write_xdmf(f_objects, kwargs.values(), tspan=t, close=close)
     elif isinstance(f_objects, dlf.File):
         # Save through the dolfin.File class. Only one object can be saved.
         if len(kwargs) != 1:
@@ -356,7 +356,7 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
     return None
 
 
-def _write_xdmf(fname, args, tspan=None):
+def _write_xdmf(fname, args, tspan=None, close=False):
     """
 
 
@@ -389,6 +389,9 @@ def _write_xdmf(fname, args, tspan=None):
     else:
         for a in args:
             f.write(a)
+
+    if close:
+        f.close()
 
     return None
 
@@ -432,6 +435,8 @@ def _create_file_objects(*fnames):
             raise ValueError("Files with extension '%s' are not supported." % ext)
         f_objects.append(f)
 
+    if len(f_objects) == 1:
+        f_objects, = f_objects
     return f_objects
 
 

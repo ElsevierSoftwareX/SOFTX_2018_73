@@ -121,10 +121,12 @@ if args.incompressible:
 else:
     fname_disp = "results/beam-displacement.xml.gz"
     fname_pressure = None
-    fname_xdmf = "results/beam.xdmf"
+    fname_hdf5 = "results/beam.h5"
+    fname_xdmf = "results/beam-viz.xdmf"
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure,
+                                 fname_hdf5=fname_hdf5,
                                  fname_xdmf=fname_xdmf)
 solver.full_solve()
 

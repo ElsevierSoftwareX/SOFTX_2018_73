@@ -1,19 +1,31 @@
 from __future__ import print_function
 
+import os
 import re
 import ufl
 import dolfin as dlf
 
-from .utils import load_mesh, load_mesh_function, _read_write_hdf5
+from .utils import load_mesh, load_mesh_function, \
+    _create_file_objects, _write_objects
 from .__CONSTANTS__ import dict_implemented as _implemented
 from .exceptions import *
 from .dolfincompat import MPI_COMM_WORLD
 from inspect import isclass
 
-__all__ = ['BaseMechanicsProblem']
+__all__ = ['BaseMechanicsProblem', 'BaseMechanicsSolver']
 
 
-class BaseMechanicsProblem(object):
+class BaseMechanicsObject(object):
+    @property
+    def class_name(self):
+        return self._class_name
+
+    @class_name.setter
+    def class_name(self, name):
+        self._class_name = name
+
+
+class BaseMechanicsProblem(BaseMechanicsObject):
     """
     This is the base class for mechanics problems. Checking validity of the
     'config' dictionary provided by users is done at this level since all
@@ -1476,6 +1488,247 @@ class BaseMechanicsProblem(object):
             function0.assign(init_value)
 
         return None
+
+
+class BaseMechanicsSolver(dlf.NonlinearVariationalSolver, BaseMechanicsObject):
+    """
+    This is the base class for mechanics solvers making use of the FEniCS
+    mixed function space functionality. Methods common to all mechanics
+    solvers are defined here.
+
+
+    """
+    def __init__(self, problem, fname_pressure=None,
+                 fname_hdf5=None, fname_xdmf=None):
+
+        if self.class_name != "MechanicsSolver":
+            bcs = list()
+            for val in problem.dirichlet_bcs.values():
+                bcs.extend(val)
+
+            if self.class_name == "SolidMechanicsSolver":
+                state = problem.sys_u
+            else:
+                state = problem.sys_v
+
+            dlf_problem = dlf.NonlinearVariationalProblem(problem.G, state,
+                                                          bcs, J=problem.dG)
+            dlf.NonlinearVariationalSolver.__init__(self, dlf_problem)
+
+        # Create file object for pressure. This keeps the counter from being
+        # reset each time the solve function is called. HDF5 and XDMF files are
+        # not opened since they can be appended to, and they must be closed
+        # when not in use.
+        self._file_pressure = _create_file_objects(fname_pressure)
+
+        self._problem = problem
+        self._fnames = dict(hdf5=fname_hdf5, xdmf=fname_xdmf,
+                            pressure=fname_pressure)
+
+        return None
+
+
+    def set_parameters(self, linear_solver='default',
+                       preconditioner='default',
+                       newton_abstol=1e-10,
+                       newton_reltol=1e-9,
+                       newton_maxIters=50,
+                       krylov_abstol=1e-8,
+                       krylov_reltol=1e-7,
+                       krylov_maxIters=50):
+        """
+        Set the parameters used by the NonlinearVariationalSolver.
+
+
+        Parameters
+        ----------
+
+        linear_solver : str
+            The name of linear solver to be used.
+        newton_abstol : float (default 1e-10)
+            Absolute tolerance used to terminate Newton's method.
+        newton_reltol : float (default 1e-9)
+            Relative tolerance used to terminate Newton's method.
+        newton_maxIters : int (default 50)
+            Maximum number of iterations for Newton's method.
+        krylov_abstol : float (default 1e-8)
+            Absolute tolerance used to terminate Krylov solver methods.
+        krylov_reltol : float (default 1e-7)
+            Relative tolerance used to terminate Krylov solver methods.
+        krylov_maxIters : int (default 50)
+            Maximum number of iterations for Krylov solver methods.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        param = self.parameters
+        param['newton_solver']['linear_solver'] = linear_solver
+        param['newton_solver']['preconditioner'] = preconditioner
+        param['newton_solver']['absolute_tolerance'] = newton_abstol
+        param['newton_solver']['relative_tolerance'] = newton_reltol
+        param['newton_solver']['maximum_iterations'] = newton_maxIters
+        param['newton_solver']['krylov_solver']['absolute_tolerance'] = krylov_abstol
+        param['newton_solver']['krylov_solver']['relative_tolerance'] = krylov_reltol
+        param['newton_solver']['krylov_solver']['maximum_iterations'] = krylov_maxIters
+
+        return None
+
+
+    def full_solve(self, save_freq=1, save_initial=True):
+        """
+        Solve the mechanics problem defined by SolidMechanicsProblem. If the
+        problem is unsteady, this function will loop through the entire time
+        interval using the parameters provided for the Newmark integration
+        scheme.
+
+
+        Parameters
+        ----------
+
+        save_freq : int (default 1)
+            The frequency at which the solution is to be saved if the problem is
+            unsteady. E.g., save_freq = 10 if the user wishes to save the solution
+            every 10 time steps.
+        save_initial : bool (default True)
+            True if the user wishes to save the initial condition and False otherwise.
+
+
+        Returns
+        -------
+
+        None
+
+
+        """
+
+        problem = self._problem
+        rank = dlf.MPI.rank(MPI_COMM_WORLD)
+
+        p = problem.pressure
+        if self.class_name == "SolidMechanicsSolver":
+            vf_name = "u"
+            vector_field = problem.displacement
+            f_objs = [self._file_pressure, self._file_disp]
+        else:
+            vf_name = "v"
+            vector_field = problem.velocity
+            f_objs = [self._file_pressure, self._file_vel]
+        write_kwargs = {vf_name: vector_field, 'p': p}
+
+        # Creating HDF5 and XDMF files within here instead of using helper
+        # functions from utils.
+        if self._fnames['hdf5'] is not None:
+            if os.path.isfile(self._fnames['hdf5']):
+                mode = "a"
+            else:
+                mode = "w"
+            f_hdf5 = dlf.HDF5File(MPI_COMM_WORLD, self._fnames['hdf5'], mode)
+        else:
+            f_hdf5 = None
+
+        if self._fnames['xdmf'] is not None:
+            f_xdmf = dlf.XDMFFile(MPI_COMM_WORLD, self._fnames['xdmf'])
+        else:
+            f_xdmf = None
+
+        if problem.config['formulation']['time']['unsteady']:
+            t, tf = problem.config['formulation']['time']['interval']
+            t0 = t
+
+            dt = problem.config['formulation']['time']['dt']
+            count = 0 # Used to check if files should be saved.
+
+            # Save initial condition
+            if save_initial:
+                _write_objects(f_objs, t=t, close=False, **write_kwargs)
+                if f_hdf5 is not None:
+                    f_hdf5.write(vector_field, vf_name, t)
+                    if (p is not None) and (p != 0):
+                        f_hdf5.write(p, "p", t)
+                if f_xdmf is not None:
+                    f_xdmf.write(vector_field, t)
+
+            # Hack to avoid rounding errors.
+            while t <= (tf - dt/10.0):
+
+                # Advance the time.
+                t += dt
+
+                # Update expressions that depend on time.
+                problem.update_time(t, t0)
+
+                # Print the current time.
+                if not rank:
+                    print('*'*30)
+                    print('t = %3.6f' % t)
+
+                # Solver current time step.
+                self.step()
+
+                # Assign and update all vectors.
+                self.update_assign()
+
+                t0 = t
+                count += 1
+
+                # Save current time step
+                if not count % save_freq:
+                    _write_objects(f_objs, t=t, close=False, **write_kwargs)
+                    if f_hdf5 is not None:
+                        f_hdf5.write(vector_field, vf_name, t)
+                        if (p is not None) and (p != 0):
+                            f_hdf5.write(p, "p", t)
+                    if f_xdmf is not None:
+                        f_xdmf.write(vector_field, t)
+
+        else:
+            self.step()
+
+            self.update_assign()
+
+            _write_objects(f_objs, t=None, close=False, **write_kwargs)
+            if f_hdf5 is not None:
+                f_hdf5.write(vector_field, vf_name)
+                if (p is not None) and (p != 0):
+                    f_hdf5.write(p, "p")
+            if f_xdmf is not None:
+                f_xdmf.write(vector_field)
+
+        if f_hdf5 is not None:
+            f_hdf5.close()
+        if f_xdmf is not None:
+            f_xdmf.close()
+
+        return None
+
+
+    def step(self):
+        """
+        Compute the solution for the next time step in the simulation. Note that
+        there is only one "step" if the simulation is steady.
+
+
+        """
+
+        return dlf.NonlinearVariationalSolver.solve(self)
+
+
+    def update_assign(self):
+        """
+        This method is meant to update the state of the system and assign to
+        the proper dolfin.Function objects. It is to be overwritten by the
+        specific solver object, and hence will raise an exception at this
+        level.
+
+        """
+        msg = "This method must be overwritten by specific solver classes."
+        raise NotImplementedError(msg)
 
 
 def _check_type(obj, valid_types, key):
