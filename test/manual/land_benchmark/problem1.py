@@ -1,6 +1,9 @@
 import os
 import sys
 import argparse
+
+from mpi4py import MPI
+
 import dolfin as dlf
 import fenicsmechanics as fm
 from fenicsmechanics.dolfincompat import MPI_COMM_WORLD

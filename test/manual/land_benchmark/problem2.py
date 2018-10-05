@@ -1,6 +1,9 @@
 import os
 import sys
 import argparse
+
+from mpi4py import MPI
+
 import dolfin as dlf
 import fenicsmechanics as fm
 from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
@@ -109,11 +112,13 @@ config = {
 if args.incompressible:
     fname_disp = "results/ellipsoid-displacement-incompressible.xml.gz"
     fname_pressure = "results/ellipsoid-pressure.xml.gz"
-    fname_xdmf = "results/ellipsoid-incompressible.xdmf"
+    fname_hdf5 = "results/ellipsoid-incompressible.h5"
+    fname_xdmf = "results/ellipsoid-incompressible-viz.xdmf"
 else:
     fname_disp = "results/ellipsoid-displacement.xml.gz"
     fname_pressure = None
-    fname_xdmf = "results/ellipsoid.xdmf"
+    fname_hdf5 = "results/ellipsoid.h5"
+    fname_xdmf = "results/ellipsoid-viz.xdmf"
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure,
@@ -131,22 +136,24 @@ disp_endo = np.zeros(3)
 disp_epi = np.zeros(3)
 x_endocardium = np.array([0., 0., -17.])
 x_epicardium = np.array([0., 0., -20.])
-try:
-    problem.displacement.eval(disp_endo, x_endocardium)
-    problem.displacement.eval(disp_epi, x_epicardium)
-    final_endo = x_endocardium + disp_endo
-    final_epi = x_epicardium + disp_epi
-    if rank == 0:
-        print("(rank %i, endocardium) disp = " % rank, disp_endo)
-        print("(rank %i, endocardium) x + disp = " % rank, final_endo)
-        print("(rank %i, epicardium) disp = " % rank, disp_epi)
-        print("(rank %i, epicardium) x + disp = " % rank, final_epi)
-    data_endo = np.hstack((disp_dof, final_endo)).reshape([1, -1])
-    data_epi = np.hstack((disp_dof, final_epi)).reshape([1, -1])
-    fmt_str = ("%i", "%f", "%f", "%f")
-    with open("ellipsoid-final_location-endocardium.dat", "ab") as f:
-        np.savetxt(f, data_endo, fmt=fmt_str)
-    with open("ellipsoid-final_location-epicardium.dat", "ab") as f:
-        np.savetxt(f, data_epi, fmt=fmt_str)
-except RuntimeError:
-    pass
+fmt_str = ("%i",) + ("%f",)*3
+
+def find_and_write_loc(vals, x, u, fname):
+    try:
+        u.eval(vals, x)
+        write_to_file = True
+    except RuntimeError:
+        write_to_file = False
+
+    if write_to_file:
+        final_vals = x + vals
+        print("(rank %i, %s) x + vals = %s" \
+              % (rank, str(tuple(x)), str(tuple(final_vals))))
+        data = np.hstack((disp_dof, final_vals)).reshape([1, -1])
+        with open(fname, "ab") as f:
+            np.savetxt(f, data, fmt=fmt_str)
+
+fname = "ellipsoid-final_location-%s.dat"
+u = problem.displacement
+find_and_write_loc(disp_endo, x_endocardium, u, fname % "endocardium")
+find_and_write_loc(disp_epi, x_epicardium, u, fname % "epicardium")
