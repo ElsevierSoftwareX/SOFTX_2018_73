@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import dolfin as dlf
-from .dolfincompat import MPI_COMM_WORLD
 
 from .exceptions import *
 from .dolfincompat import MPI_COMM_WORLD
@@ -265,7 +264,7 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
         _read_write_hdf5("a", f_objects, t=t, close=close, **kwargs)
     elif isinstance(f_objects, dlf.XDMFFile):
         # Save all objects to same XDMF file if only one file object is given.
-        _write_xdmf(f_objects, kwargs.values(), tspan=t)
+        _write_xdmf(f_objects, kwargs.values(), tspan=t, close=close)
     elif isinstance(f_objects, dlf.File):
         # Save through the dolfin.File class. Only one object can be saved.
         if len(kwargs) != 1:
@@ -273,7 +272,10 @@ def _write_objects(f_objects, t=None, close=False, **kwargs):
 
         a = list(kwargs.values())[0]
         if t is not None:
-            f_objects << (a, t)
+            try:
+                f_objects << (a, t)
+            except RuntimeError:
+                f_objects << a
         else:
             f_objects << a
     elif hasattr(f_objects, "__iter__") \
@@ -354,7 +356,7 @@ def _read_write_hdf5(mode, fname, t=None, close=False, **kwargs):
     return None
 
 
-def _write_xdmf(fname, args, tspan=None):
+def _write_xdmf(fname, args, tspan=None, close=False):
     """
 
 
@@ -388,6 +390,9 @@ def _write_xdmf(fname, args, tspan=None):
         for a in args:
             f.write(a)
 
+    if close:
+        f.close()
+
     return None
 
 
@@ -398,28 +403,40 @@ def _create_file_objects(*fnames):
     """
 
     splits = map(_splitext, fnames)
-    exts = [a[-1] for a in splits]
+    base_names = list()
+    exts = list()
+    for bname, ext in splits:
+        base_names.append(bname)
+        exts.append(ext)
 
-    dlf_file_objs = [".bin", ".raw", ".svg", ".xd3", ".xml", ".xyz", ".pvd"]
+    dlf_file_objs = [".bin", ".raw", ".svg", ".xd3",
+                     ".xml", ".gz", ".xyz", ".pvd"]
 
     f_objects = list()
-    for name, ext in zip(fnames, exts):
+    for bname, fname, ext in zip(base_names, fnames, exts):
         if ext in dlf_file_objs:
-            f = dlf.File(name)
+            if ext == ".gz":
+                _, sub_ext = _splitext(bname)
+                if sub_ext != ".xml":
+                    raise ValueError("Files with extension '%s' are not supported." \
+                                     % (sub_ext + ext))
+            f = dlf.File(fname)
         elif ext == ".h5":
             # Try "append" mode in case file already exists.
             try:
-                f = dlf.HDF5File(MPI_COMM_WORLD, name, "a")
+                f = dlf.HDF5File(MPI_COMM_WORLD, fname, "a")
             except RuntimeError:
-                f = dlf.HDF5File(MPI_COMM_WORLD, name, "w")
+                f = dlf.HDF5File(MPI_COMM_WORLD, fname, "w")
         elif ext == ".xdmf":
-            f = dlf.XDMFFile(MPI_COMM_WORLD, name)
+            f = dlf.XDMFFile(MPI_COMM_WORLD, fname)
         elif ext is None:
             f = None
         else:
             raise ValueError("Files with extension '%s' are not supported." % ext)
         f_objects.append(f)
 
+    if len(f_objects) == 1:
+        f_objects, = f_objects
     return f_objects
 
 

@@ -2,7 +2,7 @@ import dolfin as dlf
 
 from . import materials
 from .utils import duplicate_expressions
-from .basemechanicsproblem import BaseMechanicsProblem
+from .basemechanics import BaseMechanicsProblem
 from .exceptions import *
 
 from inspect import isclass
