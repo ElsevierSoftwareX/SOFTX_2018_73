@@ -13,10 +13,10 @@ Thus, the user should check that particular documentation.
 import dolfin as dlf
 import ufl
 
-from ..dolfincompat import MPI_COMM_WORLD
-
 from ..exceptions import *
 from ..dolfincompat import MPI_COMM_WORLD
+
+from .fiberutils import define_fiber_direction
 
 __all__ = ['ElasticMaterial', 'LinearIsoMaterial', 'NeoHookeMaterial',
            'DemirayMaterial', 'AnisotropicMaterial', 'FungMaterial',
@@ -1449,10 +1449,10 @@ class AnisotropicMaterial(ElasticMaterial):
 
         if 'element' in fiber_dict:
             element_type = fiber_dict['element']
-        elif 'element-wise' in fiber_dict:
+        elif 'elementwise' in fiber_dict:
             # Check if fibers are given element-wise (p0) or
             # node-wise (p1).
-            if fiber_dict['element-wise']:
+            if fiber_dict['elementwise']:
                 element_type = 'p0'
             else:
                 element_type = 'p1'
@@ -1461,20 +1461,18 @@ class AnisotropicMaterial(ElasticMaterial):
 
         # Element type should only be None if ufl.Coefficient objects
         # were already provided.
+        pd = None
         if element_type is not None:
             pd = int(element_type[-1])
-            if pd == 0:
-                function_space = dlf.VectorFunctionSpace(mesh, "DG", pd)
-            else:
-                function_space = dlf.VectorFunctionSpace(mesh, "CG", pd)
-        else:
-            function_space = None
 
-        self.define_fiber_directions(fiber_files, fiber_names,
-                                     function_space=function_space)
+        self.define_fiber_directions(fiber_files, fiber_names, mesh, pd=pd,
+                                     elementwise=fiber_dict['elementwise'])
+
+        return None
 
 
-    def define_fiber_directions(self, fiber_files, fiber_names, function_space=None):
+    def define_fiber_directions(self, fiber_files, fiber_names, mesh,
+                                pd=None, elementwise=False):
         """
         Load the fiber tangent vector fields from a given list of file names and
         add the function objects as member data under "_fiber_directions".
@@ -1503,53 +1501,15 @@ class AnisotropicMaterial(ElasticMaterial):
 
         self._fiber_directions = dict()
         key = 'e%i'
-
         if isinstance(fiber_files, str):
-            if fiber_files[-3:] == '.h5':
-                fbr = self.__load_fibers_hdf5(fiber_files, fiber_names, function_space)
-                self._fiber_directions.update(fbr)
-            else:
-                self._fiber_directions[key % 1] = dlf.Function(function_space, fiber_files,
-                                                               name=fiber_names)
-        elif isinstance(fiber_files, ufl.Coefficient):
-            fiber_files.rename(fiber_names, "Fiber direction")
-            self._fiber_directions[key % 1] = fiber_files
-        else:
-            if len(fiber_files) != len(fiber_names):
-                msg = "The number of files and fiber family names must be the same."
-                raise InconsistentCombination(msg)
+            fiber_files = [fiber_files]*len(fiber_names)
 
-            self._fiber_directions = dict()
-            for i,f in enumerate(fiber_files):
-                if isinstance(f, ufl.Coefficient):
-                    f.rename(fiber_names[i], "Fiber direction")
-                    self._fiber_directions[key % (i+1)] = f
-                    continue
+        for i, (fname, fib_name) in enumerate(zip(fiber_files, fiber_names)):
+            fiber_direction = define_fiber_direction(fname, fib_name, mesh, pd=pd,
+                                                     elementwise=elementwise)
+            self._fiber_directions[key % (i+1)] = fiber_direction
 
-                if f[-3:] == '.h5':
-                    fbr = self.__load_fibers_hdf5(f, fiber_names[i],
-                                                  function_space, key=key%(i+1))
-                    self._fiber_directions.update(fbr)
-                else:
-                    self._fiber_directions[key % (i+1)] = dlf.Function(function_space, f,
-                                                                       name=fiber_names[i])
-
-
-    @staticmethod
-    def __load_fibers_hdf5(fiber_file, fiber_names, function_space, key='e1'):
-        f = dlf.HDF5File(MPI_COMM_WORLD, fiber_file, 'r')
-        fiber_directions = dict()
-        if isinstance(fiber_names, str):
-            n = dlf.Function(function_space)
-            f.read(n, fiber_names)
-            fiber_directions[key] = n
-        else:
-            key = 'e%i'
-            for i,name in enumerate(fiber_names):
-                n = dlf.Function(function_space)
-                f.read(n, name)
-                fiber_directions[key % (i+1)] = n
-        return fiber_directions
+        return None
 
 
 class FungMaterial(AnisotropicMaterial):
@@ -2196,180 +2156,79 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
 
         return fs_vol + fs_isc
 
+
 # -----------------------------------------------------------------------------
 def convert_elastic_moduli(param, tol=1e8):
-        # original parameters
-        nu = param['nu']         # Poisson's ratio [-]
-        E = param['E']           # Young's modulus [kPa]
-        kappa = param['kappa']   # bulk modulus [kPa]
-        mu = param['mu']         # shear modulus (Lame's second parameter) [kPa]
-        la = param['la']         # Lame's first parameter [kPa]
-        inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
+    # original parameters
+    nu = param['nu']         # Poisson's ratio [-]
+    E = param['E']           # Young's modulus [kPa]
+    kappa = param['kappa']   # bulk modulus [kPa]
+    mu = param['mu']         # shear modulus (Lame's second parameter) [kPa]
+    la = param['la']         # Lame's first parameter [kPa]
+    inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
 
-        inf = float('inf')
-        if (kappa is not None and kappa > 0) \
-           and (mu is not None and mu > 0):
-            E = 9.*kappa*mu / (3.*kappa + mu)
-            nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
-            la = kappa - 2.*mu/3.
-            inv_la = 1.0/la
-        elif (la == inf or inv_la == 0.0) \
-             and (mu is not None and mu > 0):
-            kappa = inf
-            E = 3.0*mu
-            nu = 0.5
-            if la == inf:
-                inv_la = 0.0
-            else:
-                la = inf
-        elif (la is not None and la > 0) \
-             and (mu is not None and mu > 0):
-            E = mu*(3.*la + 2.*mu) / (la + mu)
-            kappa = la + 2.*mu / 3.
-            nu = la / (2.*(la + mu))
-            inv_la = 1.0/la
-        elif (inv_la is not None and inv_la > 0) \
-             and (mu is not None and mu > 0):
-            E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
-            kappa = 1.0/inv_la + 2.0*mu/3.0
-            nu = 1.0/(2.0*(1.0 + mu*inv_la))
-            la = 1.0/inv_la
-        elif (nu is not None and 0 < nu < 0.5) \
-             and (E is not None and E > 0):
-            kappa = E / (3.*(1 - 2.*nu))
-            mu = E / (2.*(1. + nu))
-            la = E*nu / ((1. + nu)*(1. - 2.*nu))
-            inv_la = 1.0/la
-        elif (nu is not None and nu == 0.5) \
-             and (E is not None and E > 0):
-            kappa = inf
-            mu = E/3.0
-            la = inf
+    inf = float('inf')
+    if (kappa is not None and kappa > 0) \
+       and (mu is not None and mu > 0):
+        E = 9.*kappa*mu / (3.*kappa + mu)
+        nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
+        la = kappa - 2.*mu/3.
+        inv_la = 1.0/la
+    elif (la == inf or inv_la == 0.0) \
+         and (mu is not None and mu > 0):
+        kappa = inf
+        E = 3.0*mu
+        nu = 0.5
+        if la == inf:
             inv_la = 0.0
         else:
-            raise RequiredParameter('Two material parameters must be specified.')
+            la = inf
+    elif (la is not None and la > 0) \
+         and (mu is not None and mu > 0):
+        E = mu*(3.*la + 2.*mu) / (la + mu)
+        kappa = la + 2.*mu / 3.
+        nu = la / (2.*(la + mu))
+        inv_la = 1.0/la
+    elif (inv_la is not None and inv_la > 0) \
+         and (mu is not None and mu > 0):
+        E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
+        kappa = 1.0/inv_la + 2.0*mu/3.0
+        nu = 1.0/(2.0*(1.0 + mu*inv_la))
+        la = 1.0/inv_la
+    elif (nu is not None and 0 < nu < 0.5) \
+         and (E is not None and E > 0):
+        kappa = E / (3.*(1 - 2.*nu))
+        mu = E / (2.*(1. + nu))
+        la = E*nu / ((1. + nu)*(1. - 2.*nu))
+        inv_la = 1.0/la
+    elif (nu is not None and nu == 0.5) \
+         and (E is not None and E > 0):
+        kappa = inf
+        mu = E/3.0
+        la = inf
+        inv_la = 0.0
+    else:
+        raise RequiredParameter('Two material parameters must be specified.')
 
-        s = 'Parameter %s was changed due to contradictory settings.'
-        if (param['E'] is not None) and (param['E'] != E):
-            print(s % 'E')
-        if (param['kappa'] is not None) and (param['kappa'] != kappa):
-            print(s % 'kappa')
-        if (param['la'] is not None) and (param['la'] != la):
-            print(s % 'la')
-        if (param['inv_la'] is not None) and (param['inv_la'] != inv_la):
-            print(s % 'inv_la')
-        if (param['mu'] is not None) and (param['mu'] != mu):
-            print(s % 'mu')
-        if (param['nu'] is not None) and (param['nu'] != nu):
-            print(s % 'nu')
+    s = 'Parameter %s was changed due to contradictory settings.'
+    if (param['E'] is not None) and (param['E'] != E):
+        print(s % 'E')
+    if (param['kappa'] is not None) and (param['kappa'] != kappa):
+        print(s % 'kappa')
+    if (param['la'] is not None) and (param['la'] != la):
+        print(s % 'la')
+    if (param['inv_la'] is not None) and (param['inv_la'] != inv_la):
+        print(s % 'inv_la')
+    if (param['mu'] is not None) and (param['mu'] != mu):
+        print(s % 'mu')
+    if (param['nu'] is not None) and (param['nu'] != nu):
+        print(s % 'nu')
 
-        param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
-        param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
-        param['kappa'] = dlf.Constant(kappa)   # bulk modulus [kPa]
-        param['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
-        param['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
-        param['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]
+    param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
+    param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
+    param['kappa'] = dlf.Constant(kappa)   # bulk modulus [kPa]
+    param['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
+    param['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
+    param['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]
 
-
-__fiber_directions_code__ = """
-
-class FiberDirections : public Expression
-{
-public:
-
-  // Create expression with 3 components
-  FiberDirections() : Expression(3) {}
-
-  // Function for evaluating expression on each cell
-  void eval(Array<double>& values, const Array<double>& x, const ufc::cell& cell) const
-  {
-    const uint D = cell.topological_dimension;
-    const uint cell_index = cell.index;
-    values[0] = (*f1)[cell_index];
-    values[1] = (*f2)[cell_index];
-    values[2] = (*f3)[cell_index];
-  }
-
-  // The data stored in mesh functions
-  std::shared_ptr<MeshFunction<double> > f1;
-  std::shared_ptr<MeshFunction<double> > f2;
-  std::shared_ptr<MeshFunction<double> > f3;
-
-};
-"""
-
-
-def load_fibers(fname, fiber_names, mesh):
-    """
-    Load the fiber vector fields from a given HDF5 file and create a
-    dolfin.MeshFunction.
-
-
-    Parameters
-    ----------
-
-    fname : str
-        The name of the file.
-    fiber_names : list, tuple, str
-        The names under which each fiber vector field was stored in
-        the given HDF5 file.
-    mesh : dolfin.Mesh
-        Mesh of the computational domain.
-
-
-    Returns
-    -------
-
-    fiber_mesh_function : dolfin.MeshFunction
-        Mesh function defining fiber directions object.
-
-
-    """
-
-    fiber_mesh_functions = list()
-    f = dlf.HDF5File(MPI_COMM_WORLD, fname, 'r')
-
-    for name in fiber_names:
-        fib = dlf.MeshFunction('double', mesh)
-        f.read(fib, name)
-        fiber_mesh_functions.append(fib)
-    f.close()
-
-    return fiber_mesh_functions
-
-
-def define_fiber_dir(fname, fiber_names, mesh, degree=0):
-    """
-    Define the fiber directions given the file in which they are stored,
-    their names, and the mesh of the computational domain.
-
-
-    Parameters
-    ----------
-
-    fname : str
-        The name of the file.
-    fiber_names : list, tuple, str
-        The names under which each fiber vector field was stored in
-        the given HDF5 file.
-    mesh : dolfin.Mesh
-        Mesh of the computational domain.
-    degree : int
-        The polynomial degree used to approximate the fiber vector fields.
-
-
-    Returns
-    -------
-
-    c : ufl.Coefficient
-        Representation of the fiber vector fields.
-
-
-    """
-
-    fibers = load_fibers(fname, fiber_names, mesh)
-    c = dlf.Expression(cppcode=__fiber_directions_code__,
-                       degree=degree)
-    c.f1, c.f2, c.f3 = fibers
-
-    return dlf.as_vector((c[0], c[1], c[2]))
+    return None
