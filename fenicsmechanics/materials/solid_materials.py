@@ -1408,7 +1408,7 @@ class AnisotropicMaterial(ElasticMaterial):
     subdictionary within 'material' named 'fibers' with the values listed below.
 
     Note: all classes that are derived from this one require the :code:`'fibers'`
-    subdictionary.
+    subdictionary. The following parameters should be included in this dictionary:
 
 
     Parameters
@@ -1419,9 +1419,15 @@ class AnisotropicMaterial(ElasticMaterial):
         ufl.Coefficient objects approximating the vector field.
     'fiber_names' : str, list, tuple
         A name, or list of names, of all of the fiber direction fields.
-    'function_space' : dolfin.FunctionSpace
-        The function space used to approximate the vector fields tangent
-        to the fiber directions.
+    'elementwise' : bool (default False)
+        Set to True if the vector field is constant in each cell. Furthermore,
+        setting this to True assumes that the data is stored as a set of mesh
+        functions. These mesh functions are then converted to 'p0' scalar-valued
+        functions, and then assigned to the components of a vector-valued
+        function.
+    'element': str (default None)
+        Specify the finite element used to approximate the vector field that
+        describes the fiber directions.
 
 
     """
@@ -1449,6 +1455,7 @@ class AnisotropicMaterial(ElasticMaterial):
 
         if 'element' in fiber_dict:
             element_type = fiber_dict['element']
+            fiber_dict['elementwise'] = False
         elif 'elementwise' in fiber_dict:
             # Check if fibers are given element-wise (p0) or
             # node-wise (p1).
@@ -1457,7 +1464,8 @@ class AnisotropicMaterial(ElasticMaterial):
             else:
                 element_type = 'p1'
         else:
-            raise KeyError(msg % '{element-wise,element}')
+            fiber_dict['element'] = element_type = None
+            fiber_dict['elementwise'] = False
 
         # Element type should only be None if ufl.Coefficient objects
         # were already provided.
@@ -1486,9 +1494,21 @@ class AnisotropicMaterial(ElasticMaterial):
             ufl.Coefficient objects approximating the vector field.
         fiber_names : str, list, tuple
             A name, or list of names, of all of the fiber direction fields.
-        function_space : dolfin.FunctionSpace
-            The function space used to approximate the vector fields tangent
-            to the fiber directions.
+        mesh : dolfin.Mesh
+            The computational mesh over which the fiber directions need to be
+            defined. This is needed to either create corresponding mesh functions,
+            or the necessary function space(s) to read the vector field or its
+            components.
+        pd : int (default None)
+            The polynomial degree used to approximate the vector field describing
+            the fiber directions. This should be kept as None if 'elementwise' is
+            set to True.
+        'elementwise' : bool (default False)
+            Set to True if the vector field is constant in each cell. Furthermore,
+            setting this to True assumes that the data is stored as a set of mesh
+            functions. These mesh functions are then converted to 'p0' scalar-valued
+            functions, and then assigned to the components of a vector-valued
+            function.
 
 
         Returns

@@ -19,9 +19,27 @@ def define_fiber_direction(fiber_file, fiber_name, mesh,
     ----------
 
     fiber_file : str, ufl.Coefficient, list/tuple
+        The name of the file containing the vector field function, a ufl.Coefficient
+        object approximating the vector field, or a list of file names where the
+        separate components of the vector field are stored.
     fiber_name : str, list/tuple
-    element : str (default None)
+        The name of the fiber vector field, or a list of the component names.
+        These names are used to read HDF5 files.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to either create corresponding mesh functions,
+        or the necessary function space(s) to read the vector field or its
+        components.
+    pd : int (default None)
+        The polynomial degree used to approximate the vector field describing
+        the fiber directions. This should be kept as None if 'elementwise' is
+        set to True.
     elementwise : bool (default False)
+        Set to True if the vector field is constant in each cell. Furthermore,
+        setting this to True assumes that the data is stored as a set of mesh
+        functions. These mesh functions are then converted to 'p0' scalar-valued
+        functions, and then assigned to the components of a vector-valued
+        function.
 
 
     Returns
@@ -32,6 +50,17 @@ def define_fiber_direction(fiber_file, fiber_name, mesh,
 
     """
     geo_dim = mesh.geometry().dim()
+
+    # If a ufl.Coefficient object is given, exit the function.
+    if isinstance(fiber_file, ufl.Coefficient):
+
+        # Simplest case. Rename and return the same object. Check the ufl_shape.
+        if not isinstance(fiber_name, str):
+            raise InvalidCombination()
+        fiber_direction = fiber_file
+        fiber_direction.rename(fiber_name, "Fiber direction")
+        return fiber_direction
+
     # Make sure that the vector field is specified as either constant over a
     # a cell, or that a polynomial degree to approximate it is given.
     if (pd is None) and (not elementwise):
@@ -69,15 +98,7 @@ def define_fiber_direction(fiber_file, fiber_name, mesh,
                   + " as the geometric dimension if a list/tuple is provided."
             raise InconsistentCombination(msg)
 
-    if isinstance(fiber_file, ufl.Coefficient):
-
-        # Simplest case. Rename and return the same object. Check the ufl_shape.
-        if not isinstance(fiber_name, str):
-            raise InvalidCombination()
-        fiber_direction = fiber_file
-        fiber_direction.rename(fiber_name, "Fiber direction")
-
-    elif isinstance(fiber_file, str):
+    if isinstance(fiber_file, str):
 
         # Need to open file and check what is given under "fiber_names". The
         # "fiber_names" type will determine if a vector field is provided, or
@@ -140,6 +161,30 @@ def define_fiber_direction(fiber_file, fiber_name, mesh,
 # 'p0' function space.
 @hdf5_file(mode="r")
 def load_meshfunction_fibers_hdf5(hdf, component_names, mesh):
+    """
+    Load cell functions specifying the components of a fiber vector field from
+    an HDF5 file.
+
+    Parameters
+    ----------
+
+    hdf : str, dolfin.HDF5File
+        The name of the HDF5 file where the cell functions are stored, or the
+        handle to the file.
+    component_names : list, tuple
+        The names under which the mesh functions are stored in the HDF5 file.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+
+    Returns
+    -------
+
+    component_meshfunctions : list, dolfin.cpp.mesh.MeshFunctionDouble
+        A list of mesh functions loaded from the file given. The mesh function
+        is returned directly if there is only one.
+
+    """
     component_meshfunctions = list()
     for i, component in enumerate(component_names):
         mf = dlf.MeshFunction("double", mesh, mesh.geometry().dim())
@@ -151,6 +196,30 @@ def load_meshfunction_fibers_hdf5(hdf, component_names, mesh):
 
 
 def load_meshfunction_fibers(fname, component_names, mesh):
+    """
+    Load cell functions specifying the components of a fiber vector field from
+    an HDF5 file.
+
+    Parameters
+    ----------
+
+    fname : str, dolfin.HDF5File
+        The name of the file where the cell functions are stored, or the
+        handle to the an HDF5 file.
+    component_names : list, tuple
+        The names under which the mesh functions are stored in the HDF5 file.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+
+    Returns
+    -------
+
+    component_meshfunctions : list, dolfin.cpp.mesh.MeshFunctionDouble
+        A list of mesh functions loaded from the file given. The mesh function
+        is returned directly if there is only one.
+
+    """
     _, ext = _splitext(fname)
     if ext == ".h5":
         component_meshfunctions = load_meshfunction_fibers_hdf5(fname,
@@ -169,6 +238,33 @@ def load_meshfunction_fibers(fname, component_names, mesh):
 @hdf5_file(mode="r")
 def load_scalar_function_fibers_hdf5(hdf, component_names, mesh,
                                      functionspace=None):
+    """
+    Load scalar functions specifying the components of a fiber vector field from
+    an HDF5 file.
+
+    Parameters
+    ----------
+
+    hdf : str, dolfin.HDF5File
+        The name of the file where the cell functions are stored, or the
+        handle to the an HDF5 file.
+    component_names : list, tuple
+        The names under which the scalar functions are stored in the HDF5 file.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+    functionspace : dolfin.FunctionSpace (default None)
+        The function space used to create the function. If none is specified,
+        a 'p0' element is assumed.
+
+    Returns
+    -------
+
+    component_functions : list, dolfin.Function
+        A list of scalar functions loaded from the file given. The function is
+        returned directly if there is only one.
+
+    """
     if functionspace is None:
         functionspace = dlf.FunctionSpace(mesh, "DG", 0)
     component_functions = list()
@@ -183,6 +279,33 @@ def load_scalar_function_fibers_hdf5(hdf, component_names, mesh,
 
 def load_scalar_function_fibers(fname, component_names, mesh,
                                 functionspace=None):
+    """
+    Load scalar functions specifying the components of a fiber vector field from
+    a file.
+
+    Parameters
+    ----------
+
+    fname : str, dolfin.HDF5File
+        The name of the file where the cell functions are stored, or the
+        handle to the an HDF5 file.
+    component_names : list, tuple
+        The names under which the scalar functions are stored in the HDF5 file.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+    functionspace : dolfin.FunctionSpace (default None)
+        The function space used to create the function. If none is specified,
+        a 'p0' element is assumed.
+
+    Returns
+    -------
+
+    component_functions : list, dolfin.Function
+        A list of scalar functions loaded from the file given. The function is
+        returned directly if there is only one.
+
+    """
     _, ext = _splitext(fname)
     if ext == ".h5":
         component_functions = load_scalar_function_fibers_hdf5(fname, component_names, mesh,
@@ -199,6 +322,34 @@ def load_scalar_function_fibers(fname, component_names, mesh,
 
 @hdf5_file(mode="r")
 def load_vector_field_hdf5(hdf, name, mesh, pd):
+    """
+    Load a vector-valued function from an HDF5 file.
+
+
+    Parameters
+    ----------
+
+    hdf : str, dolfin.HDF5File
+        The name of the file where the cell functions are stored, or the
+        handle to the an HDF5 file.
+    name : str
+        The name under which the vector-valued function is stored in the HDF5 file.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+    pd : int
+        The polynomial degree used to approximate the vector field describing
+        the fiber directions.
+
+
+    Returns
+    -------
+
+    vector_field : dolfin.Function
+        The vector-valued dolfin.Function object describing the fiber directions.
+
+
+    """
     family = "DG" if pd == 0 else "CG"
     V = dlf.VectorFunctionSpace(mesh, family, pd)
     vector_field = dlf.Function(V)
@@ -207,6 +358,34 @@ def load_vector_field_hdf5(hdf, name, mesh, pd):
 
 
 def load_vector_field(fname, name, mesh, pd):
+    """
+    Load a vector-valued function from an HDF5 file.
+
+
+    Parameters
+    ----------
+
+    hdf : str
+        The name of the file where the cell functions are stored.
+    name : str
+        The name of the vector field. This is used to extract it from an HDF5
+        file when appropriate.
+    mesh : dolfin.Mesh
+        The computational mesh over which the fiber directions need to be
+        defined. This is needed to create the corresponding mesh functions.
+    pd : int
+        The polynomial degree used to approximate the vector field describing
+        the fiber directions.
+
+
+    Returns
+    -------
+
+    vector_field : dolfin.Function
+        The vector-valued dolfin.Function object describing the fiber directions.
+
+
+    """
     _, ext = _splitext(fname)
     if ext == ".h5":
         vector_field = load_vector_field_hdf5(fname, name, mesh, pd)
@@ -217,18 +396,29 @@ def load_vector_field(fname, name, mesh, pd):
     return vector_field
 
 
-# def load_elementwise_fibers(hdf, component_names, mesh, as_meshfunctions=True,
-#                             functionspace=None):
-#     if as_meshfunctions:
-#         fiber_components = load_meshfunction_fibers(hdf, component_names, mesh)
-#     else:
-#         fiber_components = load_scalar_function_fibers(hdf, component_names, mesh,
-#                                                        functionspace=functionspace)
-#     return fiber_components
-
 ################################################################################
 # Convert scalar components to a vector function.
 def convert_meshfunction_to_function(meshfunction, functionspace=None):
+    """
+    Convert a meshfunction to a function with 'p0' elements.
+
+    Parameters
+    ----------
+
+    meshfunction : dolfin.cpp.mesh.MeshFunctionDouble
+        The mesh function specifying a field that is constant over each cell.
+    functionspace : dolfin.FunctionSpace (default None)
+        The function space to be used for creating the dolfin.Function object.
+        A 'p0' function space is used if None is specified.
+
+
+    Returns
+    -------
+
+    func : dolfin.Function
+        The scalar-valued function storing the values of the mesh function.
+
+    """
     mesh = meshfunction.mesh()
     if functionspace is None:
         functionspace = dlf.FunctionSpace(mesh, "DG", 0)
@@ -242,12 +432,49 @@ def convert_meshfunction_to_function(meshfunction, functionspace=None):
 
 
 def assign_scalars_to_vectorfunctions(components, vector_func):
+    """
+    Assign the values of scalar functions to the components of a vector field.
+
+    Parameters
+    ----------
+
+    components : list, tuple
+        A list/tuple of scalar-valued dolfin.Function objects used to create a
+        vector-valued function.
+    vector_func : dolfin.Function
+        The vector-valued dolfin.Function object that the scalar components
+        are to be assigned to.
+
+    """
     for i, component in enumerate(components):
         dlf.assign(vector_func.sub(i), component)
     return None
 
 
 def convert_meshfunctions_to_vectorfunction(meshfunctions, functionspace=None):
+    """
+    Convert a list of mesh functions to a vector-valued dolfin.Function object.
+
+    Parameters
+    ----------
+
+    meshfunctions : list, tuple
+        The list/tuple of mesh function objects used to create a vector-valued
+        function. These are first converted to scalar-valued functions, and then
+        they are assigned to the components of the vector-valued function.
+    functionspace : dolfin.FunctionSpace (default None)
+        The function space used to create the dolfin.Function object. A new
+        function space with element 'p0' is created if None is provided.
+
+
+    Returns
+    -------
+
+    vector_func : dolfin.Function
+        The vector-valued dolfin.Function object created to describe the fiber
+        directions specified by the list of mesh functions.
+
+    """
     func_components = list()
     for i, mf in enumerate(meshfunctions):
         func_components.append(convert_meshfunction_to_function(mf))
@@ -261,6 +488,31 @@ def convert_meshfunctions_to_vectorfunction(meshfunctions, functionspace=None):
 
 
 def convert_scalarcomponents_to_vectorfunction(components, functionspace=None):
+    """
+    Convert a list of components to a vector-valued dolfin.Function object.
+
+    Parameters
+    ----------
+
+    components : list, tuple
+        The list/tuple of either mesh function or dolfin.Function objects used
+        to create a vector-valued function. Mesh functions are first converted to
+        scalar-valued functions, and then they are assigned to the components of
+        the vector-valued function.
+    functionspace : dolfin.FunctionSpace (default None)
+        The function space used to create the vector-valued dolfin.Function
+        object. A new function space with element 'p0' is created if None is
+        provided.
+
+
+    Returns
+    -------
+
+    vector_func : dolfin.Function
+        The vector-valued dolfin.Function object created to describe the fiber
+        directions specified by the list of mesh functions.
+
+    """
     new_components = [None]*len(components)
     for i, component in enumerate(components):
         if isinstance(component, dlf.cpp.mesh.MeshFunctionDouble):
@@ -281,54 +533,3 @@ def convert_scalarcomponents_to_vectorfunction(components, functionspace=None):
     vector_func = dlf.Function(functionspace)
     assign_scalars_to_vectorfunctions(new_components, vector_func)
     return vector_func
-
-
-# def define_fiber_directions_from_scalars(hdf, component_names, mesh,
-#                                          as_meshfunctions=True, functionspace=None):
-#     fiber_components = load_elementwise_fibers(hdf, component_names, mesh,
-#                                                as_meshfunctions=as_meshfunctions,
-#                                                functionspace=functionspace)
-#     fiber_vector = convert_scalarcomponents_to_vectorfunction(fiber_components)
-#     return fiber_vector
-
-
-if __name__ == "__main__":
-    fiber_file = '../../meshfiles/ellipsoid/ellipsoid_meshes/ellipsoid_500um.h5'
-    fiber_dict = {
-        'fiber_file': fiber_file,
-        'fiber_name': ['fib1', 'fib2', 'fib3'],
-        'elementwise': True
-    }
-
-    mesh = dlf.Mesh()
-    f = dlf.HDF5File(MPI_COMM_WORLD, fiber_file, "r")
-    f.read(mesh, "mesh", False)
-    f.close()
-
-    fiber_direction = define_fiber_direction(**fiber_dict, mesh=mesh)
-    dlf.File("test/fib_vector_field1.pvd") << fiber_direction
-
-    full_vector_fname = "test/full_vector-fiber_file.h5"
-    f = dlf.HDF5File(MPI_COMM_WORLD, full_vector_fname, "w")
-    f.write(fiber_direction, "fib")
-    f.close()
-
-    fiber_dict['fiber_file'] = full_vector_fname
-    fiber_dict['fiber_name'] = "fib"
-    fiber_direction = define_fiber_direction(**fiber_dict, mesh=mesh)
-    dlf.File("test/fib_vector_field2.pvd") << fiber_direction
-
-    scalar_functions_fname = "test/scalar_functions-fiber_file.h5"
-    f = dlf.HDF5File(MPI_COMM_WORLD, scalar_functions_fname, "w")
-    for i in range(3):
-        f.write(fiber_direction.sub(i), "fib%i" % i)
-    f.close()
-
-    fiber_dict = {
-        'fiber_file': scalar_functions_fname,
-        'fiber_name': ['fib0', 'fib1', 'fib2'],
-        'pd': 0
-    }
-
-    fiber_direction = define_fiber_direction(**fiber_dict, mesh=mesh)
-    dlf.File("test/fib_vector_field3.pvd") << fiber_direction
