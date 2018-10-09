@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import numpy as np
 
 from mpi4py import MPI
 

@@ -85,7 +85,6 @@ material = {
     'fibers': {
         'fiber_files': [cf, cs],
         'fiber_names': ['e1', 'e2'],
-        'element': None
     }
 }
 
@@ -120,7 +119,8 @@ config = {'mesh': mesh, 'material': material, 'formulation': formulation}
 if args.incompressible:
     fname_disp = "results/beam-displacement-incompressible.xml.gz"
     fname_pressure = "results/beam-pressure.xml.gz"
-    fname_xdmf = "results/beam-incompressible.xdmf"
+    fname_hdf5 = "results/beam-incompressible.h5"
+    fname_xdmf = "results/beam-incompressible-viz.xdmf"
 else:
     fname_disp = "results/beam-displacement.xml.gz"
     fname_pressure = None
