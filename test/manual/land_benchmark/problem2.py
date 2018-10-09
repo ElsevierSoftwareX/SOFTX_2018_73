@@ -20,9 +20,8 @@ parser.add_argument("--pressure",
                     default=10.0, type=float,
                     help="Pressure to be applied at z = 0.")
 
-default_mesh_dir = fm._get_mesh_file_names("ellipsoid", ret_dir=True, ret_mesh=False)
 default_mesh_file = default_fiber_files \
-    = os.path.join(default_mesh_dir, "ellipsoid_meshes/ellipsoid_1000um.h5")
+    = fm._get_mesh_file_names("ellipsoid", ext="h5", refinements=["1000um"])
 parser.add_argument("--mesh-file",
                     type=str, default=default_mesh_file,
                     help="Name of mesh file to use for mesh, facet function, " \
