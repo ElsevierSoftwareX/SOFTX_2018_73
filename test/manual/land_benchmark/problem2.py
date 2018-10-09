@@ -20,15 +20,9 @@ parser.add_argument("--pressure",
                     default=10.0, type=float,
                     help="Pressure to be applied at z = 0.")
 
-default_mesh_file = default_fiber_files \
-    = fm._get_mesh_file_names("ellipsoid", ext="h5", refinements=["1000um"])
-parser.add_argument("--mesh-file",
-                    type=str, default=default_mesh_file,
-                    help="Name of mesh file to use for mesh, facet function, " \
-                    + "and fiber directions.")
-parser.add_argument("--fiber-files",
-                    default=default_fiber_files, nargs=2, type=str,
-                    help="Name of files for vector fiber directions.")
+parser.add_argument("--mesh-size",
+                    type=int, choices=[200, 250, 300, 500, 1000], default=1000,
+                    help="Mesh size for the ellipsoid.")
 parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
@@ -41,6 +35,10 @@ parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
                     help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
+
+mesh_file =  fm._get_mesh_file_names("ellipsoid", ext="h5",
+                                     refinements=["%ium" % args.mesh_size])
+fiber_files = mesh_file
 
 # Region IDs
 HNBC  = 0  # homogeneous Neumann BC
@@ -65,7 +63,7 @@ material = {
     'bfs': 1.0,
     'C': 10.0,
     'fibers': {
-        'fiber_files': args.fiber_files,
+        'fiber_files': fiber_files,
         'fiber_names': [['fib1', 'fib2', 'fib3'],
                         ['she1', 'she2', 'she3']],
         'elementwise': True
@@ -74,8 +72,8 @@ material = {
 
 # Mesh subdictionary
 mesh = {
-    'mesh_file': args.mesh_file,
-    'boundaries': args.mesh_file
+    'mesh_file': mesh_file,
+    'boundaries': mesh_file
 }
 
 # Formulation subdictionary
