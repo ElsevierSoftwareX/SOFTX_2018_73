@@ -15,6 +15,10 @@ try:
 except ValueError:
     pass
 
+rank = dlf.MPI.rank(MPI_COMM_WORLD)
+if rank != 0:
+    dlf.set_log_level(dlf.ERROR)
+
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--pressure",
                     default=10.0, type=float,
@@ -108,26 +112,35 @@ config = {
 }
 
 if args.incompressible:
-    fname_disp = "results/ellipsoid-displacement-incompressible.xml.gz"
-    fname_pressure = "results/ellipsoid-pressure.xml.gz"
-    fname_hdf5 = "results/ellipsoid-incompressible.h5"
-    fname_xdmf = "results/ellipsoid-incompressible-viz.xdmf"
+    fname_disp = "results/ellipsoid-displacement-incompressible-%ium.xml.gz" % args.mesh_size
+    fname_pressure = "results/ellipsoid-pressure-%ium.xml.gz" % args.mesh_size
+    fname_hdf5 = "results/ellipsoid-incompressible-%ium.h5" % args.mesh_size
+    fname_xdmf = "results/ellipsoid-incompressible-%ium-viz.xdmf" % args.mesh_size
 else:
-    fname_disp = "results/ellipsoid-displacement.xml.gz"
+    fname_disp = "results/ellipsoid-displacement-%ium.xml.gz" % args.mesh_size
     fname_pressure = None
-    fname_hdf5 = "results/ellipsoid.h5"
-    fname_xdmf = "results/ellipsoid-viz.xdmf"
+    fname_hdf5 = "results/ellipsoid-%ium.h5" % args.mesh_size
+    fname_xdmf = "results/ellipsoid-%ium-viz.xdmf" % args.mesh_size
+
+# Don't save solutions if mesh is too fine.
+if args.mesh_size < 1000:
+    fname_disp = fname_pressure = fname_hdf5 = fname_xdmf = None
+
 problem = fm.SolidMechanicsProblem(config)
+
+disp_dof = problem.displacement.function_space().dim()
+if args.incompressible:
+    pressure_dof = problem.pressure.function_space().dim()
+if rank == 0:
+    print("DOF(u) = ", disp_dof)
+    if args.incompressible:
+        print("DOF(p) = ", pressure_dof)
+
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure,
                                  fname_xdmf=fname_xdmf)
 solver.set_parameters(linear_solver="mumps")
-solver.full_solve()
-
-rank = dlf.MPI.rank(MPI_COMM_WORLD)
-disp_dof = problem.displacement.function_space().dim()
-if rank == 0:
-    print("DOF(u) = ", disp_dof)
+solver.full_solve(save_freq=10)
 
 import numpy as np
 disp_endo = np.zeros(3)
