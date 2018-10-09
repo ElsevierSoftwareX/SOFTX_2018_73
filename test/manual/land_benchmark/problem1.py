@@ -1,6 +1,9 @@
 import os
 import sys
 import argparse
+
+from mpi4py import MPI
+
 import dolfin as dlf
 import fenicsmechanics as fm
 from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
@@ -11,10 +14,10 @@ try:
 except ValueError:
     pass
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--pressure",
                     default=0.004, type=float,
-                    help="Pressure to be applied at z = 0 (default 0.004 kPa).")
+                    help="Pressure to be applied at z = 0.")
 
 mesh_dir = fm._get_mesh_file_names("beam", ret_dir=True, ret_mesh=False)
 mesh_file = os.path.join(mesh_dir, "beam_1000.h5")
@@ -25,20 +28,18 @@ parser.add_argument("--generate-mesh",
                     action="store_true", help="Generates mesh using mshr.")
 parser.add_argument("--resolution",
                     default=70, type=int,
-                    help="Resolution used to generate mesh with mshr \
-                          (default: 70).")
+                    help="Resolution used to generate mesh with mshr.")
 parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
                     type=float, default=1e3, dest="kappa",
-                    help="Bulk modulus of the material (default: 1e3).")
+                    help="Bulk modulus of the material.")
 parser.add_argument("--loading-steps", "-ls",
                     type=int, default=10,
-                    help="Number of loading steps to use (default: 10).")
+                    help="Number of loading steps to use.")
 parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
-                    help="Polynomial degree to be used for displacement \
-                          (default: 2).")
+                    help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
 
 # Region IDs
@@ -84,7 +85,6 @@ material = {
     'fibers': {
         'fiber_files': [cf, cs],
         'fiber_names': ['e1', 'e2'],
-        'element': None
     }
 }
 
@@ -117,19 +117,15 @@ else:
 config = {'mesh': mesh, 'material': material, 'formulation': formulation}
 
 if args.incompressible:
-    fname_disp = "results/displacement-incompressible.pvd"
-    fname_pressure = "results/pressure.pvd"
+    fname_disp = "results/beam-displacement-incompressible.xml.gz"
+    fname_pressure = "results/beam-pressure.xml.gz"
     fname_hdf5 = "results/beam-incompressible.h5"
     fname_xdmf = "results/beam-incompressible-viz.xdmf"
 else:
-    fname_disp = "results/displacement.pvd"
+    fname_disp = "results/beam-displacement.xml.gz"
     fname_pressure = None
     fname_hdf5 = "results/beam.h5"
     fname_xdmf = "results/beam-viz.xdmf"
-fname_disp = None
-fname_pressure = None
-fname_hdf5 = None
-# fname_xdmf = None
 problem = fm.SolidMechanicsProblem(config)
 solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
                                  fname_pressure=fname_pressure,
@@ -138,14 +134,24 @@ solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
 solver.full_solve()
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)
+disp_dof = problem.displacement.function_space().dim()
 if rank == 0:
-    print("DOF(u) = ", problem.displacement.function_space().dim())
+    print("DOF(u) = ", disp_dof)
 
 import numpy as np
 vals = np.zeros(3)
 x = np.array([10., 0.5, 1.])
 try:
     problem.displacement.eval(vals, x)
-    print("(rank %i) vals + x = " % rank, vals + x)
+    write_to_file = True
 except RuntimeError:
-    pass
+    write_to_file = False
+
+if write_to_file:
+    print("(rank %i) vals = " % rank, vals)
+    print("(rank %i) vals + x = " % rank, vals + x)
+
+    final_position = x + vals
+    data = np.hstack((disp_dof, x+vals)).reshape([1, -1])
+    with open("beam-final_location.dat", "ab") as f:
+        np.savetxt(f, data, fmt=("%i", "%f", "%f", "%f"))

@@ -277,7 +277,7 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
 
     mesh_dir = os.path.join(base_mesh_dir, geometry)
     base_name = "{geometry}-{name}{refinements}.{ext}"
-    if geometry == "unit_domain":
+    if geometry in ["unit_domain", "ellipsoid"]:
         str_refinements = "-" + "x".join(list(map(str, refinements)))
     else:
         str_refinements = ""

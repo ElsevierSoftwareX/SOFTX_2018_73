@@ -1,6 +1,10 @@
 import os
 import sys
 import argparse
+import numpy as np
+
+from mpi4py import MPI
+
 import dolfin as dlf
 import fenicsmechanics as fm
 from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
@@ -11,35 +15,34 @@ try:
 except ValueError:
     pass
 
-parser = argparse.ArgumentParser()
+rank = dlf.MPI.rank(MPI_COMM_WORLD)
+if rank != 0:
+    dlf.set_log_level(dlf.ERROR)
+
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--pressure",
                     default=10.0, type=float,
                     help="Pressure to be applied at z = 0.")
 
-default_mesh_dir = fm._get_mesh_file_names("ellipsoid", ret_dir=True, ret_mesh=False)
-default_mesh_file = os.path.join(default_mesh_dir, "ellipsoid_1000um.h5")
-default_fiber_file = os.path.join(default_mesh_dir, "fibers/n%i-p0-1000um.xml.gz")
-default_fiber_files = [default_fiber_file % i for i in [1, 2]]
-parser.add_argument("--mesh-file",
-                    type=str, default=default_mesh_file,
-                    help="Name of mesh file to use for mesh, facet function, " \
-                    + "and fiber directions.")
-parser.add_argument("--fiber-files",
-                    default=default_fiber_files, nargs=2, type=str,
-                    help="Name of files for vector fiber directions.")
+parser.add_argument("--mesh-size",
+                    type=int, choices=[200, 250, 300, 500, 1000], default=1000,
+                    help="Mesh size for the ellipsoid.")
 parser.add_argument("--incompressible",
                     action="store_true", help="Model as incompressible material.")
 parser.add_argument("--bulk-modulus",
                     type=float, default=1e3, dest="kappa",
-                    help="Bulk modulus of the material (default: 1e3 kPa).")
+                    help="Bulk modulus of the material.")
 parser.add_argument("--loading-steps", "-ls",
                     type=int, default=100,
-                    help="Number of loading steps to use (default: 100).")
+                    help="Number of loading steps to use.")
 parser.add_argument("--polynomial-degree", "-pd",
                     type=int, default=2, dest="pd", choices=[1, 2, 3],
-                    help="Polynomial degree to be used for displacement \
-                          (default 2).")
+                    help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
+
+mesh_file =  fm._get_mesh_file_names("ellipsoid", ext="h5",
+                                     refinements=["%ium" % args.mesh_size])
+fiber_files = mesh_file
 
 # Region IDs
 HNBC  = 0  # homogeneous Neumann BC
@@ -64,16 +67,17 @@ material = {
     'bfs': 1.0,
     'C': 10.0,
     'fibers': {
-        'fiber_files': args.fiber_files,
-        'fiber_names': ['n1', 'n2'],
-        'element': 'p0'
+        'fiber_files': fiber_files,
+        'fiber_names': [['fib1', 'fib2', 'fib3'],
+                        ['she1', 'she2', 'she3']],
+        'elementwise': True
     }
 }
 
 # Mesh subdictionary
 mesh = {
-    'mesh_file': args.mesh_file,
-    'boundaries': args.mesh_file
+    'mesh_file': mesh_file,
+    'boundaries': mesh_file
 }
 
 # Formulation subdictionary
@@ -108,29 +112,59 @@ config = {
 }
 
 if args.incompressible:
-    fname_disp = "results/displacement-incompressible.pvd"
-    fname_pressure = "results/pressure.pvd"
+    fname_disp = "results/ellipsoid-displacement-incompressible-%ium.xml.gz" % args.mesh_size
+    fname_pressure = "results/ellipsoid-pressure-%ium.xml.gz" % args.mesh_size
+    fname_hdf5 = "results/ellipsoid-incompressible-%ium.h5" % args.mesh_size
+    fname_xdmf = "results/ellipsoid-incompressible-%ium-viz.xdmf" % args.mesh_size
 else:
-    fname_disp = "results/displacement.pvd"
+    fname_disp = "results/ellipsoid-displacement-%ium.xml.gz" % args.mesh_size
     fname_pressure = None
-problem = fm.SolidMechanicsProblem(config)
-solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
-                                 fname_pressure=fname_pressure)
-solver.set_parameters(linear_solver="mumps")
-solver.full_solve()
+    fname_hdf5 = "results/ellipsoid-%ium.h5" % args.mesh_size
+    fname_xdmf = "results/ellipsoid-%ium-viz.xdmf" % args.mesh_size
 
-rank = dlf.MPI.rank(MPI_COMM_WORLD)
+# Don't save solutions if mesh is too fine.
+if args.mesh_size < 1000:
+    fname_disp = fname_pressure = fname_hdf5 = fname_xdmf = None
+
+problem = fm.SolidMechanicsProblem(config)
+
+disp_dof = problem.displacement.function_space().dim()
+if args.incompressible:
+    pressure_dof = problem.pressure.function_space().dim()
 if rank == 0:
-    print("DOF(u) = ", problem.displacement.function_space().dim())
+    print("DOF(u) = ", disp_dof)
+    if args.incompressible:
+        print("DOF(p) = ", pressure_dof)
+
+solver = fm.SolidMechanicsSolver(problem, fname_disp=fname_disp,
+                                 fname_pressure=fname_pressure,
+                                 fname_xdmf=fname_xdmf)
+solver.set_parameters(linear_solver="mumps")
+solver.full_solve(save_freq=10)
 
 import numpy as np
-vals = np.zeros(3)
+disp_endo = np.zeros(3)
+disp_epi = np.zeros(3)
 x_endocardium = np.array([0., 0., -17.])
 x_epicardium = np.array([0., 0., -20.])
-try:
-    problem.displacement.eval(vals, x_endocardium)
-    print("(rank %i, endocardium) vals + x = " % rank, vals + x_endocardium)
-    problem.displacement.eval(vals, x_epicardium)
-    print("(rank %i, endocardium) vals + x = " % rank, vals + x_epicardium)
-except RuntimeError:
-    pass
+fmt_str = ("%i",) + ("%f",)*3
+
+def find_and_write_loc(vals, x, u, fname):
+    try:
+        u.eval(vals, x)
+        write_to_file = True
+    except RuntimeError:
+        write_to_file = False
+
+    if write_to_file:
+        final_vals = x + vals
+        print("(rank %i, %s) x + vals = %s" \
+              % (rank, str(tuple(x)), str(tuple(final_vals))))
+        data = np.hstack((disp_dof, final_vals)).reshape([1, -1])
+        with open(fname, "ab") as f:
+            np.savetxt(f, data, fmt=fmt_str)
+
+fname = "ellipsoid-final_location-%s.dat"
+u = problem.displacement
+find_and_write_loc(disp_endo, x_endocardium, u, fname % "endocardium")
+find_and_write_loc(disp_epi, x_epicardium, u, fname % "epicardium")
