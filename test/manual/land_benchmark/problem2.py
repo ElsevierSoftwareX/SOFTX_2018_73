@@ -7,7 +7,7 @@ from mpi4py import MPI
 
 import dolfin as dlf
 import fenicsmechanics as fm
-from fenicsmechanics.dolfincompat import MPI_COMM_WORLD
+from fenicsmechanics.dolfincompat import MPI_COMM_WORLD, LOG_LEVEL_ERROR
 
 # For use with emacs python shell.
 try:
@@ -17,7 +17,7 @@ except ValueError:
 
 rank = dlf.MPI.rank(MPI_COMM_WORLD)
 if rank != 0:
-    dlf.set_log_level(dlf.ERROR)
+    dlf.set_log_level(LOG_LEVEL_ERROR)
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--pressure",
