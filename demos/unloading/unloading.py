@@ -1,6 +1,7 @@
 import fenicsmechanics as fm
 
-mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True, refinements="fine")
+mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True,
+                                               refinements="fine")
 config = {
     'material':
     {
@@ -20,7 +21,7 @@ config = {
         'inverse': True,
         'bcs': {
             'dirichlet': {
-                'displacement': [[0, 0]],
+                'displacement': [[0., 0.]],
                 'regions': [1]
             },
             'neumann': {

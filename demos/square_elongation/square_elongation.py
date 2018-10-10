@@ -20,9 +20,8 @@ formulation = {
     'domain': 'lagrangian',
     'bcs': {
         'dirichlet': {
-            'displacement': [0.0, 0.0],
-            'regions': [1, 3],
-            'components': ["x", "y"]
+            'displacement': [[0.0, 0.0]],
+            'regions': [1],
         },
         'neumann': {
             'values': [[1e6, 0.]],

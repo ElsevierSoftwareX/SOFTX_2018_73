@@ -42,14 +42,17 @@ frame. For more details, please read the paper by Guccione et al.
 Code
 ****
 
-Import FEniCS Mechanics with the alias :code:`fm`, and define the mesh
-directory.
+Import FEniCS Mechanics with the alias :code:`fm`, and use the
+function 'get_mesh_file_names' provided to get the name of the file
+where the mesh, boundaries, and fiber direction information is
+stored. Note that all of this information is in the same file since
+this is an HDF5 file.
 
 .. code-block:: python
 
    import fenicsmechanics as fm
 
-   mesh_dir = '../../meshfiles/ellipsoid/'
+   mesh_file = fm.get_mesh_file_names("ellipsoid", refinements="1000um", ext="h5")
 
 In this demonstration, we will define three separate dictionaries that
 will be combined into one later. First, we define the material
@@ -114,16 +117,17 @@ names we wish to give to these fields.
 
 .. code-block:: python
 
-           'fiber_files': [mesh_dir + 'fibers/n1-p0-1000um.xml.gz',
-                           mesh_dir + 'fibers/n2-p0-1000um.xml.gz'],
-           'fiber_names': ['n1', 'n2'],
+           'fiber_files': mesh_file,
+           'fiber_names': [['fib1', 'fib2', 'fib3'],
+                           ['she1', 'she2', 'she3']],
 
 We also tell FEniCS Mechanics that the fiber vector fields are assumed
-to be constant over each element.
+to be constant over each element and that they are provided as mesh
+functions.
 
 .. code-block:: python
 
-           'element-wise': True
+           'elementwise': True
            }
        }
 
@@ -141,24 +145,24 @@ The entire material dictionary is defined all together below.
        'bfs': 1.0,
        'C': 10.0,
        'fibers': {
-           'fiber_files': [mesh_dir + 'fibers/n1-p0-1000um.xml.gz',
-                           mesh_dir + 'fibers/n2-p0-1000um.xml.gz'],
-           'fiber_names': ['n1', 'n2'],
-           'element-wise': True
+           'fiber_files': mesh_file,
+           'fiber_names': [['fib1', 'fib2', 'fib3'],
+                           ['she1', 'she2', 'she3']],
+           'elementwise': True
            }
        }
 
 We define the mesh dictionary by telling FEniCS Mechanics where the
-files containing the mesh and the boundary tags are located. Note that
-this information is stored in a single HDF5 file for this
-example. FEniCS Mechanics will recognize this and open the file just
-once for efficiency.
+file containing the mesh and the boundary tags are located. Note that
+this information is stored in a single HDF5 file for this example.
+FEniCS Mechanics will recognize this and open the file just once for
+efficiency.
 
 .. code-block:: python
 
    mesh_dict = {
-       'mesh_file': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5',
-       'boundaries': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5'
+       'mesh_file': mesh_file,
+       'boundaries': mesh_file
    }
 
 The last dictionary to define is the formulation dictionary.
