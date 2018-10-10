@@ -8,8 +8,8 @@ material = {
     'mu': 1.5e6 # Pa
 }
 
-mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
-                                                refinements=[20, 20])
+mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                               refinements=[20, 20])
 mesh = {
     'mesh_file': mesh_file,
     'boundaries': boundaries

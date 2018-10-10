@@ -40,8 +40,8 @@ parser.add_argument("--polynomial-degree", "-pd",
                     help="Polynomial degree to be used for displacement.")
 args = parser.parse_args()
 
-mesh_file =  fm._get_mesh_file_names("ellipsoid", ext="h5",
-                                     refinements=["%ium" % args.mesh_size])
+mesh_file =  fm.get_mesh_file_names("ellipsoid", ext="h5",
+                                    refinements=["%ium" % args.mesh_size])
 fiber_files = mesh_file
 
 # Region IDs

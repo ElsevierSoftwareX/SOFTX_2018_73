@@ -19,8 +19,7 @@ parser.add_argument("--pressure",
                     default=0.004, type=float,
                     help="Pressure to be applied at z = 0.")
 
-mesh_dir = fm._get_mesh_file_names("beam", ret_dir=True, ret_mesh=False)
-mesh_file = os.path.join(mesh_dir, "beam_1000.h5")
+mesh_file = fm.get_mesh_file_names("beam", refinements=["1000"], ext="h5")
 parser.add_argument("--mesh-file",
                     type=str, default=mesh_file,
                     help="Name of mesh file to use for mesh and facet function.")

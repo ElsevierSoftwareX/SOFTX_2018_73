@@ -5,8 +5,8 @@ import dolfin as dlf
 import fenicsmechanics as fm
 import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
-                                                refinements=(2, 2))
+mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                               refinements=(2, 2))
 
 body_force = dlf.Expression(['std::log(1.0+t)', 'exp(t)'],
                             t=0.0, degree=2)

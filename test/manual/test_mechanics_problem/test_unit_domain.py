@@ -64,8 +64,8 @@ if args.hdf5:
     ext = "h5"
 else:
     ext = "xml.gz"
-mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
-                                                refinements=mesh_dims, ext=ext)
+mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                               refinements=mesh_dims, ext=ext)
 
 # Check if the mesh file exists
 if not os.path.isfile(mesh_file):

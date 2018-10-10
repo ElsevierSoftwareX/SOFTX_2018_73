@@ -12,7 +12,8 @@ dlf.parameters['form_compiler']['cpp_optimize'] = True
 dlf.parameters['form_compiler']['quadrature_degree'] = 3
 
 # Mesh files
-mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True, refinements=[24, 16, 16])
+mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                               refinements=[24, 16, 16])
 
 # Region IDs
 ALL_ELSE = 0
