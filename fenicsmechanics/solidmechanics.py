@@ -1,3 +1,7 @@
+"""
+This module provides a problem and solver class to solve solid mechanics
+problems using the mixed function space functionality in FEniCS.
+"""
 from __future__ import print_function
 
 import dolfin as dlf

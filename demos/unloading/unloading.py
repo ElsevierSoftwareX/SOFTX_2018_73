@@ -1,6 +1,7 @@
 import fenicsmechanics as fm
 
-mesh_dir = '../../meshfiles/lshape/'
+mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True,
+                                               refinements="fine")
 config = {
     'material':
     {
@@ -11,8 +12,8 @@ config = {
         'mu': 1.5e6
     },
     'mesh': {
-        'mesh_file': mesh_dir + 'lshape-mesh-fine.xml.gz',
-        'boundaries': mesh_dir + 'lshape-boundaries-fine.xml.gz'
+        'mesh_file': mesh_file,
+        'boundaries': boundaries
     },
     'formulation': {
         'element': 'p1-p1',
@@ -20,7 +21,7 @@ config = {
         'inverse': True,
         'bcs': {
             'dirichlet': {
-                'displacement': [[0, 0]],
+                'displacement': [[0., 0.]],
                 'regions': [1]
             },
             'neumann': {

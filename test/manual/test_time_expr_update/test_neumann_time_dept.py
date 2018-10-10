@@ -5,8 +5,8 @@ import dolfin as dlf
 import fenicsmechanics as fm
 import fenicsmechanics.mechanicsproblem as mprob
 
-mesh_file, boundaries = fm._get_mesh_file_names("unit_domain", ret_facets=True,
-                                                refinements=(2, 2))
+mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                               refinements=(2, 2))
 
 # Region IDs
 ALL_ELSE = 0

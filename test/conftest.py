@@ -8,9 +8,9 @@ def _default_config(class_name, unsteady=False):
         'density': 10.0,
     }
 
-    mesh_file, boundaries_file = fm._get_mesh_file_names("unit_domain",
-                                                         ret_facets=True,
-                                                         refinements=[12]*3)
+    mesh_file, boundaries_file = fm.get_mesh_file_names("unit_domain",
+                                                        ret_facets=True,
+                                                        refinements=[12]*3)
     mesh_dict = {
         'mesh_file': mesh_file,
         'boundaries': boundaries_file

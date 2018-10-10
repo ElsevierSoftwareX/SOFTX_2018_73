@@ -120,17 +120,18 @@ The material dictionary is defined all together below.
    }
 
 
-Now, we define a string variable with the relative location of our
-mesh files. We also define the mesh dictionary by telling FEniCS
-Mechanics where the files containing the mesh and the boundary tags
-are located.
+Now, we get the name of the files storing the mesh and the boundary
+tagging by using the :code:`get_mesh_file_names` function provided.
+We also define the mesh dictionary by telling FEniCS Mechanics where
+the files containing the mesh and the boundary tags are located.
 
 .. code-block:: python
 
-   mesh_dir = '../../meshfiles/unit_domain/'
+   mesh_file, boundaries = fm.get_mesh_file_names("unit_domain", ret_facets=True,
+                                                   refinements=[20, 20])
    mesh = {
-       'mesh_file': mesh_dir + 'unit_domain-mesh-20x20.xml.gz',
-       'boundaries': mesh_dir + 'unit_domain-boundaries-20x20.xml.gz'
+       'mesh_file': mesh_file,
+       'boundaries': boundaries
    }
 
 Last, but not least, is the formulation dictionary used to define the
@@ -167,7 +168,7 @@ We will apply a homogeneous boundary condition at :math:`x = 0`.
 
 .. code-block:: python
 
-               'displacement': [[0, 0]],
+               'displacement': [[0.0, 0.0]],
 
 To identify this region, we must use the same tags that were provided
 for the :code:`'boundaries'`. In this case, this region was tagged
@@ -189,7 +190,7 @@ We are applying a Cauchy traction of :math:`\mathbf{p} = 10^6
 
 .. code-block:: python
 
-               'values': [[1e6,0]],
+               'values': [[1e6, 0.0]],
                'regions': [2],
                'types': ['piola']
            }
@@ -205,11 +206,11 @@ The formulation dictionary is defined all together below.
        'domain': 'lagrangian',
        'bcs': {
            'dirichlet': {
-               'displacement': [[0, 0]],
+               'displacement': [[0.0, 0.0]],
                'regions': [1]
            },
            'neumann': {
-               'values': [[1e6,0]],
+               'values': [[1e6, 0.0]],
                'regions': [2],
                'types': ['piola']
            }

@@ -54,10 +54,10 @@ listed here.</p>
 <div class="section" id="base-mechanics-problem">
 <h3>Base Mechanics Problem<a class="headerlink" href="#base-mechanics-problem" title="Permalink to this headline">¶</a></h3>
 <p>All mechanics problem objects are child classes of
-<code class="code docutils literal"><span class="pre">basemechanicsproblem.BaseMechanicsProblem</span></code>.</p>
-<span class="target" id="module-fenicsmechanics.basemechanicsproblem"></span><dl class="class">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem">
-<em class="property">class </em><code class="descclassname">fenicsmechanics.basemechanicsproblem.</code><code class="descname">BaseMechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem" title="Permalink to this definition">¶</a></dt>
+<code class="code docutils literal"><span class="pre">basemechanics.BaseMechanicsProblem</span></code>.</p>
+<span class="target" id="module-fenicsmechanics.basemechanics"></span><dl class="class">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.basemechanics.</code><code class="descname">BaseMechanicsProblem</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem" title="Permalink to this definition">¶</a></dt>
 <dd><p>This is the base class for mechanics problems. Checking validity of the
 ‘config’ dictionary provided by users is done at this level since all
 mechanics problems are derived from this class. The derived classes will
@@ -69,15 +69,15 @@ documentation of the FEniCS Mechanics module by executing</p>
 </pre></div>
 </div>
 <dl class="staticmethod">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.apply_initial_conditions">
-<em class="property">static </em><code class="descname">apply_initial_conditions</code><span class="sig-paren">(</span><em>init_value</em>, <em>function</em>, <em>function0=0</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.apply_initial_conditions" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.apply_initial_conditions">
+<em class="property">static </em><code class="descname">apply_initial_conditions</code><span class="sig-paren">(</span><em>init_value</em>, <em>function</em>, <em>function0=0</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.apply_initial_conditions" title="Permalink to this definition">¶</a></dt>
 <dd><p>Assign the initial values to field variables.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>init_value</strong> (<em>dolfin.Coefficient</em><em>, </em><em>dolfin.Expression</em>) – A function/expression that approximates the initial condition.</li>
+<li><strong>init_value</strong> (<em>ufl.Coefficient</em><em>, </em><em>dolfin.Expression</em>) – A function/expression that approximates the initial condition.</li>
 <li><strong>function</strong> (<em>dolfin.Function</em>) – The function approximating a field variable in a mechanics problem.</li>
 <li><strong>function0</strong> (<em>dolfin.Function</em>) – The function approximatinga field variable at the previous time
 step in a mechanics problem.</li>
@@ -95,8 +95,29 @@ step in a mechanics problem.</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_bcs">
-<code class="descname">check_bcs</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_bcs" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_and_load_mesh">
+<code class="descname">check_and_load_mesh</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_and_load_mesh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the mesh files provided, and load them. Also, extract the
+geometrical dimension for later use.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_bcs">
+<code class="descname">check_bcs</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_bcs" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check the boundary conditions provided by the user in the config dictionary.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -115,13 +136,35 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_config">
-<code class="descname">check_config</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_config" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_body_force">
+<code class="descname">check_body_force</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_body_force" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if body force is specified. If it is, the type is checked, and
+converted to a ufl.Coefficient object when necessary. If it is not
+specified, it is set to None.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_config">
+<code class="descname">check_config</code><span class="sig-paren">(</span><em>user_config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check that all parameters provided in ‘user_config’ are valid
 based on the current capabilities of the package. An exception
 is raised when a parameter (or combination of parameters) is
 (are) found to be invalid. Please see the documentation of
-BaseMechanicsProblem for detailed information on the required
+fenicsmechanics for detailed information on the required
 values.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -141,8 +184,8 @@ if they were not originally provided.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_dirichlet">
-<code class="descname">check_dirichlet</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_dirichlet" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_dirichlet">
+<code class="descname">check_dirichlet</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_dirichlet" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check if the number of parameters for each key in the dirichlet
 sub-dictionary are equal. If the key ‘dirichlet’ does not exist,
 it is added to the dictionary with the value None.</p>
@@ -163,8 +206,50 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_initial_condition">
-<code class="descname">check_initial_condition</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_initial_condition" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_domain">
+<code class="descname">check_domain</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_domain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the domain formulation specified is implemented for the
+material type.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_finite_element">
+<code class="descname">check_finite_element</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_finite_element" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the finite element specified for the numerical formulation of
+the problem.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_initial_condition">
+<code class="descname">check_initial_condition</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_initial_condition" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check if initial condition values were provided. Insert ‘None’ for the
 values that were not provided.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -184,8 +269,8 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_material_const_eqn">
-<code class="descname">check_material_const_eqn</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_material_const_eqn" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_material_const_eqn">
+<code class="descname">check_material_const_eqn</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_material_const_eqn" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check if the material type and the specific constitutive equation
 specified in the config dictionary are implemented, unless a class
 is provided. An exception is raised if an unknown material type
@@ -207,8 +292,28 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_neumann">
-<code class="descname">check_neumann</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_neumann" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_material_type">
+<code class="descname">check_material_type</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_material_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the material type specified is supported.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>config</strong> (<em>dict</em>) – Dictionary describing the formulation of the mechanics
+problem to be simulated. Check the documentation of
+BaseMechanicsProblem to see the format of the dictionary.</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">None</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_neumann">
+<code class="descname">check_neumann</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_neumann" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check if the number of parameters for each key in the neumann
 sub-dictionary are equal. If the key ‘neumann’ does not exist,
 it is added to the dictionary with the value None.</p>
@@ -229,8 +334,8 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_time_params">
-<code class="descname">check_time_params</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.check_time_params" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.check_time_params">
+<code class="descname">check_time_params</code><span class="sig-paren">(</span><em>config</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.check_time_params" title="Permalink to this definition">¶</a></dt>
 <dd><p>Check the time parameters provided by the user in the config dictionary.
 Things this function does:</p>
 <ul class="simple">
@@ -257,8 +362,8 @@ BaseMechanicsProblem to see the format of the dictionary.</td>
 </dd></dl>
 
 <dl class="staticmethod">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.define_ufl_neumann_form">
-<em class="property">static </em><code class="descname">define_ufl_neumann_form</code><span class="sig-paren">(</span><em>regions</em>, <em>types</em>, <em>values</em>, <em>domain</em>, <em>mesh</em>, <em>boundaries</em>, <em>F</em>, <em>J</em>, <em>xi</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.define_ufl_neumann_form" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.define_ufl_neumann_form">
+<em class="property">static </em><code class="descname">define_ufl_neumann_form</code><span class="sig-paren">(</span><em>regions</em>, <em>types</em>, <em>values</em>, <em>domain</em>, <em>mesh</em>, <em>boundaries</em>, <em>F</em>, <em>J</em>, <em>xi</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.define_ufl_neumann_form" title="Permalink to this definition">¶</a></dt>
 <dd><p>Define the UFL object representing the variational form of the
 Neumann boundary.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -302,8 +407,8 @@ to the Neumann boundary conditions.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_bodyforce_time">
-<code class="descname">update_bodyforce_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_bodyforce_time" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.update_bodyforce_time">
+<code class="descname">update_bodyforce_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.update_bodyforce_time" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the time parameter in the body force expression if it depends
 on time explicitly.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -327,8 +432,8 @@ on time explicitly.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_dirichlet_time">
-<code class="descname">update_dirichlet_time</code><span class="sig-paren">(</span><em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_dirichlet_time" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.update_dirichlet_time">
+<code class="descname">update_dirichlet_time</code><span class="sig-paren">(</span><em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.update_dirichlet_time" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the time parameter in the Dirichlet BCs that depend on time
 explicitly.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -346,8 +451,8 @@ explicitly.</p>
 </dd></dl>
 
 <dl class="staticmethod">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_form_time">
-<em class="property">static </em><code class="descname">update_form_time</code><span class="sig-paren">(</span><em>form</em>, <em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_form_time" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.update_form_time">
+<em class="property">static </em><code class="descname">update_form_time</code><span class="sig-paren">(</span><em>form</em>, <em>t</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.update_form_time" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the time of the coefficient objects that depend on it.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -370,8 +475,8 @@ explicitly.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_neumann_time">
-<code class="descname">update_neumann_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_neumann_time" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.update_neumann_time">
+<code class="descname">update_neumann_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.update_neumann_time" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the time parameter in the Neumann BCs that depend on time
 explicitly.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -395,8 +500,8 @@ explicitly.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_time">
-<code class="descname">update_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanicsproblem.BaseMechanicsProblem.update_time" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsProblem.update_time">
+<code class="descname">update_time</code><span class="sig-paren">(</span><em>t</em>, <em>t0=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsProblem.update_time" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the time parameter in the BCs that depend on time explicitly.
 Also, the body force expression if necessary.</p>
 <table class="docutils field-list" frame="void" rules="none">
@@ -1215,22 +1320,20 @@ problem defined by the MechanicsProblem object.</td>
 </dd></dl>
 
 </div>
-<div class="section" id="module-fenicsmechanics.solidmechanics">
-<span id="solid-mechanics-solver"></span><h3>Solid Mechanics Solver<a class="headerlink" href="#module-fenicsmechanics.solidmechanics" title="Permalink to this headline">¶</a></h3>
-<dl class="class">
-<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver">
-<em class="property">class </em><code class="descclassname">fenicsmechanics.solidmechanics.</code><code class="descname">SolidMechanicsSolver</code><span class="sig-paren">(</span><em>problem</em>, <em>fname_disp=None</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver" title="Permalink to this definition">¶</a></dt>
-<dd><p>This class is derived from the dolfin.NonlinearVariationalSolver to
-solve problems formulated with SolidMechanicsProblem. It passes the
-UFL variational forms to the solver, and loops through all time steps
-if the problem is unsteady. The solvers that are available through
-this class are the same as those available through dolfin. The user
-may use the helper function, ‘set_parameters’ to set the linear solver
-used, as well as the tolerances for iterative and nonlinear solves, or
-do it directly through the ‘parameters’ member.</p>
+<div class="section" id="base-mechanics-solver">
+<h3>Base Mechanics Solver<a class="headerlink" href="#base-mechanics-solver" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="code docutils literal"><span class="pre">SolidMechanicsSolver</span></code> and <code class="code docutils literal"><span class="pre">FluidMechanicsSolver</span></code>
+classes inherit from both <code class="code docutils literal"><span class="pre">dolfin.NonlinearVariationalSolver</span></code>
+and <code class="code docutils literal"><span class="pre">basemechanics.BaseMechanicsSolver</span></code>.</p>
+<span class="target" id="module-fenicsmechanics.basemechanics"></span><dl class="class">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsSolver">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.basemechanics.</code><code class="descname">BaseMechanicsSolver</code><span class="sig-paren">(</span><em>problem</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is the base class for mechanics solvers making use of the FEniCS
+mixed function space functionality. Methods common to all mechanics
+solvers are defined here.</p>
 <dl class="method">
-<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.full_solve">
-<code class="descname">full_solve</code><span class="sig-paren">(</span><em>save_freq=1</em>, <em>save_initial=True</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.full_solve" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsSolver.full_solve">
+<code class="descname">full_solve</code><span class="sig-paren">(</span><em>save_freq=1</em>, <em>save_initial=True</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsSolver.full_solve" title="Permalink to this definition">¶</a></dt>
 <dd><p>Solve the mechanics problem defined by SolidMechanicsProblem. If the
 problem is unsteady, this function will loop through the entire time
 interval using the parameters provided for the Newmark integration
@@ -1258,8 +1361,8 @@ every 10 time steps.</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.set_parameters">
-<code class="descname">set_parameters</code><span class="sig-paren">(</span><em>linear_solver=’default’</em>, <em>preconditioner=’default’</em>, <em>newton_abstol=1e-10</em>, <em>newton_reltol=1e-09</em>, <em>newton_maxIters=50</em>, <em>krylov_abstol=1e-08</em>, <em>krylov_reltol=1e-07</em>, <em>krylov_maxIters=50</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.set_parameters" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsSolver.set_parameters">
+<code class="descname">set_parameters</code><span class="sig-paren">(</span><em>linear_solver=’default’</em>, <em>preconditioner=’default’</em>, <em>newton_abstol=1e-10</em>, <em>newton_reltol=1e-09</em>, <em>newton_maxIters=50</em>, <em>krylov_abstol=1e-08</em>, <em>krylov_reltol=1e-07</em>, <em>krylov_maxIters=50</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsSolver.set_parameters" title="Permalink to this definition">¶</a></dt>
 <dd><p>Set the parameters used by the NonlinearVariationalSolver.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -1287,12 +1390,37 @@ every 10 time steps.</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.step">
-<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.step" title="Permalink to this definition">¶</a></dt>
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsSolver.step">
+<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsSolver.step" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compute the solution for the next time step in the simulation. Note that
 there is only one “step” if the simulation is steady.</p>
 </dd></dl>
 
+<dl class="method">
+<dt id="fenicsmechanics.basemechanics.BaseMechanicsSolver.update_assign">
+<code class="descname">update_assign</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.basemechanics.BaseMechanicsSolver.update_assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is meant to update the state of the system and assign to
+the proper dolfin.Function objects. It is to be overwritten by the
+specific solver object, and hence will raise an exception at this
+level.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-fenicsmechanics.solidmechanics">
+<span id="solid-mechanics-solver"></span><h3>Solid Mechanics Solver<a class="headerlink" href="#module-fenicsmechanics.solidmechanics" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver">
+<em class="property">class </em><code class="descclassname">fenicsmechanics.solidmechanics.</code><code class="descname">SolidMechanicsSolver</code><span class="sig-paren">(</span><em>problem</em>, <em>fname_disp=None</em>, <em>fname_pressure=None</em>, <em>fname_hdf5=None</em>, <em>fname_xdmf=None</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class is derived from the dolfin.NonlinearVariationalSolver to
+solve problems formulated with SolidMechanicsProblem. It passes the
+UFL variational forms to the solver, and loops through all time steps
+if the problem is unsteady. The solvers that are available through
+this class are the same as those available through dolfin. The user
+may use the helper function, ‘set_parameters’ to set the linear solver
+used, as well as the tolerances for iterative and nonlinear solves, or
+do it directly through the ‘parameters’ member.</p>
 <dl class="staticmethod">
 <dt id="fenicsmechanics.solidmechanics.SolidMechanicsSolver.update">
 <em class="property">static </em><code class="descname">update</code><span class="sig-paren">(</span><em>u</em>, <em>u0</em>, <em>v0</em>, <em>a0</em>, <em>beta</em>, <em>gamma</em>, <em>dt</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.solidmechanics.SolidMechanicsSolver.update" title="Permalink to this definition">¶</a></dt>
@@ -1353,70 +1481,6 @@ may use the helper function, ‘set_parameters’ to set the linear solver
 used, as well as the tolerances for iterative and nonlinear solves, or
 do it directly through the ‘parameters’ member.</p>
 <dl class="method">
-<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.full_solve">
-<code class="descname">full_solve</code><span class="sig-paren">(</span><em>save_freq=1</em>, <em>save_initial=True</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.full_solve" title="Permalink to this definition">¶</a></dt>
-<dd><p>Solve the mechanics problem defined by FluidMechanicsProblem. If the
-problem is unsteady, this function will loop through the entire time
-interval using a single step finite difference scheme.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>save_freq</strong> (<em>int</em><em> (</em><em>default 1</em><em>)</em>) – The frequency at which the solution is to be saved if the problem is
-unsteady. E.g., save_freq = 10 if the user wishes to save the solution
-every 10 time steps.</li>
-<li><strong>save_initial</strong> (<em>bool</em><em> (</em><em>default True</em><em>)</em>) – True if the user wishes to save the initial condition and False otherwise.</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.set_parameters">
-<code class="descname">set_parameters</code><span class="sig-paren">(</span><em>linear_solver=’default’</em>, <em>preconditioner=’default’</em>, <em>newton_abstol=1e-10</em>, <em>newton_reltol=1e-09</em>, <em>newton_maxIters=50</em>, <em>krylov_abstol=1e-08</em>, <em>krylov_reltol=1e-07</em>, <em>krylov_maxIters=50</em><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.set_parameters" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set the parameters used by the NonlinearVariationalSolver.</p>
-<table class="docutils field-list" frame="void" rules="none">
-<col class="field-name" />
-<col class="field-body" />
-<tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>linear_solver</strong> (<em>str</em>) – The name of linear solver to be used.</li>
-<li><strong>newton_abstol</strong> (<em>float</em><em> (</em><em>default 1e-10</em><em>)</em>) – Absolute tolerance used to terminate Newton’s method.</li>
-<li><strong>newton_reltol</strong> (<em>float</em><em> (</em><em>default 1e-9</em><em>)</em>) – Relative tolerance used to terminate Newton’s method.</li>
-<li><strong>newton_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Newton’s method.</li>
-<li><strong>krylov_abstol</strong> (<em>float</em><em> (</em><em>default 1e-8</em><em>)</em>) – Absolute tolerance used to terminate Krylov solver methods.</li>
-<li><strong>krylov_reltol</strong> (<em>float</em><em> (</em><em>default 1e-7</em><em>)</em>) – Relative tolerance used to terminate Krylov solver methods.</li>
-<li><strong>krylov_maxIters</strong> (<em>int</em><em> (</em><em>default 50</em><em>)</em>) – Maximum number of iterations for Krylov solver methods.</li>
-</ul>
-</td>
-</tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"></p>
-</td>
-</tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">None</p>
-</td>
-</tr>
-</tbody>
-</table>
-</dd></dl>
-
-<dl class="method">
-<dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.step">
-<code class="descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.step" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the solution for the next time step in the simulation. Note that
-there is only one “step” if the simulation is steady.</p>
-</dd></dl>
-
-<dl class="method">
 <dt id="fenicsmechanics.fluidmechanics.FluidMechanicsSolver.update_assign">
 <code class="descname">update_assign</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#fenicsmechanics.fluidmechanics.FluidMechanicsSolver.update_assign" title="Permalink to this definition">¶</a></dt>
 <dd><p>Update the values of the field variables – both the current and
@@ -1471,15 +1535,15 @@ constants will be computed based on the parameters provided by the user.</p>
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>la</strong> (<em>*</em>) – The first Lame parameter used as shown in the equations above. Note:
+<li><strong>'la'</strong> (<em>float</em>) – The first Lame parameter used as shown in the equations above. Note:
 providing la and inv_la does not qualify as providing two material
 constants.</li>
-<li><strong>mu</strong> (<em>*</em>) – The second Lame parameter used as shown in the equations above.</li>
-<li><strong>kappa</strong> (<em>*</em>) – The bulk modulus of the material.</li>
-<li><strong>inv_la</strong> (<em>*</em>) – The reciprocal of the first Lame parameter, la. Note: providing la and
+<li><strong>'mu'</strong> (<em>float</em>) – The second Lame parameter used as shown in the equations above.</li>
+<li><strong>'kappa'</strong> (<em>float</em>) – The bulk modulus of the material.</li>
+<li><strong>'inv_la'</strong> (<em>float</em>) – The reciprocal of the first Lame parameter, la. Note: providing la and
 inv_la does not qualify as providing two material constants.</li>
-<li><strong>E</strong> (<em>*</em>) – The Young’s modulus of the material.</li>
-<li><strong>nu</strong> (<em>*</em>) – The Poisson’s ratio of the material.</li>
+<li><strong>'E'</strong> (<em>float</em>) – The Young’s modulus of the material.</li>
+<li><strong>'nu'</strong> (<em>float</em>) – The Poisson’s ratio of the material.</li>
 </ul>
 </td>
 </tr>
@@ -1522,7 +1586,7 @@ inv_la does not qualify as providing two material constants.</li>
 <li><strong>J</strong> (<em>ufl.tensoralgebra.Determinant</em>) – The Jacobian, i.e. determinant of the deformation gradient. Note
 that this is not used for this material. It is solely a place holder
 to conform to the format of other materials.</li>
-<li><strong>p</strong> (<em>dolfin.Coefficient</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The UFL pressure function for incompressible materials.</li>
+<li><strong>p</strong> (<em>ufl.Coefficient</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – The UFL pressure function for incompressible materials.</li>
 <li><strong>formulation</strong> (<em>str</em><em> (</em><em>default</em><em>, </em><em>None</em><em>)</em>) – This input is not used for this material. It is solely a place holder
 to conform to the format of other materials.</li>
 </ul>
@@ -1594,19 +1658,19 @@ values already listed in the docstring of <code class="code docutils literal"><s
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
-<li><strong>'la'</strong> (<em>*</em>) – The first parameter used as shown in the equations above. Note: providing
+<li><strong>'la'</strong> (<em>float</em>) – The first parameter used as shown in the equations above. Note: providing
 <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">inv_la</span></code> does not qualify as providing two material
 parameters.</li>
-<li><strong>'mu'</strong> (<em>*</em>) – The second material parameter used as shown in the equations above.</li>
-<li><strong>'kappa'</strong> (<em>*</em>) – The bulk modulus of the material.</li>
-<li><strong>'inv_la'</strong> (<em>*</em>) – The reciprocal of the first parameter, <code class="code docutils literal"><span class="pre">la</span></code>. Note: providing
+<li><strong>'mu'</strong> (<em>float</em>) – The second material parameter used as shown in the equations above.</li>
+<li><strong>'kappa'</strong> (<em>float</em>) – The bulk modulus of the material.</li>
+<li><strong>'inv_la'</strong> (<em>float</em>) – The reciprocal of the first parameter, <code class="code docutils literal"><span class="pre">la</span></code>. Note: providing
 <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">inv_la</span></code> does not qualify as providing two material
 parameters.</li>
-<li><strong>'E'</strong> (<em>*</em>) – The Young’s modulus of the material. Note: this is not entirely consistent
+<li><strong>'E'</strong> (<em>float</em>) – The Young’s modulus of the material. Note: this is not entirely consistent
 with the neo-Hookean formulation, but <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">mu</span></code> will be
 computed based on the relation between the Young’s modulus and the Lame
 parameters if <code class="code docutils literal"><span class="pre">E</span></code> is given.</li>
-<li><strong>'nu'</strong> (<em>*</em>) – The Poisson’s ratio of the material. Note: this is not entirely consistent
+<li><strong>'nu'</strong> (<em>float</em>) – The Poisson’s ratio of the material. Note: this is not entirely consistent
 with the neo-Hookean formulation, but <code class="code docutils literal"><span class="pre">la</span></code> and <code class="code docutils literal"><span class="pre">mu</span></code> will be
 computed based on the relation between the Poisson’s ratio and the Lame
 parameters if <code class="code docutils literal"><span class="pre">nu</span></code> is given.</li>
@@ -1982,6 +2046,7 @@ is the identity tensor, <span class="math">\(p\)</span> is the hydrostatic press
 </li>
 <li><a class="reference internal" href="#solver-objects">Solver Objects</a><ul>
 <li><a class="reference internal" href="#module-fenicsmechanics.mechanicssolver">Mechanics Solver</a></li>
+<li><a class="reference internal" href="#base-mechanics-solver">Base Mechanics Solver</a></li>
 <li><a class="reference internal" href="#module-fenicsmechanics.solidmechanics">Solid Mechanics Solver</a></li>
 <li><a class="reference internal" href="#module-fenicsmechanics.fluidmechanics">Fluid Mechanics Solver</a></li>
 </ul>

@@ -241,33 +241,58 @@ def init(quad_degree=2):
 init()
 
 
-def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
-                         ret_dir=False, ret_mesh=True, ext="xml.gz",
-                         refinements=[12, 12]):
+def get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
+                        ret_dir=False, ret_mesh=True, ext="xml.gz",
+                        refinements=[""]):
     """
     Helper function to get the file names of meshes provided. Will raise
-    a FileNotFoundError if files do not exist.
+    a FileNotFoundError if files do not exist. The file name is assumed to
+    be formatted in the following way:
+
+        {mesh_dir}/{geometry}-{name}{refinements}.{ext}
+
+    where a '-' is added between 'name' and 'refinements' if refinements is
+    not empty. If more than one value is given under refinements (for use
+    with 'unit_domain'), they are separated by an 'x', e.g. '24x16x16'.
+
+    Note: all mesh functions might be stored within 'mesh_file' if it is an
+    HDF5 file.
 
 
     Parameters
     ----------
 
     geometry : str
-    ret_facets : bool
-    ret_cells : bool
-    ret_dir : bool
-    ret_mesh : bool
+        The name of the geometry. This should be one of the sub-directories in
+        the 'meshfiles' directory of fenicsmechanics.
+    ret_facets : bool (default False)
+        Specify whether the name of the file storing the facet function is to
+        be returned.
+    ret_cells : bool (default False)
+        Specify whether the name of the file storing the cell function is to
+        be returned.
+    ret_dir : bool (default False)
+        Specify whether the name of the directory is to be returned.
+    ret_mesh : bool (default True)
+        Specify whether the name of the file storing the mesh is to be returned.
     ext: str (Default "xml.gz")
-    refinements : list
+        The extension of the mesh file.
+    refinements : list, int, str
+        The refinement (in each dimension if a list is given) used to generate
+        the mesh.
 
 
     Returns
     -------
 
     mesh_file : str
+        Full path of the mesh file.
     facets_file : str
+        Full path of the file storing the facet function.
     cells_file : str
+        Full path of the file storing the cell function.
     mesh_dir : str
+        Full path of the directory in which all of the mesh files are stored.
 
     """
     import os
@@ -275,12 +300,19 @@ def _get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
     if geometry not in os.listdir(base_mesh_dir):
         raise FileNotFoundError("A mesh for '%s' is not available." % geometry)
 
+    if (geometry == "unit_domain") and (refinements == [""]):
+        msg = "The refinements used to generate the unit domain mesh must" \
+              + " be given."
+        raise ValueError(msg)
+
+    if isinstance(refinements, (str, int)):
+        refinements = [refinements]
+
     mesh_dir = os.path.join(base_mesh_dir, geometry)
     base_name = "{geometry}-{name}{refinements}.{ext}"
-    if geometry in ["unit_domain", "ellipsoid"]:
-        str_refinements = "-" + "x".join(list(map(str, refinements)))
-    else:
-        str_refinements = ""
+    str_refinements = "x".join(list(map(str, refinements)))
+    if str_refinements != "":
+        str_refinements = "-" + str_refinements
     mesh_file = base_name.format(geometry=geometry, name="mesh",
                                  refinements=str_refinements, ext=ext)
     facets_file = base_name.format(geometry=geometry, name="boundaries",

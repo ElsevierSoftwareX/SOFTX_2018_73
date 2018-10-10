@@ -1,3 +1,6 @@
+"""
+This module defines Exception classes specific to FEniCS Mechanics.
+"""
 __all__ = ["InvalidOption", "InvalidCombination", "InconsistentCombination",
            "DimensionMismatch", "RequiredParameter"]
 

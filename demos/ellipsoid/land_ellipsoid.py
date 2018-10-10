@@ -1,18 +1,19 @@
 import fenicsmechanics as fm
 
 # Specify material model and parameters
-mesh_dir = '../../meshfiles/ellipsoid/'
+mesh_file = fm.get_mesh_file_names("ellipsoid", refinements="1000um", ext="h5")
 mat_dict = {'const_eqn': 'guccione', 'type': 'elastic',
     'incompressible': True, 'density': 0.0,
     'bt': 1.0, 'bf': 1.0, 'bfs': 1.0, 'C': 10.0,
     'fibers': {
-        'fiber_files': [mesh_dir + 'fibers/n1-p0-1000um.xml.gz',
-                        mesh_dir + 'fibers/n2-p0-1000um.xml.gz'],
-        'fiber_names': ['n1', 'n2'], 'element-wise': True}}
+        'fiber_files': mesh_file,
+        'fiber_names': [['fib1', 'fib2', 'fib3'],
+                        ['she1', 'she2', 'she3']],
+        'elementwise': True}}
 
 # Provide mesh file names
-mesh_dict = {'mesh_file': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5',
-             'boundaries': mesh_dir + 'ellipsoid-mesh_fibers_boundaries-1000um.h5'}
+mesh_dict = {'mesh_file': mesh_file,
+             'boundaries': mesh_file}
 
 # Specify time integration parameters, BCs, and polynomial degree.
 formulation_dict = {

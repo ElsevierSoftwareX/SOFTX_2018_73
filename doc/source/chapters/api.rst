@@ -14,9 +14,9 @@ Base Mechanics Problem
 **********************
 
 All mechanics problem objects are child classes of
-:code:`basemechanicsproblem.BaseMechanicsProblem`.
+:code:`basemechanics.BaseMechanicsProblem`.
 
-.. automodule:: fenicsmechanics.basemechanicsproblem
+.. automodule:: fenicsmechanics.basemechanics
 
    .. autoclass:: BaseMechanicsProblem
       :members:
@@ -58,6 +58,19 @@ Mechanics Solver
 .. automodule:: fenicsmechanics.mechanicssolver
 
    .. autoclass:: MechanicsBlockSolver
+      :members:
+
+
+Base Mechanics Solver
+*********************
+
+The :code:`SolidMechanicsSolver` and :code:`FluidMechanicsSolver`
+classes inherit from both :code:`dolfin.NonlinearVariationalSolver`
+and :code:`basemechanics.BaseMechanicsSolver`.
+
+.. automodule:: fenicsmechanics.basemechanics
+
+   .. autoclass:: BaseMechanicsSolver
       :members:
 
 

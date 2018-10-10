@@ -43,12 +43,13 @@ First, we import FEniCS Mechanics with the alias :code:`fm`.
 
    import fenicsmechanics as fm
 
-We define a string variable with the relative location of our mesh
-files:
+Now we get the name of the files storing the mesh and the boundary
+tagging by using the :code:`get_mesh_file_names` function provided.
 
 .. code-block:: python
 
-   mesh_dir = '../../meshfiles/lshape/'
+   mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True,
+                                                  refinements="fine")
 
 Next, we start to define the problem defined before. We do this by
 defining the :code:`config` dictionary all at once. Here we
@@ -108,8 +109,8 @@ that we defined before.
 .. code-block:: python
 
        'mesh': {
-           'mesh_file': mesh_dir + 'lshape-mesh-fine.xml.gz',
-           'boundaries': mesh_dir + 'lshape-boundaries-fine.xml.gz'
+           'mesh_file': mesh_file,
+           'boundaries': boundaries
        },
 
 Last, but not least, is the formulation used to define the weak form
@@ -153,7 +154,7 @@ We will apply a homogeneous boundary condition at :math:`y = 1`.
 
 .. code-block:: python
 
-                   'displacement': [[0, 0]],
+                   'displacement': [[0., 0.]],
 
 To identify this region, we must use the same tags that were provided
 for the :code:`'boundaries'`. In this case, this region was tagged
@@ -175,7 +176,7 @@ We are applying a Cauchy traction of :math:`\mathbf{p} = -10^5
 
 .. code-block:: python
 
-                   'values': [[0, -1e5]],
+                   'values': [[0., -1e5]],
                    'regions': [2],
                    'types': ['cauchy']
                }
@@ -199,8 +200,8 @@ together:
            'mu': 1.5e6
        },
        'mesh': {
-           'mesh_file': mesh_dir + 'lshape-mesh-fine.xml.gz',
-           'boundaries': mesh_dir + 'lshape-boundaries-fine.xml.gz'
+           'mesh_file': mesh_file,
+           'boundaries': boundaries
        },
        'formulation': {
            'element': 'p1-p1',
@@ -208,11 +209,11 @@ together:
            'inverse': True,
            'bcs': {
                'dirichlet': {
-                   'displacement': [[0, 0]],
+                   'displacement': [[0., 0.]],
                    'regions': [1]
                },
                'neumann': {
-                   'values': [[0, -1e5]],
+                   'values': [[0., -1e5]],
                    'regions': [2],
                    'types': ['cauchy']
                }
