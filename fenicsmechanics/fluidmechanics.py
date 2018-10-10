@@ -1,3 +1,9 @@
+"""
+This module provides a problem and solver class to solve fluid mechanics
+problems using the mixed function space functionality in FEniCS. Note
+that only incompressible fluids are currently supported.
+
+"""
 from __future__ import print_function
 
 import dolfin as dlf

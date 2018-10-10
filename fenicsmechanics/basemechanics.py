@@ -1,3 +1,11 @@
+"""
+This module contains the base class for problem and solver classes. The
+:code:`BaseMechanicsProblem` provides methods to check and validate the
+:code:`config` dictionary provided by the user. The
+:code:`BaseMechanicsSolver` class provides methods for solving the mechanics
+problem specified by the user, and setting solver parameters.
+
+"""
 from __future__ import print_function
 
 import os

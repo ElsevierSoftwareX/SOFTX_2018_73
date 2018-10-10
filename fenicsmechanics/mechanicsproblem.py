@@ -1,3 +1,7 @@
+"""
+This module provides a problem class to define mechanics problems using separate
+function spaces.
+"""
 import dolfin as dlf
 
 from . import materials
