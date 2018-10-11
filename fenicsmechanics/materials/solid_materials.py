@@ -640,7 +640,6 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         incompressible = params_cp.pop('incompressible', False)
         IsotropicMaterial.set_incompressible(self, incompressible)
-        params = params or {}
         self._parameters = self.default_parameters()
         for k, v in self._parameters.items():
             self._parameters[k] = params_cp.pop(k, self._parameters[k])
@@ -1272,9 +1271,35 @@ class NeoHookeMaterial(IsotropicMaterial):
 # -----------------------------------------------------------------------------
 class DemirayMaterial(IsotropicMaterial):
     """
-    Demiray isotropic material
-    see Demiray, H. (1972). "A note on the elasticity of soft biological tissues."
-    Journal of Biomechanics, 5(3), 309-311. http://doi.org/10.1016/0021-9290(72)90047-4a
+    This class provides the constitutive equation presented by Demiray (1972).
+    The strain energy function is given by
+
+    .. math::
+        W = W_{\text{iso}} + W_\text{vol},
+
+    where
+
+    .. math::
+
+        W_{\text{iso}} = \\frac{a}{2b}(\exp(b(\bar{I}_1 - n)) - 1),
+
+    and
+
+    .. math::
+
+        W_{\text{vol}} = -p(J - 1)
+
+    for incompressible materials. While
+
+    .. math::
+
+        W_{\text{vol}} = \\frac{1}{2}\kappa(\ln(J))^2
+
+    for compressible materials.
+
+    See Demiray, H. (1972). "A note on the elasticity of soft biological
+    tissues." Journal of Biomechanics, 5(3), 309-311.
+    http://doi.org/10.1016/0021-9290(72)90047-4a
     """
     def __init__(self, mesh, inverse=False, **params):
         params_cp = dict(params)
@@ -1299,10 +1324,10 @@ class DemirayMaterial(IsotropicMaterial):
         """
         set default parameters for Demiray material
         """
-        param = {'kappa': 1e3,
+        params = {'kappa': 1e3,
                  'a': 20.,
                  'b': 5.}
-        return param
+        return params
 
     def strain_energy(self, u, p=None):
         """
@@ -1351,6 +1376,7 @@ class DemirayMaterial(IsotropicMaterial):
         formulation : str (default, None)
             This input is not used for this material. It is solely a place holder
             to conform to the format of other materials.
+
         """
         params = self._parameters
         dim = ufl.domain.find_geometric_dimension(f__)
@@ -1662,12 +1688,12 @@ class FungMaterial(AnisotropicMaterial):
 
     @staticmethod
     def default_parameters():
-        param = {
+        params = {
             'C': 2.0,
             'd': [1.0]*3 + [0.0]*3 + [0.5]*3,
             'kappa': 1e6
         }
-        return param
+        return params
 
 
     @staticmethod
@@ -2015,7 +2041,26 @@ class GuccioneMaterial(FungMaterial):
 # -----------------------------------------------------------------------------
 class HolzapfelOgdenMaterial(AnisotropicMaterial):
     """
-    Holzapfel-Ogden (2009) material type
+    This class provides the constitutive equation proposed by Holzapfel and
+    Ogden (2009). The strain energy function is given by
+
+    .. math::
+
+        W = A + \sum_{i=f,s}B_i + D_{fs},
+
+    where
+
+    .. math::
+
+        A = \\frac{a}{2b}\exp(b(I_1 - 3)), \\\\
+        B_i = \\frac{a_i}{2b_i}(\exp(b_i(I_{4i} - 1)^2) - 1),
+
+    and
+
+    .. math::
+
+        D_{fs} = \\frac{a_{fs}}{2b_{fs}}(\exp{b_{fs}I^2_{8fs}} - 1).
+
     """
 
     def __init__(self, mesh, inverse=False, **params):
@@ -2045,16 +2090,16 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
         """
         set default parameters for Holzapfel-Ogden material
         """
-        param = {'kappa': 1000.0,
-                 'a': 0.345,
-                 'b': 9.242,
-                 'af': 18.535,
-                 'bf': 15.972,
-                 'as': 2.564,
-                 'bs': 10.446,
-                 'afs': 0.417,
-                 'bfs': 11.602}
-        return param
+        params = {'kappa': 1000.0,
+                  'a': 0.345,
+                  'b': 9.242,
+                  'af': 18.535,
+                  'bf': 15.972,
+                  'as': 2.564,
+                  'bs': 10.446,
+                  'afs': 0.417,
+                  'bfs': 11.602}
+        return params
 
     @staticmethod
     def default_fiber_directions():
@@ -2180,10 +2225,34 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
 
 
 # -----------------------------------------------------------------------------
-def convert_elastic_moduli(param, material_name="lin_elastic", tol=1e-12):
+def convert_elastic_moduli(params, material_name="lin_elastic", tol=1e-12):
+    """
+    Compute values of missing material coefficients for linear elastic and
+    neo-Hookean models. Two, and only two, of the following parameters
+    must be provided:
+
+    * 'E': Young's modulus
+    * 'nu': Poisson's ratio
+    * 'la': First Lame parameter
+    * 'mu': Second Lame parameter (shear modulus)
+    * 'kappa': bulk modulus
+    * 'inv_la': The reciprocal of the first Lame parameter
+
+    Two of the above values must be provided within 'params', and the other 4
+    must be set to None.
+
+    Parameters
+    ----------
+
+    params : dict
+        A dictionary storing the material coefficients listed above.
+    tol : float (default 1e-12)
+        Tolerance used to check if two values are considered to be equal.
+
+    """
     from numpy import sqrt
     num_vals = 0
-    for k,v in param.items():
+    for k,v in params.items():
         if v is not None:
 
             if not isinstance(v, (float, int, dlf.Constant)):
@@ -2192,13 +2261,13 @@ def convert_elastic_moduli(param, material_name="lin_elastic", tol=1e-12):
                 print(msg)
                 return None
 
-            param[k] = float(v)
+            params[k] = float(v)
             num_vals += 1
 
-            if (param[k] <= 0.0) and (k != "inv_la"):
+            if (params[k] <= 0.0) and (k != "inv_la"):
                 msg = "Parameters for a '%s' material must be positive." \
                       % material_name + "The following value was given: "\
-                      + "%s = %f" % (k, param[k])
+                      + "%s = %f" % (k, params[k])
                 raise ValueError(msg)
 
     if num_vals != 2:
@@ -2208,12 +2277,12 @@ def convert_elastic_moduli(param, material_name="lin_elastic", tol=1e-12):
         raise InconsistentCombination(msg)
 
     # original parameters
-    nu = param['nu']         # Poisson's ratio [-]
-    E = param['E']           # Young's modulus [kPa]
-    kappa = param['kappa']   # bulk modulus [kPa]
-    mu = param['mu']         # shear modulus (Lame's second parameter) [kPa]
-    la = param['la']         # Lame's first parameter [kPa]
-    inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
+    nu = params['nu']         # Poisson's ratio [-]
+    E = params['E']           # Young's modulus [kPa]
+    kappa = params['kappa']   # bulk modulus [kPa]
+    mu = params['mu']         # shear modulus (Lame's second parameter) [kPa]
+    la = params['la']         # Lame's first parameter [kPa]
+    inv_la = params['inv_la'] # Inverse of Lame's first parameter [kPa]
 
     inf = float('inf')
     if (mu is not None) and (kappa is not None):
@@ -2330,11 +2399,11 @@ def convert_elastic_moduli(param, material_name="lin_elastic", tol=1e-12):
     else:
         raise RequiredParameter('Two material parameters must be specified.')
 
-    param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
-    param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
-    param['kappa'] = dlf.Constant(kappa)   # bulk modulus [kPa]
-    param['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
-    param['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
-    param['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]
+    params['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
+    params['E'] = dlf.Constant(E)           # Young's modulus [kPa]
+    params['kappa'] = dlf.Constant(kappa)   # bulk modulus [kPa]
+    params['mu'] = dlf.Constant(mu)         # shear modulus (Lame's second parameter) [kPa]
+    params['la'] = dlf.Constant(la)         # Lame's first parameter [kPa]
+    params['inv_la'] = dlf.Constant(inv_la) # Inverse of Lame's first parameters [kPa]
 
     return None
