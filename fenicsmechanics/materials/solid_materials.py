@@ -425,20 +425,28 @@ class LinearIsoMaterial(IsotropicMaterial):
 
 
     def __init__(self, inverse=False, **params):
+        params_cp = dict(params)
         IsotropicMaterial.__init__(self)
         IsotropicMaterial.set_material_name(self, 'Linear material')
         IsotropicMaterial.set_inverse(self, inverse)
-        IsotropicMaterial.set_incompressible(self, params['incompressible'])
-        params = params or {}
+
+        incompressible = params_cp.pop('incompressible', False)
+        IsotropicMaterial.set_incompressible(self, incompressible)
         self._parameters = self.default_parameters()
-        self._parameters.update(params)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
         convert_elastic_moduli(self._parameters)
+
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
+
+        return None
 
 
     @staticmethod
     def default_parameters():
         params = { 'mu': None,
-                   'kappa': 1e6,
+                   'kappa': None,
                    'la': None,
                    'inv_la': None,
                    'E': None,
@@ -624,48 +632,22 @@ class NeoHookeMaterial(IsotropicMaterial):
 
 
     def __init__(self, inverse=False, **params):
+        params_cp = dict(params)
         IsotropicMaterial.__init__(self)
         IsotropicMaterial.set_material_class(self, 'isotropic')
         IsotropicMaterial.set_material_name(self, 'Neo-Hooke material')
         IsotropicMaterial.set_inverse(self, inverse)
-        IsotropicMaterial.set_incompressible(self, params['incompressible'])
+
+        incompressible = params_cp.pop('incompressible', False)
+        IsotropicMaterial.set_incompressible(self, incompressible)
         params = params or {}
         self._parameters = self.default_parameters()
-        self._parameters.update(params)
-        self.__check_la(self._parameters)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
+        convert_elastic_moduli(self._parameters)
 
-        return None
-
-
-    @staticmethod
-    def __check_la(params):
-
-        la = params['la']
-        inv_la = params['inv_la']
-
-        # Exit if these are already dolfin objects
-        if isinstance(la, ufl.Coefficient) or isinstance(inv_la, ufl.Coefficient):
-            return None
-
-        inf = float("inf")
-        if la is not None:
-            if la == inf:
-                inv_la = 0.0
-            elif la == 0.0:
-                inv_la = inf
-            else:
-                inv_la = 1.0/la
-        elif inv_la is not None:
-            if inv_la == 0.0:
-                la = inf
-            else:
-                la = 1.0/inv_la
-        else:
-            convert_elastic_moduli(params)
-
-        if (la is not None) or (inv_la is not None):
-            params['la'] = dlf.Constant(la)
-            params['inv_la'] = dlf.Constant(inv_la)
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
 
         return None
 
@@ -673,7 +655,7 @@ class NeoHookeMaterial(IsotropicMaterial):
     @staticmethod
     def default_parameters():
         params = {'mu': None,
-                  'kappa': 1e6,
+                  'kappa': None,
                   'la': None,
                   'inv_la': None,
                   'E': None,
@@ -777,7 +759,7 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         mu = self._parameters['mu']
 
-        if self._parameters['incompressible']:
+        if self._incompressible:
             dim = ufl.domain.find_geometric_dimension(F)
             Fbar = J**(-1.0/dim)*F
             Cbar = Fbar.T*Fbar
@@ -829,7 +811,7 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         mu = self._parameters['mu']
 
-        if self._parameters['incompressible']:
+        if self._incompressible:
 
             dim = ufl.domain.find_geometric_dimension(f)
             fbar = j**(-1.0/dim)*f
@@ -986,7 +968,7 @@ class NeoHookeMaterial(IsotropicMaterial):
 
         mu = self._parameters['mu']
 
-        if self._parameters['incompressible']:
+        if self._incompressible:
             dim = ufl.domain.find_geometric_dimension(F)
             Fbar = J**(-1.0/dim)*F
             Fbar_inv = dlf.inv(Fbar)
@@ -1046,7 +1028,7 @@ class NeoHookeMaterial(IsotropicMaterial):
         dim = ufl.domain.find_geometric_dimension(f)
         I = dlf.Identity(dim)
 
-        if self._parameters['incompressible']:
+        if self._incompressible:
 
             T *= j**(-5.0/dim)
             b_vol = (-1.0/dim)*mu*(-1.0/dim)*i2
@@ -1295,14 +1277,20 @@ class DemirayMaterial(IsotropicMaterial):
     Journal of Biomechanics, 5(3), 309-311. http://doi.org/10.1016/0021-9290(72)90047-4a
     """
     def __init__(self, mesh, inverse=False, **params):
+        params_cp = dict(params)
         IsotropicMaterial.__init__(self)
         IsotropicMaterial.set_material_class(self, 'isotropic')
         IsotropicMaterial.set_material_name(self, 'Demiray material')
         IsotropicMaterial.set_inverse(self, inverse)
-        IsotropicMaterial.set_incompressible(self, params['incompressible'])
-        params = params or {}
+
+        incompressible = params_cp.pop('incompressible', False)
+        IsotropicMaterial.set_incompressible(self, incompressible)
         self._parameters = self.default_parameters()
-        self._parameters.update(params)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
+
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
 
         return None
 
@@ -1341,7 +1329,7 @@ class DemirayMaterial(IsotropicMaterial):
         w_isc = 0.5*a_c/b_c*(dlf.exp(b_c*(i_1-dim)) - 1)
 
         # incompressibility
-        if self._parameters['incompressible']:
+        if self._incompressible:
             w_vol = (-1.)*p * (jac - 1)
         else:
             kappa = dlf.Constant(params['kappa'], name='kappa')
@@ -1385,7 +1373,7 @@ class DemirayMaterial(IsotropicMaterial):
         fs_isc = j_m23*f__*s_bar - 1./dim*j_m23*dlf.tr(c__*s_bar)*f_inv.T
 
         # incompressibility
-        if self._parameters['incompressible']:
+        if self._incompressible:
             fs_vol = jac*p*f_inv.T
         else:
             kappa = self._parameters['kappa']
@@ -1653,36 +1641,42 @@ class FungMaterial(AnisotropicMaterial):
 
         AnisotropicMaterial.set_material_name(self, 'Fung material')
         AnisotropicMaterial.set_inverse(self, inverse)
-        AnisotropicMaterial.set_incompressible(self, params['incompressible'])
+
+        incompressible = params_cp.pop('incompressible', False)
+        AnisotropicMaterial.set_incompressible(self, incompressible)
 
         self._parameters = self.default_parameters()
-        self._parameters.update(params_cp)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
+
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
 
         # Check if material is isotropic to change the name
         d = list(self._parameters['d'])
         d_iso = [1.0]*3 + [0.0]*3 + [2.0]*3
         if d == d_iso:
             AnisotropicMaterial.set_material_class(self, 'isotropic')
+        return None
 
 
     @staticmethod
     def default_parameters():
-        param = {'C': 2.0,
-                 'd': [1.0]*3 + [0.0]*3 + [0.5]*3,
-                 'mu': None,
-                 'kappa': 1e6,
-                 'la': None,
-                 'inv_la': None,
-                 'E': None,
-                 'nu': None}
+        param = {
+            'C': 2.0,
+            'd': [1.0]*3 + [0.0]*3 + [0.5]*3,
+            'kappa': 1e6
+        }
         return param
 
 
     @staticmethod
     def default_fiber_directions():
-        fibers = {'e1': None,
-                  'e2': None,
-                  'e3': None}
+        fibers = {
+            'e1': None,
+            'e2': None,
+            'e3': None
+        }
         return fibers
 
 
@@ -2032,11 +2026,19 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
         AnisotropicMaterial.__init__(self, fiber_dict, mesh)
         AnisotropicMaterial.set_material_name(self, 'Holzapfel-Ogden (2009) material')
         AnisotropicMaterial.set_inverse(self, inverse)
-        AnisotropicMaterial.set_incompressible(self, params['incompressible'])
+
+        incompressible = params_cp.pop('incompressible', False)
+        AnisotropicMaterial.set_incompressible(self, incompressible)
         AnisotropicMaterial.set_material_class(self, 'orthotropic')
 
         self._parameters = self.default_parameters()
-        self._parameters.update(params_cp)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
+
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
+
+        return None
 
     @staticmethod
     def default_parameters():
@@ -2178,7 +2180,33 @@ class HolzapfelOgdenMaterial(AnisotropicMaterial):
 
 
 # -----------------------------------------------------------------------------
-def convert_elastic_moduli(param, tol=1e8):
+def convert_elastic_moduli(param, material_name="lin_elastic", tol=1e-12):
+    from numpy import sqrt
+    num_vals = 0
+    for k,v in param.items():
+        if v is not None:
+
+            if not isinstance(v, (float, int, dlf.Constant)):
+                msg = "*** Parameters given do not appear to be constant." \
+                      + " Will not try converting parameters. ***"
+                print(msg)
+                return None
+
+            param[k] = float(v)
+            num_vals += 1
+
+            if (param[k] <= 0.0) and (k != "inv_la"):
+                msg = "Parameters for a '%s' material must be positive." \
+                      % material_name + "The following value was given: "\
+                      + "%s = %f" % (k, param[k])
+                raise ValueError(msg)
+
+    if num_vals != 2:
+        msg = "Exactly 2 parameters must be given to define a "\
+              + "'%s' material." % material_name \
+              + " User provided %i parameters." % num_vals
+        raise InconsistentCombination(msg)
+
     # original parameters
     nu = param['nu']         # Poisson's ratio [-]
     E = param['E']           # Young's modulus [kPa]
@@ -2188,61 +2216,119 @@ def convert_elastic_moduli(param, tol=1e8):
     inv_la = param['inv_la'] # Inverse of Lame's first parameter [kPa]
 
     inf = float('inf')
-    if (kappa is not None and kappa > 0) \
-       and (mu is not None and mu > 0):
-        E = 9.*kappa*mu / (3.*kappa + mu)
-        nu = (3.*kappa - 2.*mu) / (2.*(3.*kappa+mu))
+    if (mu is not None) and (kappa is not None):
+        ratio = mu/kappa
+        E = 9.*mu/(3. + ratio)
         la = kappa - 2.*mu/3.
         inv_la = 1.0/la
-    elif (la == inf or inv_la == 0.0) \
-         and (mu is not None and mu > 0):
-        kappa = inf
-        E = 3.0*mu
-        nu = 0.5
-        if la == inf:
-            inv_la = 0.0
-        else:
-            la = inf
-    elif (la is not None and la > 0) \
-         and (mu is not None and mu > 0):
-        E = mu*(3.*la + 2.*mu) / (la + mu)
-        kappa = la + 2.*mu / 3.
-        nu = la / (2.*(la + mu))
+        nu = (3. - 2.*ratio)/(2.*(3. + ratio))
+    elif (mu is not None) and (la is not None):
+        ratio = mu/la
+        kappa = la + 2.*mu/3.
+        E = mu*(3. + 2.*ratio)/(1. + ratio)
+        nu = 1./(2.*(1. + ratio))
         inv_la = 1.0/la
-    elif (inv_la is not None and inv_la > 0) \
-         and (mu is not None and mu > 0):
-        E = mu*(3.0 + 2.0*mu*inv_la)/(1.0 + mu/inv_la)
-        kappa = 1.0/inv_la + 2.0*mu/3.0
-        nu = 1.0/(2.0*(1.0 + mu*inv_la))
-        la = 1.0/inv_la
-    elif (nu is not None and 0 < nu < 0.5) \
-         and (E is not None and E > 0):
-        kappa = E / (3.*(1 - 2.*nu))
-        mu = E / (2.*(1. + nu))
-        la = E*nu / ((1. + nu)*(1. - 2.*nu))
-        inv_la = 1.0/la
-    elif (nu is not None and nu == 0.5) \
-         and (E is not None and E > 0):
-        kappa = inf
-        mu = E/3.0
+    elif (mu is not None) and (inv_la is not None):
         la = inf
-        inv_la = 0.0
+        if inv_la != 0.0:
+            la = 1.0/inv_la
+        ratio = mu/la
+        kappa = la + 2.*mu/3.
+        E = mu*(3. + 2.*ratio)/(1. + ratio)
+        nu = 1./(2.*(1. + ratio))
+    elif (mu is not None) and (E is not None):
+        denominator = 3.*mu - E
+        kappa = la = inf; nu = 0.5
+        if abs(denominator) > tol:
+            kappa = E*mu/(3.*denominator)
+            la = mu*(E - 2.*mu)/denominator
+            nu = E/(2.*mu) - 1.
+        inv_la = 1.0/la
+    elif (mu is not None) and (nu is not None):
+        denominator = 1. - 2.*nu
+        kappa = la = inf
+        if abs(denominator) > tol:
+            kappa = 2.*mu*(1. + nu)/(3.*denominator)
+            la = 2.*mu*nu/denominator
+        E = 2.*mu*(1. + nu)
+        inv_la = 1.0/la
+    elif (E is not None) and (nu is not None):
+        denominator = 1. - 2.*nu
+        kappa = la = inf
+        if abs(denominator) > tol:
+            kappa = E/(3.*denominator)
+            la = E*nu/((1. + nu)*denominator)
+        mu = E/(2.*(1. + nu))
+        inv_la = 1.0/la
+    elif (E is not None) and (kappa is not None):
+        ratio = E/kappa
+        la = inf
+        if kappa < inf:
+            la = 3.*kappa*(3.*kappa - E)/(9.*kappa - E)
+        mu = 3.*E/(9. - ratio)
+        nu = (3. - ratio)/6.
+        inv_la = 1.0/la
+    elif (E is not None) and (la is not None):
+        r = sqrt(E**2 + 9.*la**2 + 2.*E*la)
+        kappa = (E + 3.*la + r)/6.
+        mu = 3.*E/(9. - E/kappa)
+        nu = (3. - E/kappa)/6.
+        inv_la = 1.0/la
+    elif (E is not None) and (inv_la is not None):
+        la = inf
+        if inv_la > 0.0:
+            la = 1.0/inv_la
+        r = sqrt(E**2 + 9.*la**2 + 2.*E*la)
+        kappa = (E + 3.*la + r)/6.
+        mu = 3.*E/(9. - E/kappa)
+        nu = (3. - E/kappa)/6.
+    elif (nu is not None) and (kappa is not None):
+        if (nu == 0.5) or (kappa == inf):
+            msg = "A fully incompressible material can't be well defined using " \
+                  + "'nu' and 'kappa'."
+            raise InvalidCombination(msg)
+        E = 3.*kappa*(1. - 2.*nu)
+        la = 3.*kappa*nu/(1. + nu)
+        mu = 3.*kappa*(1. - 2.*nu)/(2.*(1. + nu))
+        inv_la = 1.0/la
+    elif (nu is not None) and (la is not None):
+        if (nu == 0.5) or (kappa == inf):
+            msg = "A fully incompressible material can't be well defined using " \
+                  + "'nu' and 'la'."
+            raise InvalidCombination(msg)
+        kappa = la*(1. + nu)/(3.*nu)
+        E = la*(1. + nu)*(1. - 2.*nu)/nu
+        mu = la*(1. - 2.*nu)/(2.*nu)
+        inv_la = 1.0/la
+    elif (nu is not None) and (inv_la is not None):
+        if (nu == 0.5) or (inv_la == 0.0):
+            msg = "A fully incompressible material can't be well defined using " \
+                  + "'nu' and 'inv_la'."
+            raise InvalidCombination(msg)
+        la = 1.0/inv_la
+        kappa = la*(1. + nu)/(3.*nu)
+        E = la*(1. + nu)*(1. - 2.*nu)/nu
+        mu = la*(1. - 2.*nu)/(2.*nu)
+    elif (kappa is not None) and (la is not None):
+        if (kappa == inf) or (la == inf):
+            msg = "A fully incompressible material can't be well defined using " \
+                  + "'kappa' and 'la'."
+            raise InvalidCombination(msg)
+        E = 9.*kappa*(kappa - la)/(3.*kappa - la)
+        mu = 3.*(kappa - la)/2.
+        nu = la/(3.*kappa - la)
+        inv_la = 1.0/la
+    elif (kappa is not None) and (inv_la is not None):
+        if (kappa == inf) or (inv_la == 0.0):
+            msg = "A fully incompressible material can't be well defined using " \
+                  + "'kappa' and 'inv_la'."
+            raise InvalidCombination(msg)
+        la = 1.0/inv_la
+        E = 9.*kappa*(kappa - la)/(3.*kappa - la)
+        mu = 3.*(kappa - la)/2.
+        nu = la/(3.*kappa - la)
     else:
         raise RequiredParameter('Two material parameters must be specified.')
-
-    s = 'Parameter %s was changed due to contradictory settings.'
-    if (param['E'] is not None) and (param['E'] != E):
-        print(s % 'E')
-    if (param['kappa'] is not None) and (param['kappa'] != kappa):
-        print(s % 'kappa')
-    if (param['la'] is not None) and (param['la'] != la):
-        print(s % 'la')
-    if (param['inv_la'] is not None) and (param['inv_la'] != inv_la):
-        print(s % 'inv_la')
-    if (param['mu'] is not None) and (param['mu'] != mu):
-        print(s % 'mu')
-    if (param['nu'] is not None) and (param['nu'] != nu):
-        print(s % 'nu')
 
     param['nu'] = dlf.Constant(nu)         # Poisson's ratio [-]
     param['E'] = dlf.Constant(E)           # Young's modulus [kPa]
