@@ -8,10 +8,12 @@ fm_dirname, _ = os.path.split(fm.__file__)
 base_demo_dir = os.path.abspath(os.path.join(fm_dirname, "../demos"))
 
 # SKIPPING ELLIPSOID DUE TO RESOURCES ON LOCAL MACHINE.
-@pytest.mark.parametrize("demo", (# "ellipsoid",
-                                  "pipe_flow",
-                                  "unloading",
-                                  "square_elongation"))
+demos_to_test = (# "ellipsoid",
+    "pipe_flow",
+    "unloading",
+    "square_elongation")
+
+@pytest.mark.parametrize("demo", demos_to_test)
 def test_demo(demo, timeout=200):
     py_cmd = "python3 {fname}"
     demo_dir = os.path.join(base_demo_dir, demo)
@@ -25,3 +27,26 @@ def test_demo(demo, timeout=200):
             returncode = ret.returncode
         assert not returncode
     return None
+
+if __name__ == "__main__":
+    import sys
+    import argparse
+
+    try: # For use with emacs python shell
+        sys.argv.remove("--simple-prompt")
+    except ValueError:
+        pass
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test-ellipsoid",
+                        action="store_true",
+                        help="Include the ellipsoid demo.")
+    args = parser.parse_args()
+
+    timeout = 100
+    if args.test_ellipsoid:
+        demos_to_test = ("ellipsoid",) + demos_to_test
+        timeout = 5000 # incresing timeout for ellipsoid
+
+    for demo in demos_to_test:
+        test_demo(demo, timeout=timeout)
