@@ -17,7 +17,7 @@ from .utils import load_mesh, load_mesh_function, \
     _create_file_objects, _write_objects
 from .__CONSTANTS__ import dict_implemented as _implemented
 from .exceptions import *
-from .dolfincompat import MPI_COMM_WORLD
+from .dolfincompat import MPI_COMM_WORLD, DOLFIN_VERSION_INFO
 from inspect import isclass
 
 __all__ = ['BaseMechanicsProblem', 'BaseMechanicsSolver']
@@ -1710,7 +1710,7 @@ class BaseMechanicsSolver(dlf.NonlinearVariationalSolver, BaseMechanicsObject):
 
         if f_hdf5 is not None:
             f_hdf5.close()
-        if f_xdmf is not None:
+        if (f_xdmf is not None) and (DOLFIN_VERSION_INFO.major >= 2017):
             f_xdmf.close()
 
         return None

@@ -192,9 +192,7 @@ from .fluidmechanics import *
 from .materials.solid_materials import *
 from .materials.fluids import *
 from .utils import *
-from .dolfincompat import MPI_COMM_WORLD
-
-from .dolfincompat import MPI_COMM_WORLD
+from .dolfincompat import *
 
 import sys as _sys
 import dolfin as _dlf
@@ -346,3 +344,4 @@ def get_mesh_file_names(geometry, ret_facets=False, ret_cells=False,
 
 
 __version__ = "1.0.0"
+version_info = convert_version_info(__version__)

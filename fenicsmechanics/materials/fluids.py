@@ -196,17 +196,30 @@ class NewtonianFluid(Fluid):
 
 
     def __init__(self, **params):
+        params_cp = dict(params)
         Fluid.__init__(self)
         Fluid.set_material_class(self, 'Fluid')
         Fluid.set_material_name(self, 'Incompressible Newtonian fluid')
-        Fluid.set_incompressible(self, params['incompressible'])
+
+        # Assume True here (unlike solids) since compressible is not
+        # yet supported.
+        incompressible = params_cp.pop('incompressible', True)
+        Fluid.set_incompressible(self, incompressible)
+
         self._parameters = self.default_parameters()
-        self._parameters.update(params)
+        for k, v in self._parameters.items():
+            self._parameters[k] = params_cp.pop(k, self._parameters[k])
+
+        # self._parameters.update(params)
         convert_viscosity(self._parameters)
+
+        # Saving this for debugging.
+        self._unused_parameters = params_cp
 
         if not self._incompressible:
             msg = "Compressible flows have not been implemented."
             raise NotImplementedError(msg)
+        return None
 
 
     @staticmethod
@@ -261,7 +274,7 @@ class NewtonianFluid(Fluid):
         return -p*I + dlf.Constant(2.0)*mu*D
 
 
-def convert_viscosity(param):
+def convert_viscosity(param, material_name="newtonian"):
     """
     Ensure that the dynamic and kinematic viscosity values are
     consistent. If the density and kinematic viscosity are both
@@ -287,44 +300,55 @@ def convert_viscosity(param):
 
 
     """
+    num_vals = 0
+    for k, v in param.items():
+        if v is not None:
+            if not isinstance(v, (float, int, dlf.Constant)):
+                msg = "*** Parameters given do not appear to be constant." \
+                      + " Will not try converting parameters. ***"
+                print(msg)
+                return None
+
+            param[k] = float(v)
+            num_vals += 1
+            if (param[k] < 0.0):
+                msg = "Parameters for a '%s' material must be positive." \
+                      % material_name + "The following value was given: "\
+                      + "%s = %f" % (k, param[k])
+                raise ValueError(msg)
+
+    if num_vals != 2:
+        msg = "Exactly 2 parameters must be given to define a "\
+              + "'%s' material." % material_name \
+              + " User provided %i parameters." % num_vals
+        raise InconsistentCombination(msg)
 
     # Original parameters
     rho = param['density']
     mu = param['mu'] # Dynamic viscosity
     nu = param['nu'] # Kinematic viscosity
 
+    if rho == 0.0:
+        if (mu is None) or (mu <= 0.0):
+            msg = "A non-zero dynamic viscosity must be provided when the" \
+                  + " density is set to zero."
+            raise InconsistentCombination(msg)
+        msg = "The density was set to zero. We'll assume this was done on" \
+              + " purpose and will not attempt any parameter conversions."
+        print(msg)
+        return None
+
     if (rho is not None) and (mu is not None):
-        if (rho > 0) and (mu > 0):
-            nu = mu/rho
-        elif rho > 0:
-            raise ValueError("A positive value must be provided for 'mu'.")
-        else:
-            raise ValueError("A positive value must be provided for the density.")
+        nu = mu/rho
     elif (rho is not None) and (nu is not None):
-        if (rho > 0) and (nu > 0):
-            mu = rho*nu
-        elif (rho > 0):
-            raise ValueError("A positive value must be provided for 'nu'.")
-        else:
-            raise ValueError("A positive value must be provided for the density.")
+        mu = rho*nu
     elif (mu is not None) and (nu is not None):
-        if (mu > 0) and (nu > 0):
-            rho = mu/nu
-        elif mu > 0:
-            raise ValueError("A positive value must be provided for 'nu'.")
-        else:
-            raise ValueError("A positive value must be provided for 'mu'.")
+        rho = mu/nu
     else:
         raise RequiredParameter('Two material parameters must be specified.')
-
-    s = 'Parameter \'%s\' was changed due to contradictory settings.'
-    if (param['nu'] is not None) and (param['nu'] != nu):
-        print(s % 'nu')
-    if (param['mu'] is not None) and (param['mu'] != mu):
-        print(s % 'mu')
-    if (param['density'] is not None) and (param['density'] != rho):
-        print(s % 'density')
 
     param['nu'] = dlf.Constant(nu, name='nu')
     param['mu'] = dlf.Constant(mu, name='mu')
     param['density'] = dlf.Constant(rho, name='density')
+
+    return None
