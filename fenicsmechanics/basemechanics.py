@@ -1021,6 +1021,9 @@ class BaseMechanicsProblem(BaseMechanicsObject):
         if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
             expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
 
+        if 'pressure' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['pressure'])
+
         for expr in expr_list:
             if hasattr(expr, 't'):
                 expr.t = t

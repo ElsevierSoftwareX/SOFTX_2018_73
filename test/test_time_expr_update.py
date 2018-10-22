@@ -10,7 +10,8 @@ _EXPRESSIONS = {
     'body_force': ["np.log(1.0 + t)", "np.exp(t)", "1.0 - t"],
     'displacement': ["1.0 + 2.0*t", "3.0*t", "1.0"],
     'velocity': ["np.tanh(t)", "np.exp(-t)*np.cos(2.0*np.pi*t)", "0.5"],
-    'values': ["t", "t*t", "10.0*np.cos(t)"]
+    'values': ["t", "t*t", "10.0*np.cos(t)"],
+    'pressure': ["np.cos(9.0*t)"]
 }
 
 
@@ -18,18 +19,25 @@ _EXPRESSIONS = {
                          (("MechanicsProblem", "formulation/body_force"),
                           ("MechanicsProblem", "formulation/bcs/dirichlet/displacement"),
                           ("MechanicsProblem", "formulation/bcs/dirichlet/velocity"),
+                          ("MechanicsProblem", "formulation/bcs/dirichlet/pressure"),
                           ("MechanicsProblem", "formulation/bcs/neumann/values"),
                           ("SolidMechanicsProblem", "formulation/body_force"),
                           ("SolidMechanicsProblem", "formulation/bcs/dirichlet/displacement"),
+                          ("SolidMechanicsProblem", "formulation/bcs/dirichlet/pressure"),
                           ("SolidMechanicsProblem", "formulation/bcs/neumann/values"),
                           ("FluidMechanicsProblem", "formulation/body_force"),
                           ("FluidMechanicsProblem", "formulation/bcs/dirichlet/velocity"),
+                          ("FluidMechanicsProblem", "formulation/bcs/dirichlet/pressure"),
                           ("FluidMechanicsProblem", "formulation/bcs/neumann/values")))
 def test_single_time_update_tmp(default_config, class_name, field_name):
     import numpy as np
     config = default_config(class_name, unsteady=True)
     if "body_force" in field_name:
         config['formulation']['body_force'] = None
+
+    if "pressure" in field_name:
+        config['formulation']['bcs']['dirichlet']['pressure'] = None
+        # config['formulation']['bcs']['dirichlet']['p_regions'] = [2]
 
     t, tf = config['formulation']['time']['interval']
     dt = config['formulation']['time']['dt']
@@ -129,10 +137,16 @@ def _update_subconfig(last_key, subconfig, fm_expr, t):
         subconfig['regions'] = [1]
     elif last_key == "velocity":
         subconfig['regions'] = [1]
+    elif last_key == "pressure":
+        subconfig['p_regions'] = [2]
     elif last_key == "values":
         subconfig['types'] = ['cauchy']
         subconfig['regions'] = [2]
-    subconfig[last_key] = fm_expr if last_key == "body_force" else [fm_expr]
+
+    if (last_key == "body_force") or (last_key == "pressure"):
+        subconfig[last_key] = fm_expr
+    else:
+        subconfig[last_key] = [fm_expr]
     return None
 
 
@@ -197,6 +211,8 @@ if __name__ == "__main__":
                                     "formulation/body_force")
     _ = test_single_time_update_tmp(_default_config, "MechanicsProblem",
                                     "formulation/bcs/dirichlet/displacement")
+    _ = test_single_time_update_tmp(_default_config, "SolidMechanicsProblem",
+                                    "formulation/bcs/dirichlet/pressure")
     _ = test_single_time_update_tmp(_default_config, "MechanicsProblem",
                                     "formulation/bcs/neumann/values")
     _ = test_single_time_update_tmp(_default_config, "FluidMechanicsProblem",
