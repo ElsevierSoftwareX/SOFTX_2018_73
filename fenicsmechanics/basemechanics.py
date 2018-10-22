@@ -1021,6 +1021,9 @@ class BaseMechanicsProblem(BaseMechanicsObject):
         if 'velocity' in self.config['formulation']['bcs']['dirichlet']:
             expr_list.extend(self.config['formulation']['bcs']['dirichlet']['velocity'])
 
+        if 'pressure' in self.config['formulation']['bcs']['dirichlet']:
+            expr_list.extend(self.config['formulation']['bcs']['dirichlet']['pressure'])
+
         for expr in expr_list:
             if hasattr(expr, 't'):
                 expr.t = t
@@ -1651,6 +1654,11 @@ class BaseMechanicsSolver(dlf.NonlinearVariationalSolver, BaseMechanicsObject):
 
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
+
+            # Solve the problem at t = 0.0 since the initial conditions are
+            # not guaranteed to satisfy the governing equations.
+            self.step()
+            self.update_assign()
 
             # Save initial condition
             if save_initial:

@@ -11,7 +11,7 @@ parser.add_argument('-bs', '--block-solver',
                     action='store_true')
 args = parser.parse_args()
 
-mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True)
+mesh_file, boundaries = fm.get_mesh_file_names("lshape", ret_facets=True, refinements="fine")
 
 # Region IDs
 ALL_ELSE = 0
@@ -20,7 +20,7 @@ OUTFLOW = 2
 NOSLIP = 3
 
 # Inlet pressure
-p_in = dlf.Expression('sin(3.0*t)', t=0.0, degree=2)
+p_in = "sin(3.0*t)"
 
 # Material subdictionary
 mat_dict = {
@@ -55,7 +55,7 @@ formulation_dict = {
         'neumann': {
             'regions': [INFLOW, OUTFLOW],
             'types': ['pressure', 'pressure'],
-            'values': [p_in, dlf.Constant(0.0)]
+            'values': [p_in, 0.0]
         }
     }
 }
