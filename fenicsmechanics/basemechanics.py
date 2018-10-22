@@ -412,6 +412,9 @@ class BaseMechanicsProblem(BaseMechanicsObject):
 
         """
 
+        if 'inverse' not in config['formulation']:
+            config['formulation']['inverse'] = False
+
         if 'const_eqn' not in config['material']:
             msg = "The constitutive equation must be specified under the key " \
                   + "'const_eqn' of the 'material' subdictionary."
@@ -439,9 +442,6 @@ class BaseMechanicsProblem(BaseMechanicsObject):
                   % const_eqn \
                   + 'within the material type, \'%s\'.' % config['material']['type']
             raise InvalidCombination(msg)
-
-        if 'inverse' not in config['formulation']:
-            config['formulation']['inverse'] = False
 
         return None
 
