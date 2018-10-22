@@ -1655,6 +1655,11 @@ class BaseMechanicsSolver(dlf.NonlinearVariationalSolver, BaseMechanicsObject):
             dt = problem.config['formulation']['time']['dt']
             count = 0 # Used to check if files should be saved.
 
+            # Solve the problem at t = 0.0 since the initial conditions are
+            # not guaranteed to satisfy the governing equations.
+            self.step()
+            self.update_assign()
+
             # Save initial condition
             if save_initial:
                 _write_objects(f_objs, t=t, close=False, **write_kwargs)
