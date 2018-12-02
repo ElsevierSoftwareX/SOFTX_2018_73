@@ -78,8 +78,8 @@ done in several ways. Here are three possible solutions:
 
    .. code-block:: python
 
-      import os
-      os.path.append("path/to/fenicsmechanics")
+      import sys
+      sys.path.append("path/to/fenicsmechanics")
 
 #. Add a file to the python :code:`dist-packages` directory with the
    :code:`pth` extension, e.g.
