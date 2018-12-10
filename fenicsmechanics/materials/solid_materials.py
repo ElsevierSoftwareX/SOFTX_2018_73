@@ -435,7 +435,8 @@ class LinearIsoMaterial(IsotropicMaterial):
         self._parameters = self.default_parameters()
         for k, v in self._parameters.items():
             self._parameters[k] = params_cp.pop(k, self._parameters[k])
-        convert_elastic_moduli(self._parameters)
+        convert_elastic_moduli(self._parameters,
+                               material_name=self._material_name)
 
         # Saving this for debugging.
         self._unused_parameters = params_cp
@@ -643,7 +644,8 @@ class NeoHookeMaterial(IsotropicMaterial):
         self._parameters = self.default_parameters()
         for k, v in self._parameters.items():
             self._parameters[k] = params_cp.pop(k, self._parameters[k])
-        convert_elastic_moduli(self._parameters)
+        convert_elastic_moduli(self._parameters,
+                               material_name=self._material_name)
 
         # Saving this for debugging.
         self._unused_parameters = params_cp
