@@ -435,7 +435,8 @@ class LinearIsoMaterial(IsotropicMaterial):
         self._parameters = self.default_parameters()
         for k, v in self._parameters.items():
             self._parameters[k] = params_cp.pop(k, self._parameters[k])
-        convert_elastic_moduli(self._parameters)
+        convert_elastic_moduli(self._parameters,
+                               material_name=self._material_name)
 
         # Saving this for debugging.
         self._unused_parameters = params_cp
@@ -643,7 +644,8 @@ class NeoHookeMaterial(IsotropicMaterial):
         self._parameters = self.default_parameters()
         for k, v in self._parameters.items():
             self._parameters[k] = params_cp.pop(k, self._parameters[k])
-        convert_elastic_moduli(self._parameters)
+        convert_elastic_moduli(self._parameters,
+                               material_name=self._material_name)
 
         # Saving this for debugging.
         self._unused_parameters = params_cp
@@ -1601,11 +1603,11 @@ class FungMaterial(AnisotropicMaterial):
                 \\text{outer}(\mathbf{e}_2, \mathbf{e}_2)
            + (d_6 E_{11} + d_5 E_{22} + d_3 E_{33})
                 \\text{outer}(\mathbf{e}_3, \mathbf{e}_3)
-           + d_7 E_{12}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
+           + \\frac{1}{2}d_7 E_{12}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
                 + \\text{outer}(\mathbf{e}_2, \mathbf{e}_1))
-           + d_9 E_{13}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
+           + \\frac{1}{2}d_9 E_{13}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
                 + \\text{outer}(\mathbf{e}_3, \mathbf{e}_1))
-           + d_8 E_{23}(\ttext{outer}(\mathbf{e}_2, \mathbf{e}_3)
+           + \\frac{1}{2}d_8 E_{23}(\ttext{outer}(\mathbf{e}_2, \mathbf{e}_3)
                 + \\text{outer}(\mathbf{e}_3, \mathbf{e}_2))\\right).
 
     For compressible materials,
@@ -1803,6 +1805,7 @@ class FungMaterial(AnisotropicMaterial):
         E22,E23 = dlf.inner(e2, E*e2), dlf.inner(e2, E*e3)
         E33 = dlf.inner(e3, E*e3)
 
+        half = dlf.Constant(0.5)
         Q = dd[0]*E11**2 + dd[1]*E22**2 + dd[2]*E33**2 \
             + 2.0*dd[3]*E11*E22 + 2.0*dd[4]*E22*E33 + 2.0*dd[5]*E11*E33 \
             + dd[6]*E12**2 + dd[7]*E23**2 + dd[8]*E13**2
@@ -1810,9 +1813,9 @@ class FungMaterial(AnisotropicMaterial):
              *((dd[0]*E11 + dd[3]*E22 + dd[5]*E33)*dlf.outer(e1, e1) \
                + (dd[3]*E11 + dd[1]*E22 + dd[4]*E33)*dlf.outer(e2, e2) \
                + (dd[5]*E11 + dd[4]*E22 + dd[2]*E33)*dlf.outer(e3, e3) \
-               + dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
-               + dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
-               + dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
+               + half*dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
+               + half*dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
+               + half*dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
         FS_isc = Jm2d*F*S_ - 1./dim*Jm2d*dlf.tr(C*S_)*Finv.T
 
         # incompressibility
@@ -1888,6 +1891,7 @@ class FungMaterial(AnisotropicMaterial):
         E22,E23 = dlf.inner(e2, E*e2), dlf.inner(e2, E*e3)
         E33 = dlf.inner(e3, E*e3)
 
+        half = dlf.Constant(0.5)
         Q = dd[0]*E11**2 + dd[1]*E22**2 + dd[2]*E33**2 \
             + 2.0*dd[3]*E11*E22 + 2.0*dd[4]*E22*E33 + 2.0*dd[5]*E11*E33 \
             + dd[6]*E12**2 + dd[7]*E23**2 + dd[8]*E13**2
@@ -1895,9 +1899,9 @@ class FungMaterial(AnisotropicMaterial):
              *((dd[0]*E11 + dd[3]*E22 + dd[5]*E33)*dlf.outer(e1, e1) \
                + (dd[3]*E11 + dd[1]*E22 + dd[4]*E33)*dlf.outer(e2, e2) \
                + (dd[5]*E11 + dd[4]*E22 + dd[2]*E33)*dlf.outer(e3, e3) \
-               + dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
-               + dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
-               + dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
+               + half*dd[6]*E12*(dlf.outer(e1, e2) + dlf.outer(e2, e1)) \
+               + half*dd[8]*E13*(dlf.outer(e1, e3) + dlf.outer(e3, e1)) \
+               + half*dd[7]*E23*(dlf.outer(e2, e3) + dlf.outer(e3, e2)))
         T_iso = j**(-5.0/dim)*finv*S_*finv.T \
                 - (1.0/dim)*dlf.inner(S_, binv)*I
 
@@ -1958,7 +1962,7 @@ class GuccioneMaterial(FungMaterial):
         bfs = params['bfs']
         params['d'] = [bf, bt, bt,
                        0.0, 0.0, 0.0,
-                       bfs, bt, bfs]
+                       2.0*bfs, 2.0*bt, 2.0*bfs]
         FungMaterial.__init__(self, mesh, inverse=inverse, **params)
         ElasticMaterial.set_material_name(self, 'Guccione material')
 
