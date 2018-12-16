@@ -1603,11 +1603,11 @@ class FungMaterial(AnisotropicMaterial):
                 \\text{outer}(\mathbf{e}_2, \mathbf{e}_2)
            + (d_6 E_{11} + d_5 E_{22} + d_3 E_{33})
                 \\text{outer}(\mathbf{e}_3, \mathbf{e}_3)
-           + d_7 E_{12}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
+           + \\frac{1}{2}d_7 E_{12}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_2)
                 + \\text{outer}(\mathbf{e}_2, \mathbf{e}_1))
-           + d_9 E_{13}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
+           + \\frac{1}{2}d_9 E_{13}(\\text{outer}(\mathbf{e}_1, \mathbf{e}_3)
                 + \\text{outer}(\mathbf{e}_3, \mathbf{e}_1))
-           + d_8 E_{23}(\ttext{outer}(\mathbf{e}_2, \mathbf{e}_3)
+           + \\frac{1}{2}d_8 E_{23}(\ttext{outer}(\mathbf{e}_2, \mathbf{e}_3)
                 + \\text{outer}(\mathbf{e}_3, \mathbf{e}_2))\\right).
 
     For compressible materials,
