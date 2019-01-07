@@ -146,26 +146,47 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         self.ufl_velocity, self.ufl_pressure = dlf.split(self.sys_v)
 
         init = self.config['formulation']['initial_condition']
+        types_for_assign = (dlf.Constant, dlf.Expression)
         if init['velocity'] is not None \
            and init['pressure'] is not None:
-            self.velocity = dlf.project(init['velocity'],
+            if isinstance(init['velocity'], types_for_assign):
+                self.velocity = dlf.Function(self.functionSpace.sub(0).collapse())
+                self.velocity.assign(init['velocity'])
+            else:
+                self.velocity = dlf.project(init['velocity'],
                                             self.functionSpace.sub(0).collapse())
-            self.pressure = dlf.project(init['pressure'],
-                                        self.functionSpace.sub(1).collapse())
+            if isinstance(init['pressure'], types_for_assign):
+                self.pressure = dlf.Function(self.functionSpace.sub(1).collapse())
+                self.pressure.assign(init['pressure'])
+            else:
+                self.pressure = dlf.project(init['pressure'],
+                                            self.functionSpace.sub(1).collapse())
         elif init['velocity'] is not None:
             _, self.pressure = self.sys_v.split(deepcopy=True)
-            self.velocity = dlf.project(init['velocity'],
-                                        self.functionSpace.sub(0).collapse())
+            if isinstance(init['velocity'], types_for_assign):
+                self.velocity = dlf.Function(self.functionSpace.sub(0).collapse())
+                self.velocity.assign(init['velocity'])
+            else:
+                self.velocity = dlf.project(init['velocity'],
+                                            self.functionSpace.sub(0).collapse())
         elif init['pressure'] is not None:
             self.velocity, _ = self.sys_v.split(deepcopy=True)
-            self.pressure = dlf.project(init['pressure'],
-                                        self.functionSpace.sub(1).collapse())
+            if isinstance(init['pressure'], types_for_assign):
+                self.pressure = dlf.Function(self.functionSpace.sub(1).collapse())
+                self.pressure.assign(init['pressure'])
+            else:
+                self.pressure = dlf.project(init['pressure'],
+                                            self.functionSpace.sub(1).collapse())
         else:
             print("No initial conditions were provided")
             self.velocity, self.pressure = self.sys_v.split(deepcopy=True)
 
         self.velocity.rename("v", "velocity")
         self.pressure.rename("p", "pressure")
+
+        self.define_function_assigners()
+        self.assigner_v2sys.assign(self.sys_v, [self.velocity,
+                                                self.pressure])
 
         self.sys_dv = dlf.TrialFunction(self.functionSpace)
         self.trial_vector, self.trial_scalar = dlf.split(self.sys_dv)
@@ -180,10 +201,6 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
             self.pressure0.rename("p0", "pressure0")
 
             self.define_ufl_acceleration()
-
-        self.define_function_assigners()
-        self.assigner_v2sys.assign(self.sys_v, [self.velocity,
-                                                self.pressure])
 
         return None
 
