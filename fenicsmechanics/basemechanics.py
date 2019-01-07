@@ -923,15 +923,15 @@ class BaseMechanicsProblem(BaseMechanicsObject):
         vec_degree = int(config['formulation']['element'][0][1:])
         if ic['displacement'] is not None:
             orig_disp = ic['displacement']
-            _check_types(orig_disp, (ufl.Coefficient, list, tuple),
-                         "formulation/initial_condition/displacement")
+            _check_type(orig_disp, (ufl.Coefficient, list, tuple),
+                        "formulation/initial_condition/displacement")
             disp, = self.__convert_pyvalues_to_coeffs([orig_disp], t0, vec_degree)
             ic['displacement'] = disp
 
         if ic['velocity'] is not None:
             orig_vel = ic['velocity']
-            _check_types(orig_vel, (ufl.Coefficient, list, tuple),
-                         "formulation/initial_condition/velocity")
+            _check_type(orig_vel, (ufl.Coefficient, list, tuple),
+                        "formulation/initial_condition/velocity")
             vel, = self.__convert_pyvalues_to_coeffs([orig_vel], t0, vec_degree)
             ic['velocity'] = vel
 
@@ -945,8 +945,8 @@ class BaseMechanicsProblem(BaseMechanicsObject):
 
             scalar_degree = int(config['formulation']['element'][1][1:])
             orig_pressure = ic['pressure']
-            _check_types(orig_pressure, (ufl.Coefficient, str, float, int),
-                         "formulation/initial_condition/pressure")
+            _check_type(orig_pressure, (ufl.Coefficient, str, float, int),
+                        "formulation/initial_condition/pressure")
             pressure, = self.__convert_pyvalues_to_coeffs([orig_pressure],
                                                           t0, scalar_degree)
             ic['pressure'] = pressure
