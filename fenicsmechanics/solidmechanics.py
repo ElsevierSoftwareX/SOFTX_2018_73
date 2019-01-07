@@ -145,30 +145,50 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         """
 
-        init = self.config['formulation']['initial_condition']
-
         self.sys_u = dlf.Function(self.functionSpace)
         self.ufl_displacement, self.ufl_pressure = dlf.split(self.sys_u)
 
+        init = self.config['formulation']['initial_condition']
+        types_for_assign = (dlf.Constant, dlf.Expression)
         if init['displacement'] is not None \
            and init['pressure'] is not None:
-            self.displacement = dlf.project(init['displacement'],
-                                            self.functionSpace.sub(0).collapse())
-            self.pressure = dlf.project(init['pressure'],
-                                        self.functionSpace.sub(1).collapse())
+            if isinstance(init['displacement'], types_for_assign):
+                self.displacement = dlf.Function(self.functionSpace.sub(0).collapse())
+                self.displacement.assign(init['displacement'])
+            else:
+                self.displacement = dlf.project(init['displacement'],
+                                                self.functionSpace.sub(0).collapse())
+            if isinstance(init['pressure'], types_for_assign):
+                self.pressure = dlf.Function(self.functionSpace.sub(1).collapse())
+                self.pressure.assign(init['pressure'])
+            else:
+                self.pressure = dlf.project(init['pressure'],
+                                            self.functionSpace.sub(1).collapse())
         elif init['displacement'] is not None:
-            _, self.pressure = self.sys_u.split(deepcopy=True)
-            self.displacement = dlf.project(init['displacement'],
-                                            self.functionSpace.sub(0).collapse())
+            _, self.pressure = self.sys_u.split(deepcopy=true)
+            if isinstance(init['displacement'], types_for_assign):
+                self.displacement = dlf.Function(self.functionSpace.sub(0).collapse())
+                self.displacement.assign(init['displacement'])
+            else:
+                self.displacement = dlf.project(init['displacement'],
+                                                self.functionSpace.sub(0).collapse())
         elif init['pressure'] is not None:
-            self.displacement, _ = self.sys_u.split(deepcopy=True)
-            self.pressure = dlf.project(init['pressure'],
-                                        self.functionSpace.sub(1).collapse())
+            self.displacement, _ = self.sys_u.split(deepcopy=true)
+            if isinstance(init['pressure'], types_for_assign):
+                self.pressure = dlf.Function(self.functionSpace.sub(1).collapse())
+                self.pressure.assign(init['pressure'])
+            else:
+                self.pressure = dlf.project(init['pressure'],
+                                            self.functionSpace.sub(1).collapse())
         else:
             self.displacement, self.pressure = self.sys_u.split(deepcopy=True)
 
         self.displacement.rename('u', 'displacement')
         self.pressure.rename('p', 'pressure')
+
+        self.define_function_assigners()
+        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
+                                                self.pressure])
 
         self.sys_du = dlf.TrialFunction(self.functionSpace)
         self.trial_vector, self.trial_scalar = dlf.split(self.sys_du)
@@ -195,10 +215,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
             self.define_ufl_acceleration()
 
-        self.define_function_assigners()
-        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
-                                                self.pressure])
-
         return None
 
 
@@ -224,10 +240,15 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         """
 
         init = self.config['formulation']['initial_condition']
+        types_for_assign = (dlf.Constant, dlf.Expression)
         if init['displacement'] is not None:
             disp = init['displacement']
-            self.sys_u = self.ufl_displacement = self.displacement \
-                         = dlf.project(disp, self.functionSpace)
+            if isinstance(disp, types_for_assign):
+                self.displacement = dlf.Function(self.functionSpace)
+                self.displacement.assign(disp)
+            else:
+                self.sys_u = self.ufl_displacement = self.displacement \
+                             = dlf.project(disp, self.functionSpace)
         else:
             self.sys_u = self.ufl_displacement = self.displacement \
                          = dlf.Function(self.functionSpace)
@@ -241,8 +262,14 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
 
         if self.config['formulation']['time']['unsteady']:
             if init['displacement'] is not None:
-                self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
-                              = dlf.project(disp, self.functionSpace)
+                disp = init['displacement']
+                if isinstance(disp, types_for_assign):
+                    self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
+                                  = dlf.Function(self.functionSpace)
+                    self.sys_u0.assign(disp)
+                else:
+                    self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
+                                  = dlf.project(disp, self.functionSpace)
             else:
                 self.sys_u0 = self.ufl_displacement0 = self.displacement0 \
                               = dlf.Function(self.functionSpace)
