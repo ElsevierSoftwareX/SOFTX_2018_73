@@ -39,7 +39,7 @@ def load_mesh(mesh_file):
     return mesh
 
 
-def load_mesh_function(mesh_function, mesh):
+def load_mesh_function(mesh_function, mesh, mf_dim=None):
     """
     Load the mesh function file specified by the user. The file may be
     xml, or HDF5 (assuming the current dolfin installation
@@ -73,7 +73,7 @@ def load_mesh_function(mesh_function, mesh):
         return mesh_function
 
     if mesh_function[-3:] == '.h5':
-        mesh_func = __load_mesh_function_hdf5(mesh_function, mesh)
+        mesh_func = __load_mesh_function_hdf5(mesh_function, mesh, mf_dim=mf_dim)
     else:
         mesh_func = dlf.MeshFunction('size_t', mesh, mesh_function)
 
@@ -118,7 +118,7 @@ def __load_mesh_hdf5(mesh_file):
     return mesh
 
 
-def __load_mesh_function_hdf5(mesh_function, mesh):
+def __load_mesh_function_hdf5(mesh_function, mesh, mf_dim=None):
     """
     Load a dolfin mesh function from an HDF5 file.
 
@@ -146,7 +146,10 @@ def __load_mesh_function_hdf5(mesh_function, mesh):
     # Check file extension
     if mesh_function[-3:] == '.h5':
         f = dlf.HDF5File(MPI_COMM_WORLD, mesh_function, 'r')
-        mesh_func = dlf.MeshFunction('size_t', mesh)
+        # Assume the mesh function has 1 less dimension than mesh.
+        if mf_dim is None:
+            mf_dim = mesh.geometry().dim() - 1
+        mesh_func = dlf.MeshFunction('size_t', mesh, mf_dim)
         f.read(mesh_func, 'boundaries')
         f.close()
     else:
