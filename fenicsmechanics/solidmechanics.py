@@ -186,10 +186,6 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
         self.displacement.rename('u', 'displacement')
         self.pressure.rename('p', 'pressure')
 
-        self.define_function_assigners()
-        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
-                                                self.pressure])
-
         self.sys_du = dlf.TrialFunction(self.functionSpace)
         self.trial_vector, self.trial_scalar = dlf.split(self.sys_du)
 
@@ -214,6 +210,10 @@ class SolidMechanicsProblem(BaseMechanicsProblem):
             self.acceleration0.rename('a0', 'acceleration0')
 
             self.define_ufl_acceleration()
+
+        self.define_function_assigners()
+        self.assigner_u2sys.assign(self.sys_u, [self.displacement,
+                                                self.pressure])
 
         return None
 

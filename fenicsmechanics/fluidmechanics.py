@@ -184,10 +184,6 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
         self.velocity.rename("v", "velocity")
         self.pressure.rename("p", "pressure")
 
-        self.define_function_assigners()
-        self.assigner_v2sys.assign(self.sys_v, [self.velocity,
-                                                self.pressure])
-
         self.sys_dv = dlf.TrialFunction(self.functionSpace)
         self.trial_vector, self.trial_scalar = dlf.split(self.sys_dv)
         self.test_vector, self.test_scalar = dlf.TestFunctions(self.functionSpace)
@@ -201,6 +197,10 @@ class FluidMechanicsProblem(BaseMechanicsProblem):
             self.pressure0.rename("p0", "pressure0")
 
             self.define_ufl_acceleration()
+
+        self.define_function_assigners()
+        self.assigner_v2sys.assign(self.sys_v, [self.velocity,
+                                                self.pressure])
 
         return None
 
